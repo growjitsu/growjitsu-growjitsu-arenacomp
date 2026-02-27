@@ -42,21 +42,21 @@ export const authService = {
     const userId = authData.user.id;
     console.log('Usuário Auth criado com ID:', userId);
 
-    // 2. Inserir manualmente na tabela usuarios
-    // Nota: Se houver erro aqui, é provável que exista um Trigger no banco conflitando.
+    // 2. Inserir ou Atualizar (Upsert) na tabela usuarios
+    // Usamos upsert para garantir que, se um trigger já criou o registro, 
+    // nós o sobrescrevemos com os dados CORRETOS escolhidos pelo usuário.
     const { error: profileError } = await supabase
       .from('usuarios')
-      .insert({
+      .upsert({
         id: userId,
         nome: data.name,
         email: data.email,
         tipo_usuario: data.userType,
-        perfil_ativo: data.userType, // Garante que inicia com o perfil correto
+        perfil_ativo: data.userType,
       });
 
     if (profileError) {
-      console.error('ERRO CRÍTICO NO BANCO (Tabela usuarios):', profileError);
-      // Se o erro for "duplicate key", significa que o trigger handle_new_user ainda existe no banco.
+      console.error('ERRO NO BANCO (usuarios):', profileError);
       throw new Error(`Erro ao salvar perfil: ${profileError.message}`);
     }
 
