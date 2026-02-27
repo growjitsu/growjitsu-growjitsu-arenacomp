@@ -18,9 +18,7 @@ export const authService = {
    * Registers a new user in Supabase Auth and creates records in 'usuarios' and 'atletas' tables.
    */
   async signUp(data: SignUpData) {
-    console.log('Iniciando processo de cadastro para:', data.email, 'Tipo:', data.userType);
-    
-    // 1. Criar usuário no Supabase Auth
+    // 1. Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -32,71 +30,47 @@ export const authService = {
       }
     });
 
-    if (authError) {
-      console.error('Erro no Supabase Auth:', authError);
-      throw authError;
-    }
-    
-    if (!authData.user) throw new Error('Usuário criado no Auth mas sem dados de retorno.');
+    if (authError) throw authError;
+    if (!authData.user) throw new Error('Falha ao criar usuário');
 
     const userId = authData.user.id;
-    console.log('Usuário Auth criado com ID:', userId, 'Tipo solicitado:', data.userType);
 
-    // Pequena pausa para garantir que qualquer trigger automático do Supabase termine
-    // antes de forçarmos os nossos dados via upsert.
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // 2. Inserir ou Atualizar (Upsert) na tabela usuarios
-    // Usamos upsert para garantir que, se um trigger já criou o registro, 
-    // nós o sobrescrevemos com os dados CORRETOS escolhidos pelo usuário.
-    const { data: profileData, error: profileError } = await supabase
+    // 2. Insert into 'usuarios' table (Profiles)
+    const { error: profileError } = await supabase
       .from('usuarios')
-      .upsert({
+      .insert({
         id: userId,
         nome: data.name,
         email: data.email,
         tipo_usuario: data.userType,
-        perfil_ativo: data.userType,
-      }, { onConflict: 'id' })
-      .select();
+      });
 
     if (profileError) {
-      console.error('ERRO NO BANCO (usuarios):', profileError);
-      throw new Error(`Erro ao salvar perfil: ${profileError.message}`);
+      console.error('Erro ao criar perfil:', profileError);
+      // Note: In a production app, you might want to delete the auth user if profile fails
+      // or handle it with a database trigger (recommended).
+      throw profileError;
     }
 
-    console.log('Perfil salvo com sucesso no banco:', profileData);
-
-    // 3. Registro na tabela atletas se necessário
+    // 3. If user is an athlete, insert into 'atletas' table
     if (data.userType === 'athlete') {
-      const { error: athleteError } = await supabase.from('atletas').insert({
-        usuario_id: userId,
-        genero: data.gender || 'Masculino',
-        faixa: data.belt || 'Branca',
-        peso: data.weight || 0,
-      });
-      if (athleteError) console.error('Aviso: Erro ao criar registro complementar de atleta:', athleteError);
+      const { error: athleteError } = await supabase
+        .from('atletas')
+        .insert({
+          usuario_id: userId,
+          genero: data.gender || 'Masculino',
+          data_nascimento: data.birthDate || new Date().toISOString().split('T')[0],
+          faixa: data.belt || 'Branca',
+          peso: data.weight || 0,
+        });
+
+      if (athleteError) {
+        console.error('Erro ao criar registro de atleta:', athleteError);
+        throw athleteError;
+      }
     }
 
     return authData;
-  },
-
-  async switchProfile(newProfile: UserType) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) throw new Error('Não autenticado');
-
-    // Update perfil_ativo no banco
-    const { error } = await supabase
-      .from('usuarios')
-      .update({ perfil_ativo: newProfile })
-      .eq('id', session.user.id);
-
-    if (error) {
-      console.error('Erro no Supabase Update:', error);
-      throw error;
-    }
-    
-    return true;
   },
 
   /**

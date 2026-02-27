@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, BookOpen, Users, Settings, LogOut, Menu, X, CreditCard, Sun, Moon, ShieldCheck, User as UserIcon, RefreshCw } from 'lucide-react';
+import { LayoutDashboard, Trophy, BookOpen, Users, Settings, LogOut, Menu, X, CreditCard, Sun, Moon, ShieldCheck, User as UserIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import Scoreboard from './components/Scoreboard';
@@ -7,31 +7,16 @@ import TechniqueLibrary from './components/Techniques';
 import AthleteDashboard from './components/AthleteDashboard';
 import CoordinatorDashboard from './components/CoordinatorDashboard';
 import LandingPage from './components/LandingPage';
-import { UserType, UserProfile } from './types';
+import { UserType } from './types';
 import { supabase, isSupabaseConfigured } from './services/supabase';
-import { authService } from './services/authService';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(true);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userType, setUserType] = useState<UserType>('athlete');
   const [isInitializing, setIsInitializing] = useState(true);
-
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching profile:', error);
-      return;
-    }
-    setUserProfile(data);
-  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -43,7 +28,7 @@ export default function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsLoggedIn(true);
-        fetchProfile(session.user.id);
+        setUserType(session.user.user_metadata?.user_type || 'athlete');
       }
       setIsInitializing(false);
     }).catch(err => {
@@ -52,13 +37,12 @@ export default function App() {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setIsLoggedIn(true);
-        fetchProfile(session.user.id);
+        setUserType(session.user.user_metadata?.user_type || 'athlete');
       } else {
         setIsLoggedIn(false);
-        setUserProfile(null);
       }
     });
 
@@ -66,19 +50,8 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    await authService.signOut();
-  };
-
-  const handleSwitchProfile = async () => {
-    if (!userProfile || userProfile.tipo_usuario !== 'organizer') return;
-    
-    const newProfile = userProfile.perfil_ativo === 'organizer' ? 'athlete' : 'organizer';
-    try {
-      await authService.switchProfile(newProfile);
-      setUserProfile({ ...userProfile, perfil_ativo: newProfile });
-    } catch (err) {
-      console.error('Erro ao alternar perfil:', err);
-    }
+    await supabase.auth.signOut();
+    setIsLoggedIn(false);
   };
 
   if (isInitializing) {
@@ -89,13 +62,12 @@ export default function App() {
     );
   }
 
-  if (!isLoggedIn || !userProfile) {
-    return <LandingPage onLogin={() => {
+  if (!isLoggedIn) {
+    return <LandingPage onLogin={(type) => {
       setIsLoggedIn(true);
+      if (type) setUserType(type as UserType);
     }} />;
   }
-
-  const userType = userProfile.perfil_ativo;
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -124,20 +96,19 @@ export default function App() {
               </div>
 
               <div className="mb-8 p-1 bg-[var(--border-ui)] rounded-xl flex">
-                <div className="flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 bg-[var(--bg-card)] text-bjj-blue shadow-sm">
-                  {userType === 'athlete' ? <><UserIcon size={14} /> Atleta</> : <><ShieldCheck size={14} /> Organizador</>}
-                </div>
-              </div>
-
-              {userProfile.tipo_usuario === 'organizer' && (
                 <button 
-                  onClick={handleSwitchProfile}
-                  className="w-full mb-6 flex items-center gap-3 px-4 py-3 rounded-xl bg-bjj-gold/10 text-bjj-gold hover:bg-bjj-gold/20 transition-all border border-bjj-gold/20"
+                  onClick={() => setUserType('athlete')}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 ${userType === 'athlete' ? 'bg-[var(--bg-card)] text-bjj-blue shadow-sm' : 'text-[var(--text-muted)]'}`}
                 >
-                  <RefreshCw size={20} />
-                  <span className="font-bold">Alternar Perfil</span>
+                  <UserIcon size={14} /> Atleta
                 </button>
-              )}
+                <button 
+                  onClick={() => setUserType('coordinator')}
+                  className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 ${userType === 'coordinator' ? 'bg-[var(--bg-card)] text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+                >
+                  <ShieldCheck size={14} /> Coordenador
+                </button>
+              </div>
 
               <nav className="space-y-2">
                 {menuItems.map((item) => (
@@ -160,7 +131,7 @@ export default function App() {
             <div className="mt-auto p-8 space-y-4">
               <div className={`glass-panel p-4 border-2 ${userType === 'athlete' ? 'bg-bjj-blue/5 border-bjj-blue/20' : 'bg-bjj-purple/5 border-bjj-purple/20'}`}>
                 <p className={`text-xs font-bold uppercase mb-1 ${userType === 'athlete' ? 'text-bjj-blue' : 'text-bjj-purple'}`}>
-                  {userType === 'athlete' ? 'Perfil Atleta' : 'Perfil Organizador'}
+                  {userType === 'athlete' ? 'Perfil Atleta' : 'Perfil Coordenador'}
                 </p>
                 <p className="text-xs text-[var(--text-muted)]">Acesso total liberado.</p>
               </div>
@@ -210,10 +181,10 @@ export default function App() {
 
             <div className="text-right hidden md:block">
               <p className="text-sm font-bold text-[var(--text-main)]">
-                {userProfile.nome}
+                {userType === 'athlete' ? 'Ricardo Almeida' : 'Mestre Hélio'}
               </p>
               <p className="text-xs text-[var(--text-muted)]">
-                {userType === 'athlete' ? 'Atleta Ativo' : 'Organizador Master'}
+                {userType === 'athlete' ? 'Faixa Azul • Juvenil' : 'Coordenador Master'}
               </p>
             </div>
             <div className={`w-10 h-10 rounded-full bg-[var(--border-ui)] border-2 p-0.5 ${userType === 'athlete' ? 'border-bjj-blue' : 'border-bjj-purple'}`}>

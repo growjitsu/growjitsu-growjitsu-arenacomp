@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
-import { User, Trophy, Calendar, MapPin, Scale, Award, Camera, Edit3, CheckCircle, Loader2 } from 'lucide-react';
+import { User, Trophy, Calendar, MapPin, Scale, Award, Camera, Edit3, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getAutomaticCategorization } from '../services/categorization';
 import { AthleteProfile, Gender, Belt } from '../types';
-import { supabase } from '../services/supabase';
 
 export default function AthleteDashboard() {
-  const [athleteData, setAthleteData] = useState<any>(null);
-  const [championships, setChampionships] = useState<any[]>([]);
-  const [registrations, setRegistrations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Mock data for demo
+  const [profile, setProfile] = useState<AthleteProfile>({
+    id: '1',
+    user_id: 'u1',
+    gender: 'Masculino',
+    birth_date: '2008-12-31',
+    belt: 'Azul',
+    weight: 74.5,
+    age_category: '',
+    weight_category: ''
+  });
+
   const [stats, setStats] = useState({
     competitiveAge: 0,
     ageCategory: '',
@@ -18,52 +25,9 @@ export default function AthleteDashboard() {
   });
 
   useEffect(() => {
-    async function loadData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch Athlete Profile
-      const { data: athlete } = await supabase
-        .from('atletas')
-        .select('*, usuarios(nome)')
-        .eq('usuario_id', user.id)
-        .single();
-
-      if (athlete) {
-        setAthleteData(athlete);
-        const result = getAutomaticCategorization(athlete.nascimento || '2000-01-01', athlete.genero || 'Masculino', athlete.peso || 0);
-        setStats(result);
-      }
-
-      // Fetch Championships
-      const { data: champs } = await supabase
-        .from('championships')
-        .select('*')
-        .order('date', { ascending: true });
-      
-      if (champs) setChampionships(champs);
-
-      // Fetch Registrations
-      const { data: regs } = await supabase
-        .from('registrations')
-        .select('*, championships(name)')
-        .eq('athlete_id', athlete?.id);
-      
-      if (regs) setRegistrations(regs);
-
-      setLoading(false);
-    }
-
-    loadData();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="animate-spin text-bjj-blue" size={40} />
-      </div>
-    );
-  }
+    const result = getAutomaticCategorization(profile.birth_date, profile.gender, profile.weight);
+    setStats(result);
+  }, [profile]);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -74,13 +38,16 @@ export default function AthleteDashboard() {
             <div className="relative group">
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-bjj-blue p-1 mb-4">
                 <img 
-                  src={`https://picsum.photos/seed/${athleteData?.id}/200/200`} 
+                  src="https://picsum.photos/seed/athlete/200/200" 
                   className="w-full h-full rounded-full object-cover"
                   referrerPolicy="no-referrer"
                 />
               </div>
+              <button className="absolute bottom-4 right-0 p-2 bg-bjj-blue text-white rounded-full shadow-lg hover:scale-110 transition-transform">
+                <Camera size={16} />
+              </button>
             </div>
-            <h2 className="text-2xl font-black font-display">{athleteData?.usuarios?.nome || 'Atleta'}</h2>
+            <h2 className="text-2xl font-black font-display">Ricardo Almeida</h2>
             <p className="text-bjj-blue font-bold uppercase text-xs tracking-widest mt-1">Atleta Competidor</p>
             
             <div className="w-full h-[1px] bg-[var(--border-ui)] my-6" />
@@ -88,17 +55,22 @@ export default function AthleteDashboard() {
             <div className="w-full space-y-4 text-left">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Faixa</span>
-                <span className="px-3 py-1 bg-blue-600 text-white text-xs font-black rounded uppercase">{athleteData?.faixa || 'Branca'}</span>
+                <span className="px-3 py-1 bg-blue-600 text-white text-xs font-black rounded uppercase">Azul</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Peso</span>
-                <span className="font-bold text-[var(--text-main)]">{athleteData?.peso || 0} kg</span>
+                <span className="font-bold text-[var(--text-main)]">{profile.weight} kg</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Nascimento</span>
-                <span className="font-bold text-[var(--text-main)]">{athleteData?.nascimento ? new Date(athleteData.nascimento).toLocaleDateString('pt-BR') : 'N/A'}</span>
+                <span className="font-bold text-[var(--text-main)]">31/12/2008</span>
               </div>
             </div>
+
+            <button className="btn-outline w-full mt-8 text-sm">
+              <Edit3 size={16} />
+              Editar Perfil
+            </button>
           </div>
 
           <div className="card-surface p-6 bg-bjj-blue text-white">
@@ -130,39 +102,34 @@ export default function AthleteDashboard() {
           </div>
 
           <div className="grid gap-6">
-            {championships.length > 0 ? championships.map((champ) => (
-              <ChampionshipCard 
-                key={champ.id}
-                name={champ.name} 
-                date={new Date(champ.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} 
-                location={champ.location}
-                status={champ.status || 'Inscrições Abertas'}
-              />
-            )) : (
-              <div className="p-12 text-center card-surface text-[var(--text-muted)]">
-                Nenhum campeonato disponível no momento.
-              </div>
-            )}
+            <ChampionshipCard 
+              name="Open Jiu-Jitsu Pro 2026" 
+              date="15 Março 2026" 
+              location="Ginásio do Ibirapuera, SP"
+              status="Inscrições Abertas"
+            />
+            <ChampionshipCard 
+              name="Copa ArenaComp Verão" 
+              date="22 Abril 2026" 
+              location="Arena Carioca, RJ"
+              status="Inscrições Abertas"
+            />
           </div>
 
           <div className="space-y-6">
             <h3 className="text-xl font-bold font-display text-[var(--text-main)]">Minhas Inscrições</h3>
-            {registrations.length > 0 ? registrations.map((reg) => (
-              <div key={reg.id} className="card-surface p-6 flex items-center justify-between border-l-4 border-emerald-500">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <CheckCircle size={24} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-[var(--text-main)]">{reg.championships?.name}</h4>
-                    <p className="text-xs text-[var(--text-muted)]">Inscrição Confirmada • {reg.category}</p>
-                  </div>
+            <div className="card-surface p-6 flex items-center justify-between border-l-4 border-emerald-500">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <CheckCircle size={24} />
                 </div>
-                <button className="text-bjj-blue font-bold text-sm hover:underline">Ver Comprovante</button>
+                <div>
+                  <h4 className="font-bold text-[var(--text-main)]">Seletiva Regional Sul</h4>
+                  <p className="text-xs text-[var(--text-muted)]">Inscrição Confirmada • {stats.fullCategory}</p>
+                </div>
               </div>
-            )) : (
-              <p className="text-sm text-[var(--text-muted)] italic">Você ainda não se inscreveu em nenhum campeonato.</p>
-            )}
+              <button className="text-bjj-blue font-bold text-sm hover:underline">Ver Comprovante</button>
+            </div>
           </div>
         </div>
       </div>

@@ -16,7 +16,7 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
-  const [selectedUserType, setSelectedUserType] = useState<'athlete' | 'organizer'>('athlete');
+  const [selectedUserType, setSelectedUserType] = useState<'athlete' | 'coordinator'>('athlete');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -403,10 +403,10 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
                         </button>
                         <button 
                           type="button" 
-                          onClick={() => setSelectedUserType('organizer')}
-                          className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${selectedUserType === 'organizer' ? 'border-bjj-purple bg-bjj-purple/5' : 'border-[var(--border-ui)]'}`}
+                          onClick={() => setSelectedUserType('coordinator')}
+                          className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${selectedUserType === 'coordinator' ? 'border-bjj-purple bg-bjj-purple/5' : 'border-[var(--border-ui)]'}`}
                         >
-                          <ShieldCheck size={24} className={selectedUserType === 'organizer' ? 'text-bjj-purple' : 'text-[var(--text-muted)]'} />
+                          <ShieldCheck size={24} className={selectedUserType === 'coordinator' ? 'text-bjj-purple' : 'text-[var(--text-muted)]'} />
                           <span className="text-[10px] font-black uppercase">Organizador</span>
                         </button>
                       </div>

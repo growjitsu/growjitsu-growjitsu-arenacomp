@@ -1,4 +1,4 @@
-export type UserType = 'organizer' | 'athlete';
+export type UserType = 'coordinator' | 'athlete';
 
 export type Belt = 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';
 
@@ -6,11 +6,11 @@ export type Gender = 'Masculino' | 'Feminino';
 
 export interface UserProfile {
   id: string;
-  nome: string;
+  name: string;
   email: string;
-  tipo_usuario: UserType;
-  perfil_ativo: UserType;
-  criado_em: string;
+  user_type: UserType;
+  photo_url?: string;
+  created_at: string;
 }
 
 export interface AthleteProfile {
