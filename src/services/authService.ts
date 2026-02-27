@@ -18,7 +18,6 @@ export const authService = {
    * Registers a new user in Supabase Auth and creates records in 'usuarios' and 'atletas' tables.
    */
   async signUp(data: SignUpData) {
-    // 1. Create user in Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -35,7 +34,6 @@ export const authService = {
 
     const userId = authData.user.id;
 
-    // 2. Insert into 'usuarios' table (Profiles)
     const { error: profileError } = await supabase
       .from('usuarios')
       .insert({
@@ -43,34 +41,34 @@ export const authService = {
         nome: data.name,
         email: data.email,
         tipo_usuario: data.userType,
+        perfil_ativo: data.userType, // Inicializa com o tipo escolhido
       });
 
-    if (profileError) {
-      console.error('Erro ao criar perfil:', profileError);
-      // Note: In a production app, you might want to delete the auth user if profile fails
-      // or handle it with a database trigger (recommended).
-      throw profileError;
-    }
+    if (profileError) throw profileError;
 
-    // 3. If user is an athlete, insert into 'atletas' table
     if (data.userType === 'athlete') {
-      const { error: athleteError } = await supabase
-        .from('atletas')
-        .insert({
-          usuario_id: userId,
-          genero: data.gender || 'Masculino',
-          data_nascimento: data.birthDate || new Date().toISOString().split('T')[0],
-          faixa: data.belt || 'Branca',
-          peso: data.weight || 0,
-        });
-
-      if (athleteError) {
-        console.error('Erro ao criar registro de atleta:', athleteError);
-        throw athleteError;
-      }
+      await supabase.from('atletas').insert({
+        usuario_id: userId,
+        genero: data.gender || 'Masculino',
+        faixa: data.belt || 'Branca',
+        peso: data.weight || 0,
+      });
     }
 
     return authData;
+  },
+
+  async switchProfile(newProfile: UserType) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Não autenticado');
+
+    const { error } = await supabase
+      .from('usuarios')
+      .update({ perfil_ativo: newProfile })
+      .eq('id', user.id);
+
+    if (error) throw error;
+    return true;
   },
 
   /**
