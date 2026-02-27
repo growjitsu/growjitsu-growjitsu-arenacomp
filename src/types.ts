@@ -1,5 +1,9 @@
 export type UserType = 'organizer' | 'athlete';
 
+export type Belt = 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';
+
+export type Gender = 'Masculino' | 'Feminino';
+
 export interface UserProfile {
   id: string;
   nome: string;

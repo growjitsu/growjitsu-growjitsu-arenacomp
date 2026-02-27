@@ -18,6 +18,7 @@ export const authService = {
    * Registers a new user in Supabase Auth and creates records in 'usuarios' and 'atletas' tables.
    */
   async signUp(data: SignUpData) {
+    // 1. Criar no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: data.email,
       password: data.password,
@@ -34,40 +35,51 @@ export const authService = {
 
     const userId = authData.user.id;
 
+    // 2. Inserir na tabela usuarios com os valores EXATOS
     const { error: profileError } = await supabase
       .from('usuarios')
       .insert({
         id: userId,
         nome: data.name,
         email: data.email,
-        tipo_usuario: data.userType,
-        perfil_ativo: data.userType, // Inicializa com o tipo escolhido
+        tipo_usuario: data.userType, // 'athlete' ou 'organizer'
+        perfil_ativo: data.userType, // Inicializa igual ao tipo
       });
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error('Erro ao criar perfil:', profileError);
+      throw profileError;
+    }
 
+    // 3. Se for atleta, cria registro na tabela atletas
     if (data.userType === 'athlete') {
-      await supabase.from('atletas').insert({
+      const { error: athleteError } = await supabase.from('atletas').insert({
         usuario_id: userId,
         genero: data.gender || 'Masculino',
         faixa: data.belt || 'Branca',
         peso: data.weight || 0,
       });
+      if (athleteError) console.error('Erro ao criar registro de atleta:', athleteError);
     }
 
     return authData;
   },
 
   async switchProfile(newProfile: UserType) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Não autenticado');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) throw new Error('Não autenticado');
 
+    // Update perfil_ativo no banco
     const { error } = await supabase
       .from('usuarios')
       .update({ perfil_ativo: newProfile })
-      .eq('id', user.id);
+      .eq('id', session.user.id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro no Supabase Update:', error);
+      throw error;
+    }
+    
     return true;
   },
 
