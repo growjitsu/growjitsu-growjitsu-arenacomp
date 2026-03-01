@@ -3,7 +3,7 @@
 -- 1. Eventos (Campeonatos Oficiais)
 CREATE TABLE IF NOT EXISTS eventos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  coordenador_id UUID REFERENCES usuarios(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  coordenador_id UUID REFERENCES usuarios(id) ON DELETE CASCADE DEFAULT auth.uid() NOT NULL,
   nome TEXT NOT NULL,
   data DATE NOT NULL,
   horario_inicio TIME NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS eventos (
 -- 2. Pedidos de Evento (Solicitações de análise)
 CREATE TABLE IF NOT EXISTS pedidos_evento (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  coordenador_id UUID REFERENCES usuarios(id) ON DELETE CASCADE DEFAULT auth.uid(),
+  coordenador_id UUID REFERENCES usuarios(id) ON DELETE CASCADE DEFAULT auth.uid() NOT NULL,
   modalidade TEXT NOT NULL,
   modalidade_outros TEXT,
   responsavel_nome TEXT NOT NULL,
@@ -123,10 +123,11 @@ DROP POLICY IF EXISTS "Eventos_Delete_Owner" ON eventos;
 CREATE POLICY "Eventos_Select_Public" ON eventos 
     FOR SELECT USING (true);
 
--- Apenas o coordenador dono pode inserir (Validado via WITH CHECK e Trigger)
+-- Apenas usuários autenticados podem inserir. 
+-- O gatilho 'tr_force_owner_eventos' garante que o coordenador_id seja o auth.uid().
 CREATE POLICY "Eventos_Insert_Owner" ON eventos 
     FOR INSERT TO authenticated 
-    WITH CHECK (auth.uid() = coordenador_id);
+    WITH CHECK (true);
 
 -- Apenas o coordenador dono pode atualizar ou deletar
 CREATE POLICY "Eventos_Update_Owner" ON eventos 
@@ -148,9 +149,11 @@ CREATE POLICY "Pedidos_Select_Owner" ON pedidos_evento
     FOR SELECT TO authenticated 
     USING (auth.uid() = coordenador_id);
 
+-- Apenas usuários autenticados podem inserir.
+-- O gatilho 'tr_force_owner_pedidos' garante que o coordenador_id seja o auth.uid().
 CREATE POLICY "Pedidos_Insert_Owner" ON pedidos_evento 
     FOR INSERT TO authenticated 
-    WITH CHECK (auth.uid() = coordenador_id);
+    WITH CHECK (true);
 
 CREATE POLICY "Pedidos_Update_Owner" ON pedidos_evento 
     FOR UPDATE TO authenticated 

@@ -95,6 +95,22 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
 
       console.log('Sessão ativa para usuário:', session.user.id);
 
+      // 0. Verificar se o perfil de usuário existe na tabela 'usuarios'
+      const { data: profile, error: profileError } = await supabase
+        .from('usuarios')
+        .select('id, tipo_usuario')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileError || !profile) {
+        console.error('Perfil não encontrado:', profileError);
+        throw new Error('Seu perfil de usuário não foi encontrado. Por favor, complete seu cadastro ou faça login novamente.');
+      }
+
+      if (profile.tipo_usuario !== 'coordenador') {
+        throw new Error('Apenas coordenadores podem criar eventos.');
+      }
+
       let logoUrl = '';
       if (logoFile) {
         const fileExt = logoFile.name.split('.').pop();
@@ -140,8 +156,13 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       }).select().single();
 
       if (pedidoError) {
-        console.error('Erro detalhado RLS (pedidos_evento):', pedidoError);
-        throw pedidoError;
+        console.error('Erro detalhado RLS (pedidos_evento):', {
+          message: pedidoError.message,
+          details: pedidoError.details,
+          hint: pedidoError.hint,
+          code: pedidoError.code
+        });
+        throw new Error(`Erro de permissão ao criar pedido: ${pedidoError.message} (${pedidoError.hint || 'Verifique se o perfil de coordenador está ativo'})`);
       }
 
       // 2. Create the Event itself (eventos)
@@ -157,8 +178,13 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       });
 
       if (eventoError) {
-        console.error('Erro detalhado RLS (eventos):', eventoError);
-        throw eventoError;
+        console.error('Erro detalhado RLS (eventos):', {
+          message: eventoError.message,
+          details: eventoError.details,
+          hint: eventoError.hint,
+          code: eventoError.code
+        });
+        throw new Error(`Erro de permissão ao criar evento: ${eventoError.message}`);
       }
 
       onSuccess();
