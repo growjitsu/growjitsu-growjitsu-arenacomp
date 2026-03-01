@@ -109,9 +109,9 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       }
 
       // 1. Create Event Request (pedidos_evento)
-      console.log('Inserting into pedidos_evento with coordenador_id:', session.user.id);
+      console.log('Iniciando inserção em pedidos_evento...');
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos_evento').insert({
-        coordenador_id: session.user.id,
+        // coordenador_id removido: o banco de dados define via DEFAULT e TRIGGER
         modalidade: formData.modalidade === 'Outros' ? formData.modalidadeOutros : formData.modalidade,
         modalidade_outros: formData.modalidade === 'Outros' ? formData.modalidadeOutros : null,
         responsavel_nome: formData.responsavelNome,
@@ -134,14 +134,14 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       }).select().single();
 
       if (pedidoError) {
-        console.error('Erro ao inserir pedido_evento:', pedidoError);
+        console.error('Erro detalhado RLS (pedidos_evento):', pedidoError);
         throw pedidoError;
       }
 
       // 2. Create the Event itself (eventos)
-      console.log('Inserting into eventos with coordenador_id:', session.user.id);
+      console.log('Iniciando inserção em eventos...');
       const { error: eventoError } = await supabase.from('eventos').insert({
-        coordenador_id: session.user.id,
+        // coordenador_id removido: o banco de dados define via DEFAULT e TRIGGER
         nome: formData.eventoNome,
         data: formData.eventoData,
         horario_inicio: formData.eventoHorario,
@@ -151,7 +151,7 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       });
 
       if (eventoError) {
-        console.error('Erro ao inserir evento:', eventoError);
+        console.error('Erro detalhado RLS (eventos):', eventoError);
         throw eventoError;
       }
 
