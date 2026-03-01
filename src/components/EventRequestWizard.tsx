@@ -109,6 +109,7 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       }
 
       // 1. Create Event Request (pedidos_evento)
+      console.log('Inserting into pedidos_evento with coordenador_id:', session.user.id);
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos_evento').insert({
         coordenador_id: session.user.id,
         modalidade: formData.modalidade === 'Outros' ? formData.modalidadeOutros : formData.modalidade,
@@ -132,9 +133,13 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
         status: 'analise'
       }).select().single();
 
-      if (pedidoError) throw pedidoError;
+      if (pedidoError) {
+        console.error('Erro ao inserir pedido_evento:', pedidoError);
+        throw pedidoError;
+      }
 
       // 2. Create the Event itself (eventos)
+      console.log('Inserting into eventos with coordenador_id:', session.user.id);
       const { error: eventoError } = await supabase.from('eventos').insert({
         coordenador_id: session.user.id,
         nome: formData.eventoNome,
@@ -145,7 +150,10 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
         status: 'rascunho'
       });
 
-      if (eventoError) throw eventoError;
+      if (eventoError) {
+        console.error('Erro ao inserir evento:', eventoError);
+        throw eventoError;
+      }
 
       onSuccess();
     } catch (err: any) {

@@ -94,8 +94,10 @@ ALTER TABLE lutas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resultados ENABLE ROW LEVEL SECURITY;
 
 -- 1. Eventos Policies
-DROP POLICY IF EXISTS "Eventos visíveis por todos" ON eventos;
-DROP POLICY IF EXISTS "Coordenadores gerenciam seus eventos" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Select_Public" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Insert_Owner" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Update_Owner" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Delete_Owner" ON eventos;
 
 -- Qualquer pessoa pode ver eventos
 CREATE POLICY "Eventos_Select_Public" ON eventos 
@@ -103,29 +105,38 @@ CREATE POLICY "Eventos_Select_Public" ON eventos
 
 -- Apenas o coordenador dono pode inserir
 CREATE POLICY "Eventos_Insert_Owner" ON eventos 
-    FOR INSERT WITH CHECK (auth.uid() = coordenador_id);
+    FOR INSERT TO authenticated 
+    WITH CHECK (auth.uid() = coordenador_id);
 
 -- Apenas o coordenador dono pode atualizar ou deletar
 CREATE POLICY "Eventos_Update_Owner" ON eventos 
-    FOR UPDATE USING (auth.uid() = coordenador_id);
+    FOR UPDATE TO authenticated 
+    USING (auth.uid() = coordenador_id);
 
 CREATE POLICY "Eventos_Delete_Owner" ON eventos 
-    FOR DELETE USING (auth.uid() = coordenador_id);
+    FOR DELETE TO authenticated 
+    USING (auth.uid() = coordenador_id);
 
 
 -- 2. Pedidos de Evento Policies
+DROP POLICY IF EXISTS "Pedidos_Select_Owner" ON pedidos_evento;
+DROP POLICY IF EXISTS "Pedidos_Insert_Owner" ON pedidos_evento;
+DROP POLICY IF EXISTS "Pedidos_Update_Owner" ON pedidos_evento;
 DROP POLICY IF EXISTS "Coordenadores veem seus pedidos" ON pedidos_evento;
 DROP POLICY IF EXISTS "Coordenadores criam seus pedidos" ON pedidos_evento;
 
 -- Coordenadores gerenciam apenas seus próprios pedidos
 CREATE POLICY "Pedidos_Select_Owner" ON pedidos_evento 
-    FOR SELECT USING (auth.uid() = coordenador_id);
+    FOR SELECT TO authenticated 
+    USING (auth.uid() = coordenador_id);
 
 CREATE POLICY "Pedidos_Insert_Owner" ON pedidos_evento 
-    FOR INSERT WITH CHECK (auth.uid() = coordenador_id);
+    FOR INSERT TO authenticated 
+    WITH CHECK (auth.uid() = coordenador_id);
 
 CREATE POLICY "Pedidos_Update_Owner" ON pedidos_evento 
-    FOR UPDATE USING (auth.uid() = coordenador_id);
+    FOR UPDATE TO authenticated 
+    USING (auth.uid() = coordenador_id);
 
 
 -- 3. Lutas e Resultados Policies
