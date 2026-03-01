@@ -53,6 +53,9 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
     eventoLocal: ''
   });
 
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+
   const handleCEPBlur = async () => {
     const cep = formData.fiscalCEP.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -85,6 +88,25 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão não encontrada');
+
+      let logoUrl = '';
+      if (logoFile) {
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `${session.user.id}-${Math.random()}.${fileExt}`;
+        const filePath = `logos/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('eventos-logos')
+          .upload(filePath, logoFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('eventos-logos')
+          .getPublicUrl(filePath);
+        
+        logoUrl = publicUrl;
+      }
 
       // 1. Create Event Request (pedidos_evento)
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos_evento').insert({
@@ -119,6 +141,7 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
         data: formData.eventoData,
         horario_inicio: formData.eventoHorario,
         local: formData.eventoLocal,
+        logo_url: logoUrl,
         status: 'rascunho'
       });
 
@@ -595,6 +618,43 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
                         className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl py-4 px-6 text-[var(--text-main)] focus:ring-2 focus:ring-bjj-purple/50 outline-none transition-all"
                         placeholder="Ex: Ginásio Municipal de Esportes"
                       />
+                    </div>
+
+                    {/* Logo Upload */}
+                    <div className="md:col-span-2 space-y-3">
+                      <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Logo do Evento (Opcional)</label>
+                      <div className="flex items-center gap-6">
+                        <div className="w-24 h-24 rounded-2xl bg-[var(--bg-card)] border-2 border-dashed border-[var(--border-ui)] flex items-center justify-center overflow-hidden relative group">
+                          {logoPreview ? (
+                            <img src={logoPreview} className="w-full h-full object-cover" />
+                          ) : (
+                            <Trophy className="text-[var(--text-muted)] opacity-20" size={32} />
+                          )}
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setLogoFile(file);
+                                setLogoPreview(URL.createObjectURL(file));
+                              }
+                            }}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm font-bold text-[var(--text-main)]">Identidade Visual</p>
+                          <p className="text-xs text-[var(--text-muted)]">Envie a logo oficial do seu campeonato para aparecer nos placares e certificados.</p>
+                          <button 
+                            type="button"
+                            onClick={() => document.querySelector<HTMLInputElement>('input[type="file"]')?.click()}
+                            className="text-xs font-black text-bjj-purple uppercase tracking-widest hover:underline"
+                          >
+                            Selecionar Imagem
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

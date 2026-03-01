@@ -8,11 +8,38 @@ CREATE TABLE IF NOT EXISTS eventos (
   data DATE NOT NULL,
   horario_inicio TIME NOT NULL,
   local TEXT,
+  logo_url TEXT,
   status TEXT CHECK (status IN ('rascunho', 'aberto', 'fechado', 'em_andamento', 'finalizado')) DEFAULT 'rascunho',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Inscrições (Relacionando Atletas a Eventos)
+-- 2. Pedidos de Evento (Solicitações de análise)
+CREATE TABLE IF NOT EXISTS pedidos_evento (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  coordenador_id UUID REFERENCES usuarios(id) ON DELETE CASCADE,
+  modalidade TEXT NOT NULL,
+  modalidade_outros TEXT,
+  responsavel_nome TEXT NOT NULL,
+  responsavel_email TEXT NOT NULL,
+  responsavel_cpf TEXT NOT NULL,
+  responsavel_rg TEXT NOT NULL,
+  responsavel_celular TEXT NOT NULL,
+  responsavel_profissao TEXT NOT NULL,
+  tipo_nota TEXT CHECK (tipo_nota IN ('PF', 'PJ')) NOT NULL,
+  fiscal_razao_social TEXT NOT NULL,
+  fiscal_documento TEXT NOT NULL,
+  fiscal_cep TEXT NOT NULL,
+  fiscal_endereco TEXT NOT NULL,
+  fiscal_numero TEXT NOT NULL,
+  fiscal_bairro TEXT NOT NULL,
+  fiscal_cidade TEXT NOT NULL,
+  fiscal_estado TEXT NOT NULL,
+  fiscal_complemento TEXT,
+  status TEXT CHECK (status IN ('analise', 'aprovado', 'rejeitado')) DEFAULT 'analise',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Inscrições (Relacionando Atletas a Eventos)
 -- Nota: Já existe uma tabela 'inscricoes', mas vamos garantir que ela suporte o novo fluxo operacional
 ALTER TABLE inscricoes ADD COLUMN IF NOT EXISTS evento_id UUID REFERENCES eventos(id) ON DELETE CASCADE;
 ALTER TABLE inscricoes ADD COLUMN IF NOT EXISTS peso_confirmado BOOLEAN DEFAULT FALSE;
@@ -51,6 +78,11 @@ ALTER TABLE resultados ENABLE ROW LEVEL SECURITY;
 -- Eventos são visíveis por todos
 CREATE POLICY "Eventos visíveis por todos" ON eventos FOR SELECT USING (true);
 CREATE POLICY "Coordenadores gerenciam seus eventos" ON eventos FOR ALL USING (auth.uid() = coordenador_id);
+
+-- Pedidos de Evento
+ALTER TABLE pedidos_evento ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Coordenadores veem seus pedidos" ON pedidos_evento FOR SELECT USING (auth.uid() = coordenador_id);
+CREATE POLICY "Coordenadores criam seus pedidos" ON pedidos_evento FOR INSERT WITH CHECK (auth.uid() = coordenador_id);
 
 -- Lutas e Resultados
 CREATE POLICY "Lutas visíveis por todos" ON lutas FOR SELECT USING (true);

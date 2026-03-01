@@ -13,10 +13,11 @@ interface ScoreboardProps {
   lutaId?: string;
   athleteAName?: string;
   athleteBName?: string;
+  logoUrl?: string;
   onFinish?: () => void;
 }
 
-export default function Scoreboard({ lutaId, athleteAName = "Atleta 1", athleteBName = "Atleta 2", onFinish }: ScoreboardProps) {
+export default function Scoreboard({ lutaId, athleteAName = "Atleta 1", athleteBName = "Atleta 2", logoUrl, onFinish }: ScoreboardProps) {
   const [time, setTime] = useState(300); // 5 minutes default
   const [initialTime, setInitialTime] = useState(300);
   const [isActive, setIsActive] = useState(false);
@@ -102,6 +103,13 @@ export default function Scoreboard({ lutaId, athleteAName = "Atleta 1", athleteB
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white p-4 md:p-8 font-display overflow-y-auto">
+      {/* Header with Logo */}
+      {logoUrl && (
+        <div className="absolute top-8 left-8 w-24 h-24 opacity-40">
+          <img src={logoUrl} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+        </div>
+      )}
+
       {/* Timer Section */}
       <div className="flex flex-col items-center justify-center mb-12">
         <div className="flex items-center gap-4 mb-4">

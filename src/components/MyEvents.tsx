@@ -10,6 +10,7 @@ interface Evento {
   data: string;
   horario_inicio: string;
   local: string;
+  logo_url?: string;
   status: 'rascunho' | 'aberto' | 'fechado' | 'em_andamento' | 'finalizado';
 }
 
@@ -59,6 +60,7 @@ export default function MyEvents() {
         lutaId={selectedLuta.id} 
         athleteAName={selectedLuta.a} 
         athleteBName={selectedLuta.b} 
+        logoUrl={selectedEvent?.logo_url}
         onFinish={() => setView('operational')} 
       />
     );
@@ -98,8 +100,12 @@ export default function MyEvents() {
               }}
             >
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-bjj-purple/10 flex items-center justify-center text-bjj-purple group-hover:bg-bjj-purple group-hover:text-white transition-colors">
-                  <Trophy size={24} />
+                <div className="w-12 h-12 rounded-2xl bg-bjj-purple/10 flex items-center justify-center text-bjj-purple group-hover:bg-bjj-purple group-hover:text-white transition-colors overflow-hidden">
+                  {event.logo_url ? (
+                    <img src={event.logo_url} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <Trophy size={24} />
+                  )}
                 </div>
                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase ${
                   event.status === 'aberto' ? 'bg-emerald-500/10 text-emerald-500' : 
