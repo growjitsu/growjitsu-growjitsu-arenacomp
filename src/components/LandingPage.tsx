@@ -16,7 +16,7 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [email, setEmail] = useState('');
-  const [selectedUserType, setSelectedUserType] = useState<'atleta' | 'coordenador'>('atleta');
+  const [selectedUserType, setSelectedUserType] = useState<'atleta' | 'coordenador' | 'responsavel'>('atleta');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -392,22 +392,30 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
                   )}
                   {authMode === 'signup' && (
                     <>
-                      <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-3 gap-2 mb-4">
                         <button 
                           type="button" 
                           onClick={() => setSelectedUserType('atleta')}
-                          className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${selectedUserType === 'atleta' ? 'border-bjj-blue bg-bjj-blue/5' : 'border-[var(--border-ui)]'}`}
+                          className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all ${selectedUserType === 'atleta' ? 'border-bjj-blue bg-bjj-blue/5' : 'border-[var(--border-ui)]'}`}
                         >
-                          <UserIcon size={24} className={selectedUserType === 'atleta' ? 'text-bjj-blue' : 'text-[var(--text-muted)]'} />
-                          <span className="text-[10px] font-black uppercase">Atleta</span>
+                          <UserIcon size={20} className={selectedUserType === 'atleta' ? 'text-bjj-blue' : 'text-[var(--text-muted)]'} />
+                          <span className="text-[8px] font-black uppercase">Atleta</span>
                         </button>
                         <button 
                           type="button" 
                           onClick={() => setSelectedUserType('coordenador')}
-                          className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition-all ${selectedUserType === 'coordenador' ? 'border-bjj-purple bg-bjj-purple/5' : 'border-[var(--border-ui)]'}`}
+                          className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all ${selectedUserType === 'coordenador' ? 'border-bjj-purple bg-bjj-purple/5' : 'border-[var(--border-ui)]'}`}
                         >
-                          <ShieldCheck size={24} className={selectedUserType === 'coordenador' ? 'text-bjj-purple' : 'text-[var(--text-muted)]'} />
-                          <span className="text-[10px] font-black uppercase">Organizador</span>
+                          <ShieldCheck size={20} className={selectedUserType === 'coordenador' ? 'text-bjj-purple' : 'text-[var(--text-muted)]'} />
+                          <span className="text-[8px] font-black uppercase">Organizador</span>
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => setSelectedUserType('responsavel')}
+                          className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition-all ${selectedUserType === 'responsavel' ? 'border-emerald-500 bg-emerald-500/5' : 'border-[var(--border-ui)]'}`}
+                        >
+                          <Users size={20} className={selectedUserType === 'responsavel' ? 'text-emerald-500' : 'text-[var(--text-muted)]'} />
+                          <span className="text-[8px] font-black uppercase">Equipe</span>
                         </button>
                       </div>
 

@@ -13,6 +13,10 @@ export default function RegistrationPage() {
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
 
+  const [athleteProfile, setAthleteProfile] = useState<any>(null);
+  const [determinedCategory, setDeterminedCategory] = useState<CategoriaEvento | null>(null);
+  const [confirmationStep, setConfirmationStep] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) {
@@ -23,6 +27,9 @@ export default function RegistrationPage() {
       console.log(`[Registration] Buscando dados para o evento ID: ${id}`);
       setLoading(true);
       try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Usuário não autenticado');
+
         // 1. Fetch Event
         const { data: eventData, error: eventError } = await supabase
           .from('eventos')
@@ -30,32 +37,42 @@ export default function RegistrationPage() {
           .eq('id', id)
           .single();
         
-        if (eventError) {
-          console.error('[Registration] Erro ao buscar evento:', eventError);
-          throw eventError;
-        }
-        
-        if (!eventData) {
-          console.error('[Registration] Nenhum dado retornado para o evento');
-          throw new Error('Evento não encontrado');
-        }
-        
+        if (eventError) throw eventError;
         setEvent(eventData);
-        console.log('[Registration] Evento carregado:', eventData.nome);
 
-        // 2. Fetch Categories
+        // 2. Fetch Athlete Profile for Auto-Categorization
+        const { data: profileData, error: profileError } = await supabase
+          .from('atletas')
+          .select('*')
+          .eq('usuario_id', session.user.id)
+          .single();
+        
+        if (profileError) throw profileError;
+        setAthleteProfile(profileData);
+
+        // 3. Determine Category automatically via RPC
+        const birthYear = new Date(profileData.data_nascimento).getFullYear();
+        const { data: catId, error: rpcError } = await supabase.rpc('fn_determinar_categoria_jiujitsu', {
+          p_ano_nascimento: birthYear,
+          p_peso: profileData.peso_kg,
+          p_faixa: profileData.graduacao,
+          p_sexo: profileData.genero === 'Masculino' ? 'M' : 'F',
+          p_evento_id: id
+        });
+
+        if (rpcError) throw rpcError;
+        if (!catId) throw new Error('Nenhuma categoria compatível encontrada para o seu perfil neste evento.');
+
+        // 4. Fetch the specific category details
         const { data: catData, error: catError } = await supabase
           .from('categorias_evento')
           .select('*')
-          .eq('evento_id', id);
+          .eq('id', catId)
+          .single();
         
-        if (catError) {
-          console.error('[Registration] Erro ao buscar categorias:', catError);
-          throw catError;
-        }
-        
-        setCategories(catData || []);
-        console.log(`[Registration] ${catData?.length || 0} categorias carregadas`);
+        if (catError) throw catError;
+        setDeterminedCategory(catData);
+
       } catch (err: any) {
         console.error('[Registration] Falha crítica no carregamento:', err);
         alert(`Erro: ${err.message || 'Não foi possível carregar os dados do evento.'}`);
@@ -70,29 +87,24 @@ export default function RegistrationPage() {
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!confirmationStep) {
+      setConfirmationStep(true);
+      return;
+    }
+
     console.log('[Registration] Iniciando processo de inscrição...');
-    
-    if (!event) return;
+    if (!event || !determinedCategory || !athleteProfile) return;
 
     setIsRegistering(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Usuário não autenticado. Por favor, faça login novamente.');
-
-      const formData = new FormData(e.currentTarget);
-      const catId = formData.get('categoria_id') as string;
-      const category = categories.find(c => c.id === catId);
-
-      if (!catId) throw new Error('Por favor, selecione uma categoria.');
-
       const registrationData = {
         evento_id: event.id,
-        atleta_id: session.user.id,
-        categoria_id: catId,
-        nome_atleta: formData.get('nome_atleta') as string,
-        equipe: formData.get('equipe') as string,
-        faixa: category?.faixa || 'Branca',
-        peso_atual: Number(formData.get('peso_atual')),
+        atleta_id: athleteProfile.usuario_id,
+        categoria_id: determinedCategory.id,
+        nome_atleta: athleteProfile.nome_completo,
+        equipe: athleteProfile.equipe,
+        faixa: athleteProfile.graduacao,
+        peso_atual: athleteProfile.peso_kg,
         status_pagamento: 'pendente',
         status_operacional: 'inscrito'
       };
@@ -107,8 +119,8 @@ export default function RegistrationPage() {
       }
 
       console.log('[Registration] Sucesso!');
-      alert('Inscrição realizada com sucesso!');
-      navigate('/dashboard'); // Go back to dashboard or similar
+      alert('Inscrição realizada com sucesso! Sua categoria foi definida automaticamente.');
+      navigate('/dashboard');
     } catch (err: any) {
       console.error('[Registration] Erro:', err);
       alert(err.message);
@@ -167,70 +179,82 @@ export default function RegistrationPage() {
           </div>
 
           <form onSubmit={handleRegister} className="p-8 space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase text-[var(--text-muted)] tracking-widest">Nome Completo do Atleta</label>
-              <input 
-                required 
-                name="nome_atleta" 
-                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-2xl py-4 px-6 text-[var(--text-main)] focus:border-bjj-blue transition-colors outline-none" 
-                placeholder="Seu nome oficial de competição" 
-              />
-            </div>
+            {!confirmationStep ? (
+              <div className="space-y-6">
+                <div className="p-6 bg-bjj-blue/5 border border-bjj-blue/20 rounded-2xl space-y-4">
+                  <h3 className="text-sm font-black uppercase text-bjj-blue tracking-widest">Confirme seus Dados Cadastrais</h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Nome</p>
+                      <p className="font-bold text-[var(--text-main)]">{athleteProfile?.nome_completo}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Equipe</p>
+                      <p className="font-bold text-[var(--text-main)]">{athleteProfile?.equipe}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Peso</p>
+                      <p className="font-bold text-[var(--text-main)]">{athleteProfile?.peso_kg} kg</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Faixa</p>
+                      <p className="font-bold text-[var(--text-main)]">{athleteProfile?.graduacao}</p>
+                    </div>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-[var(--text-muted)] tracking-widest">Equipe / Academia</label>
-                <input 
-                  required 
-                  name="equipe" 
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-2xl py-4 px-6 text-[var(--text-main)] focus:border-bjj-blue transition-colors outline-none" 
-                  placeholder="Sua academia" 
-                />
+                <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
+                  <h3 className="text-sm font-black uppercase text-emerald-500 tracking-widest mb-4">Categoria Identificada</h3>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xl font-black text-[var(--text-main)]">{determinedCategory?.nome}</p>
+                      <p className="text-xs text-[var(--text-muted)] font-bold uppercase">
+                        {determinedCategory?.faixa} | {determinedCategory?.sexo} | {determinedCategory?.peso_max ? `Até ${determinedCategory?.peso_max}kg` : 'Absoluto'}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Tempo de Luta</p>
+                      <p className="text-lg font-black text-emerald-500">{(determinedCategory as any)?.tempo_luta_minutos || 5}:00 min</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full btn-primary py-5 font-black text-lg uppercase tracking-widest flex items-center justify-center gap-3"
+                >
+                  <CheckCircle2 size={24} />
+                  Confirmar e Prosseguir
+                </button>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase text-[var(--text-muted)] tracking-widest">Peso Atual (kg)</label>
-                <input 
-                  required 
-                  type="number" 
-                  step="0.1" 
-                  name="peso_atual" 
-                  className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-2xl py-4 px-6 text-[var(--text-main)] focus:border-bjj-blue transition-colors outline-none" 
-                  placeholder="Ex: 82.5" 
-                />
+            ) : (
+              <div className="space-y-6">
+                <div className="p-6 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
+                  <p className="text-xs text-amber-500 font-black uppercase mb-2 tracking-widest">Aviso Final</p>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Você está se inscrevendo na categoria <strong>{determinedCategory?.nome}</strong>. 
+                    Certifique-se de que seu peso ({athleteProfile?.peso_kg}kg) está dentro do limite permitido para evitar desclassificação na pesagem oficial.
+                  </p>
+                </div>
+
+                <button 
+                  disabled={isRegistering}
+                  type="submit" 
+                  className="w-full btn-primary py-5 font-black text-lg uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
+                >
+                  {isRegistering ? <Loader2 className="animate-spin" size={24} /> : <CheckCircle2 size={24} />}
+                  {isRegistering ? 'Processando Inscrição...' : 'Finalizar Inscrição Oficial'}
+                </button>
+                
+                <button 
+                  type="button"
+                  onClick={() => setConfirmationStep(false)}
+                  className="w-full text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] uppercase tracking-widest"
+                >
+                  Voltar e Revisar
+                </button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black uppercase text-[var(--text-muted)] tracking-widest">Selecione sua Categoria</label>
-              <select 
-                required 
-                name="categoria_id" 
-                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-2xl py-4 px-6 text-[var(--text-main)] focus:border-bjj-blue transition-colors outline-none appearance-none"
-              >
-                <option value="">Escolha uma categoria disponível...</option>
-                {categories.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.nome} ({cat.faixa} | {cat.sexo} | {cat.peso_max ? `Até ${cat.peso_max}kg` : 'Absoluto'})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="p-6 bg-amber-500/5 border border-amber-500/20 rounded-2xl">
-              <p className="text-xs text-amber-500 font-black uppercase mb-2 tracking-widest">Aviso de Responsabilidade</p>
-              <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                Ao confirmar sua inscrição, você declara estar em perfeitas condições físicas para competir e aceita integralmente o regulamento oficial do evento.
-              </p>
-            </div>
-
-            <button 
-              disabled={isRegistering}
-              type="submit" 
-              className="w-full btn-primary py-5 font-black text-lg uppercase tracking-widest flex items-center justify-center gap-3 shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 transition-all"
-            >
-              {isRegistering ? <Loader2 className="animate-spin" size={24} /> : <CheckCircle2 size={24} />}
-              {isRegistering ? 'Processando Inscrição...' : 'Confirmar Inscrição Oficial'}
-            </button>
+            )}
           </form>
         </motion.div>
       </div>

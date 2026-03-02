@@ -11,7 +11,8 @@ import MyEvents from './components/MyEvents';
 import LandingPage from './components/LandingPage';
 import AthleteProfileForm from './components/AthleteProfileForm';
 import RegistrationPage from './components/RegistrationPage';
-import { UserType, UserProfile, AthleteProfile } from './types';
+import TeamManagement from './components/TeamManagement';
+import { UserType, UserProfile, AthleteProfile, Equipe } from './types';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { authService } from './services/authService';
 
@@ -160,9 +161,14 @@ export default function App() {
     { id: 'techniques', label: 'Técnicas', icon: BookOpen, path: '/techniques' },
     { id: 'championships', label: 'Campeonatos', icon: Trophy, path: '/championships' },
     { id: 'scoreboard', label: 'Placar', icon: CreditCard, path: '/scoreboard' },
-  ] : [
+  ] : userType === 'coordenador' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { id: 'my-events', label: 'Meus Eventos', icon: Trophy, path: '/my-events' },
+    { id: 'techniques', label: 'Técnicas', icon: BookOpen, path: '/techniques' },
+    { id: 'scoreboard', label: 'Placar', icon: CreditCard, path: '/scoreboard' },
+  ] : [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { id: 'my-team', label: 'Minha Equipe', icon: Users, path: '/my-team' },
     { id: 'techniques', label: 'Técnicas', icon: BookOpen, path: '/techniques' },
     { id: 'scoreboard', label: 'Placar', icon: CreditCard, path: '/scoreboard' },
   ];
@@ -218,8 +224,8 @@ export default function App() {
                   <h1 className="text-2xl font-black font-display tracking-tighter text-[var(--text-main)]">ARENA<span className="text-bjj-blue">COMP</span></h1>
                 </div>
 
-                {/* Profile Switcher - Only for Coordinators */}
-                {profile.tipo_usuario === 'coordenador' && (
+                {/* Profile Switcher - Only for Coordinators and Team Leads */}
+                {(profile.tipo_usuario === 'coordenador' || profile.tipo_usuario === 'responsavel') && (
                   <div className="mb-8 p-1 bg-[var(--border-ui)] rounded-xl flex relative">
                     {isSwitching && (
                       <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px] rounded-xl flex items-center justify-center z-10">
@@ -233,13 +239,24 @@ export default function App() {
                     >
                       <UserIcon size={14} /> Atleta
                     </button>
-                    <button 
-                      onClick={() => handleSwitchProfile('coordenador')}
-                      disabled={isSwitching}
-                      className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 ${userType === 'coordenador' ? 'bg-[var(--bg-card)] text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
-                    >
-                      <ShieldCheck size={14} /> Coordenador
-                    </button>
+                    {profile.tipo_usuario === 'coordenador' && (
+                      <button 
+                        onClick={() => handleSwitchProfile('coordenador')}
+                        disabled={isSwitching}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 ${userType === 'coordenador' ? 'bg-[var(--bg-card)] text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+                      >
+                        <ShieldCheck size={14} /> Coordenador
+                      </button>
+                    )}
+                    {profile.tipo_usuario === 'responsavel' && (
+                      <button 
+                        onClick={() => handleSwitchProfile('responsavel')}
+                        disabled={isSwitching}
+                        className={`flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all flex items-center justify-center gap-2 ${userType === 'responsavel' ? 'bg-[var(--bg-card)] text-emerald-500 shadow-sm' : 'text-[var(--text-muted)]'}`}
+                      >
+                        <ShieldCheck size={14} /> Responsável
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -265,9 +282,17 @@ export default function App() {
               </div>
 
               <div className="mt-auto p-8 space-y-4">
-                <div className={`glass-panel p-4 border-2 ${userType === 'atleta' ? 'bg-bjj-blue/5 border-bjj-blue/20' : 'bg-bjj-purple/5 border-bjj-purple/20'}`}>
-                  <p className={`text-xs font-bold uppercase mb-1 ${userType === 'atleta' ? 'text-bjj-blue' : 'text-bjj-purple'}`}>
-                    {userType === 'atleta' ? 'Perfil Atleta' : 'Perfil Coordenador'}
+                <div className={`glass-panel p-4 border-2 ${
+                  userType === 'atleta' ? 'bg-bjj-blue/5 border-bjj-blue/20' : 
+                  userType === 'coordenador' ? 'bg-bjj-purple/5 border-bjj-purple/20' : 
+                  'bg-emerald-500/5 border-emerald-500/20'
+                }`}>
+                  <p className={`text-xs font-bold uppercase mb-1 ${
+                    userType === 'atleta' ? 'text-bjj-blue' : 
+                    userType === 'coordenador' ? 'text-bjj-purple' : 
+                    'text-emerald-500'
+                  }`}>
+                    {userType === 'atleta' ? 'Perfil Atleta' : userType === 'coordenador' ? 'Perfil Coordenador' : 'Perfil Responsável'}
                   </p>
                   <p className="text-xs text-[var(--text-muted)]">Acesso real ao banco de dados.</p>
                 </div>
@@ -325,7 +350,11 @@ export default function App() {
                   {userType === 'atleta' ? 'Atleta Competidor' : 'Coordenador Oficial'}
                 </p>
               </div>
-              <div className={`w-10 h-10 rounded-full bg-[var(--border-ui)] border-2 p-0.5 ${userType === 'atleta' ? 'border-bjj-blue' : 'border-bjj-purple'}`}>
+              <div className={`w-10 h-10 rounded-full bg-[var(--border-ui)] border-2 p-0.5 ${
+                userType === 'atleta' ? 'border-bjj-blue' : 
+                userType === 'coordenador' ? 'border-bjj-purple' : 
+                'border-emerald-500'
+              }`}>
                 <img 
                   src={headerSignedUrl || profile.foto_url || `https://picsum.photos/seed/${profile.id}/100/100`} 
                   className="w-full h-full rounded-full object-cover"
@@ -343,13 +372,19 @@ export default function App() {
             <Route path="/dashboard" element={
               userType === 'atleta' ? (
                 <AthleteDashboard onPhotoUpdate={() => fetchAthleteProfile(profile.id)} />
-              ) : (
+              ) : userType === 'coordenador' ? (
                 <CoordinatorDashboard onEventClick={(id) => {
                   setSelectedEventId(id);
                   navigate('/my-events');
                 }} />
+              ) : (
+                <div className="p-8">
+                  <h1 className="text-3xl font-black">Dashboard Responsável</h1>
+                  <p className="text-[var(--text-muted)]">Bem-vindo ao painel de gestão de equipe.</p>
+                </div>
               )
             } />
+            <Route path="/my-team" element={<TeamManagement />} />
             <Route path="/my-events" element={
               <MyEvents 
                 initialEventId={selectedEventId} 

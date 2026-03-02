@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User, Calendar, Weight, Users, ShieldCheck, ExternalLink, AlertCircle, Save, Loader2, VenusAndMars } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { AthleteProfile, Belt, Gender } from '../types';
+import { AthleteProfile, Belt, Gender, Equipe } from '../types';
 
 interface AthleteProfileFormProps {
   userId: string;
@@ -15,6 +15,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Equipe[]>([]);
   const [profile, setProfile] = useState<Partial<AthleteProfile>>({
     usuario_id: userId,
     nome_completo: '',
@@ -23,12 +24,27 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     data_nascimento: '',
     peso_kg: 0,
     equipe: '',
+    equipe_id: '',
     perfil_completo: false
   });
 
   useEffect(() => {
     fetchProfile();
+    fetchTeams();
   }, [userId]);
+
+  const fetchTeams = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('equipes')
+        .select('*')
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      setTeams(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar equipes:', err);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -246,20 +262,33 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
             </div>
 
             {/* Equipe */}
-            <div>
+            <div className="md:col-span-2">
               <label className="block text-xs font-bold uppercase text-[var(--text-muted)] mb-2">
-                Equipe / Academia
+                Equipe / Academia Oficial
               </label>
               <div className="relative">
                 <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
-                <input
-                  type="text"
-                  value={profile.equipe}
-                  onChange={(e) => setProfile({ ...profile, equipe: e.target.value })}
+                <select
+                  value={profile.equipe_id}
+                  onChange={(e) => {
+                    const team = teams.find(t => t.id === e.target.value);
+                    setProfile({ 
+                      ...profile, 
+                      equipe_id: e.target.value,
+                      equipe: team?.nome || ''
+                    });
+                  }}
                   className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 pl-12 pr-4 text-[var(--text-main)] focus:border-bjj-blue outline-none transition-all"
-                  placeholder="Nome da sua equipe"
-                />
+                >
+                  <option value="">Selecione sua equipe...</option>
+                  {teams.map(team => (
+                    <option key={team.id} value={team.id}>{team.nome}</option>
+                  ))}
+                </select>
               </div>
+              <p className="mt-2 text-[10px] text-[var(--text-muted)]">
+                Se sua equipe não aparece, peça ao seu professor para cadastrá-la como Responsável.
+              </p>
             </div>
           </div>
 
