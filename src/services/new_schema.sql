@@ -252,14 +252,23 @@ ALTER TABLE resultados_oficiais ENABLE ROW LEVEL SECURITY;
 
 -- 1. Eventos Policies
 DROP POLICY IF EXISTS "Eventos_Select_Public" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Select_Atletas" ON eventos;
+DROP POLICY IF EXISTS "Eventos_Select_Coordinators" ON eventos;
 DROP POLICY IF EXISTS "Eventos_Insert_Owner" ON eventos;
 DROP POLICY IF EXISTS "Eventos_Update_Owner" ON eventos;
 DROP POLICY IF EXISTS "Eventos_Delete_Owner" ON eventos;
 
--- Atletas e público podem ver eventos abertos. Coordenadores veem todos os seus.
-CREATE POLICY "Eventos_Select_Public" ON eventos 
+-- Atletas podem ver eventos abertos
+CREATE POLICY "Eventos_Select_Atletas" ON eventos 
 FOR SELECT 
-USING (status = 'aberto' OR auth.uid() = coordenador_id);
+TO authenticated 
+USING (status = 'aberto');
+
+-- Coordenadores veem todos os seus eventos
+CREATE POLICY "Eventos_Select_Coordinators" ON eventos 
+FOR SELECT 
+TO authenticated 
+USING (auth.uid() = coordenador_id);
 
 CREATE POLICY "Eventos_Insert_Owner" ON eventos 
 FOR INSERT 

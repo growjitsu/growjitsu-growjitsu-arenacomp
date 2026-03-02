@@ -15,7 +15,12 @@ export default function RegistrationPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!id) return;
+      if (!id) {
+        console.error('[Registration] ID do evento não encontrado nos parâmetros da URL');
+        return;
+      }
+      
+      console.log(`[Registration] Buscando dados para o evento ID: ${id}`);
       setLoading(true);
       try {
         // 1. Fetch Event
@@ -25,8 +30,18 @@ export default function RegistrationPage() {
           .eq('id', id)
           .single();
         
-        if (eventError) throw eventError;
+        if (eventError) {
+          console.error('[Registration] Erro ao buscar evento:', eventError);
+          throw eventError;
+        }
+        
+        if (!eventData) {
+          console.error('[Registration] Nenhum dado retornado para o evento');
+          throw new Error('Evento não encontrado');
+        }
+        
         setEvent(eventData);
+        console.log('[Registration] Evento carregado:', eventData.nome);
 
         // 2. Fetch Categories
         const { data: catData, error: catError } = await supabase
@@ -34,12 +49,17 @@ export default function RegistrationPage() {
           .select('*')
           .eq('evento_id', id);
         
-        if (catError) throw catError;
+        if (catError) {
+          console.error('[Registration] Erro ao buscar categorias:', catError);
+          throw catError;
+        }
+        
         setCategories(catData || []);
-      } catch (err) {
-        console.error('Erro ao carregar dados de inscrição:', err);
-        alert('Não foi possível carregar os dados do evento.');
-        navigate(-1);
+        console.log(`[Registration] ${catData?.length || 0} categorias carregadas`);
+      } catch (err: any) {
+        console.error('[Registration] Falha crítica no carregamento:', err);
+        alert(`Erro: ${err.message || 'Não foi possível carregar os dados do evento.'}`);
+        navigate('/dashboard');
       } finally {
         setLoading(false);
       }
