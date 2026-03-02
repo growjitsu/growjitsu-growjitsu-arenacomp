@@ -1,18 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar, MapPin, ChevronRight, Users, Scale, Clock, Play, CheckCircle2, Loader2, Search, Filter } from 'lucide-react';
+import { Trophy, Calendar, MapPin, ChevronRight, Users, Scale, Clock, Play, CheckCircle2, Loader2, Search, Filter, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../services/supabase';
 import Scoreboard from './Scoreboard';
-
-interface Evento {
-  id: string;
-  nome: string;
-  data: string;
-  horario_inicio: string;
-  local: string;
-  logo_url?: string;
-  status: 'rascunho' | 'aberto' | 'fechado' | 'em_andamento' | 'finalizado';
-}
+import BracketView from './BracketView';
+import { CategoriaEvento, Evento } from '../types';
 
 export default function MyEvents() {
   const [events, setEvents] = useState<Evento[]>([]);
@@ -144,30 +136,47 @@ function EventOperational({ event, onBack, onStartLuta }: {
   onBack: () => void,
   onStartLuta: (luta: { id: string, a: string, b: string }) => void
 }) {
-  const [activeTab, setActiveTab] = useState<'weight' | 'warmup' | 'marshal'>('weight');
+  const [activeTab, setActiveTab] = useState<'weight' | 'warmup' | 'marshal' | 'brackets'>('weight');
   const [registrations, setRegistrations] = useState<any[]>([]);
+  const [categories, setCategories] = useState<CategoriaEvento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [selectedCategoryForBracket, setSelectedCategoryForBracket] = useState<string | null>(null);
 
-  const fetchRegistrations = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('inscricoes')
-        .select('*, atletas(*, usuarios(nome, foto_url))')
-        .eq('evento_id', event.id);
+      const [regsRes, catsRes] = await Promise.all([
+        supabase.from('inscricoes').select('*, atletas(*, usuarios(nome, foto_url))').eq('evento_id', event.id),
+        supabase.from('categorias_evento').select('*').eq('evento_id', event.id)
+      ]);
       
-      if (error) throw error;
-      setRegistrations(data || []);
+      if (regsRes.error) throw regsRes.error;
+      if (catsRes.error) throw catsRes.error;
+
+      setRegistrations(regsRes.data || []);
+      setCategories(catsRes.data || []);
     } catch (err) {
-      console.error('Erro ao buscar inscrições:', err);
+      console.error('Erro ao buscar dados:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRegistrations();
+    fetchData();
   }, [event.id]);
+
+  const generateBrackets = async (catId: string) => {
+    try {
+      const { error } = await supabase.rpc('gerar_chaves_categoria', { p_categoria_id: catId });
+      if (error) throw error;
+      alert('Chaves geradas com sucesso!');
+      fetchData();
+    } catch (err: any) {
+      alert(`Erro ao gerar chaves: ${err.message}`);
+    }
+  };
 
   const updateStatus = async (regId: string, status: string) => {
     try {
@@ -190,9 +199,18 @@ function EventOperational({ event, onBack, onStartLuta }: {
     return false;
   });
 
+  if (selectedCategoryForBracket) {
+    return (
+      <BracketView 
+        categoryId={selectedCategoryForBracket} 
+        onBack={() => setSelectedCategoryForBracket(null)} 
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-full bg-[var(--bg-app)]">
-      <header className="p-6 border-b border-[var(--border-ui)] bg-[var(--bg-card)] flex justify-between items-center">
+      <header className="p-6 border-b border-[var(--border-ui)] bg-[var(--bg-card)] flex flex-col md:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-[var(--border-ui)] rounded-full transition-colors">
             <ChevronRight className="rotate-180" size={24} />
@@ -202,24 +220,30 @@ function EventOperational({ event, onBack, onStartLuta }: {
             <p className="text-xs text-bjj-purple font-bold uppercase tracking-widest">Controle Operacional</p>
           </div>
         </div>
-        <div className="flex bg-[var(--border-ui)] p-1 rounded-xl">
+        <div className="flex bg-[var(--border-ui)] p-1 rounded-xl overflow-x-auto max-w-full">
           <button 
             onClick={() => setActiveTab('weight')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'weight' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'weight' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
           >
             <Scale size={14} /> Pesagem
           </button>
           <button 
             onClick={() => setActiveTab('warmup')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'warmup' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'warmup' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
           >
             <Clock size={14} /> Aquecimento
           </button>
           <button 
             onClick={() => setActiveTab('marshal')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'marshal' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'marshal' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
           >
             <Users size={14} /> Mesário
+          </button>
+          <button 
+            onClick={() => setActiveTab('brackets')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'brackets' ? 'bg-white text-bjj-purple shadow-sm' : 'text-[var(--text-muted)]'}`}
+          >
+            <Trophy size={14} /> Chaves
           </button>
         </div>
       </header>
@@ -231,74 +255,200 @@ function EventOperational({ event, onBack, onStartLuta }: {
           </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-2xl font-black font-display text-[var(--text-main)]">
-                {activeTab === 'weight' ? 'Checagem de Peso' : activeTab === 'warmup' ? 'Área de Aquecimento' : 'Mesa de Chamada'}
-              </h3>
-              <span className="text-xs font-bold text-[var(--text-muted)] uppercase">{filteredRegs.length} Atletas</span>
-            </div>
-
-            <div className="space-y-3">
-              {filteredRegs.length > 0 ? (
-                filteredRegs.map(reg => (
-                  <div key={reg.id} className="card-surface p-4 flex items-center justify-between group hover:border-bjj-purple/30 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-[var(--border-ui)] overflow-hidden">
-                        <img 
-                          src={reg.atletas?.usuarios?.foto_url || `https://picsum.photos/seed/${reg.id}/100/100`} 
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-[var(--text-main)]">{reg.atletas?.usuarios?.nome}</h4>
-                        <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase">{reg.final_category}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      {activeTab === 'weight' && (
-                        <button 
-                          onClick={() => updateStatus(reg.id, 'peso_ok')}
-                          className="btn-primary bg-emerald-500 hover:bg-emerald-600 border-emerald-500 py-2 px-6 text-xs font-black flex items-center gap-2"
-                        >
-                          <CheckCircle2 size={16} /> Peso OK
-                        </button>
-                      )}
-                      {activeTab === 'warmup' && (
-                        <button 
-                          onClick={() => updateStatus(reg.id, 'aquecimento')}
-                          className="btn-primary bg-bjj-blue hover:bg-bjj-blue/90 border-bjj-blue py-2 px-6 text-xs font-black flex items-center gap-2"
-                        >
-                          <Play size={16} /> Chamar Atleta
-                        </button>
-                      )}
-                      {activeTab === 'marshal' && (
-                        <button 
-                          onClick={() => {
-                            onStartLuta({
-                              id: reg.id, // Using reg.id as lutaId for demo
-                              a: reg.atletas?.usuarios?.nome || 'Atleta A',
-                              b: 'Oponente' // In real app, fetch the actual match pair
-                            });
-                          }}
-                          className="btn-primary bg-bjj-purple hover:bg-bjj-purple/90 border-bjj-purple py-2 px-6 text-xs font-black flex items-center gap-2"
-                        >
-                          <Trophy size={16} /> Iniciar Luta
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="card-surface p-12 text-center text-[var(--text-muted)] italic text-sm">
-                  Nenhum atleta nesta etapa no momento.
+            {activeTab === 'brackets' ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-2xl font-black font-display text-[var(--text-main)]">Gerenciamento de Chaves</h3>
+                  <button 
+                    onClick={() => setShowAddCategory(true)}
+                    className="btn-primary py-2 text-xs"
+                  >
+                    <Plus size={14} /> Adicionar Categoria
+                  </button>
                 </div>
-              )}
-            </div>
+                
+                <div className="grid gap-4">
+                  {categories.length > 0 ? (
+                    categories.map(cat => (
+                      <div key={cat.id} className="card-surface p-6 flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-[var(--text-main)]">{cat.nome}</h4>
+                          <p className="text-xs text-[var(--text-muted)] uppercase font-bold">
+                            {cat.faixa} | {cat.sexo} | {cat.peso_max ? `Até ${cat.peso_max}kg` : 'Absoluto'}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          {cat.status_chave === 'pendente' ? (
+                            <button 
+                              onClick={() => generateBrackets(cat.id)}
+                              className="btn-primary py-2 px-4 text-xs font-black"
+                            >
+                              Gerar Chave
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => setSelectedCategoryForBracket(cat.id)}
+                              className="btn-outline py-2 px-4 text-xs font-black border-emerald-500 text-emerald-500 hover:bg-emerald-500/10"
+                            >
+                              Ver Chave
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="card-surface p-12 text-center text-[var(--text-muted)] italic text-sm">
+                      Nenhuma categoria cadastrada para este evento.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-2xl font-black font-display text-[var(--text-main)]">
+                    {activeTab === 'weight' ? 'Checagem de Peso' : activeTab === 'warmup' ? 'Área de Aquecimento' : 'Mesa de Chamada'}
+                  </h3>
+                  <span className="text-xs font-bold text-[var(--text-muted)] uppercase">{filteredRegs.length} Atletas</span>
+                </div>
+
+                <div className="space-y-3">
+                  {filteredRegs.length > 0 ? (
+                    filteredRegs.map(reg => (
+                      <div key={reg.id} className="card-surface p-4 flex items-center justify-between group hover:border-bjj-purple/30 transition-all">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-full bg-[var(--border-ui)] overflow-hidden">
+                            <img 
+                              src={reg.atletas?.usuarios?.foto_url || `https://picsum.photos/seed/${reg.id}/100/100`} 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-[var(--text-main)]">{reg.atletas?.usuarios?.nome}</h4>
+                            <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase">{reg.final_category}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          {activeTab === 'weight' && (
+                            <button 
+                              onClick={() => updateStatus(reg.id, 'peso_ok')}
+                              className="btn-primary bg-emerald-500 hover:bg-emerald-600 border-emerald-500 py-2 px-6 text-xs font-black flex items-center gap-2"
+                            >
+                              <CheckCircle2 size={16} /> Peso OK
+                            </button>
+                          )}
+                          {activeTab === 'warmup' && (
+                            <button 
+                              onClick={() => updateStatus(reg.id, 'aquecimento')}
+                              className="btn-primary bg-bjj-blue hover:bg-bjj-blue/90 border-bjj-blue py-2 px-6 text-xs font-black flex items-center gap-2"
+                            >
+                              <Play size={16} /> Chamar Atleta
+                            </button>
+                          )}
+                          {activeTab === 'marshal' && (
+                            <button 
+                              onClick={() => {
+                                onStartLuta({
+                                  id: reg.id,
+                                  a: reg.atletas?.usuarios?.nome || 'Atleta A',
+                                  b: 'Oponente'
+                                });
+                              }}
+                              className="btn-primary bg-bjj-purple hover:bg-bjj-purple/90 border-bjj-purple py-2 px-6 text-xs font-black flex items-center gap-2"
+                            >
+                              <Trophy size={16} /> Iniciar Luta
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="card-surface p-12 text-center text-[var(--text-muted)] italic text-sm">
+                      Nenhum atleta nesta etapa no momento.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Add Category Modal */}
+      <AnimatePresence>
+        {showAddCategory && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[var(--bg-card)] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-6 border-b border-[var(--border-ui)] flex justify-between items-center">
+                <h3 className="text-xl font-black font-display text-[var(--text-main)]">Nova Categoria</h3>
+                <button onClick={() => setShowAddCategory(false)} className="text-[var(--text-muted)] hover:text-[var(--text-main)]">
+                  <X size={24} />
+                </button>
+              </div>
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const formData = new FormData(e.currentTarget);
+                  const data = {
+                    evento_id: event.id,
+                    nome: formData.get('nome') as string,
+                    faixa: formData.get('faixa') as string,
+                    sexo: formData.get('sexo') as 'M' | 'F' | 'Unissex',
+                    peso_max: Number(formData.get('peso_max')) || null,
+                  };
+
+                  try {
+                    const { error } = await supabase.from('categorias_evento').insert(data);
+                    if (error) throw error;
+                    setShowAddCategory(false);
+                    fetchData();
+                  } catch (err: any) {
+                    alert(`Erro ao criar categoria: ${err.message}`);
+                  }
+                }}
+                className="p-6 space-y-4"
+              >
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Nome da Categoria</label>
+                  <input required name="nome" className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" placeholder="Ex: Adulto Marrom Meio-Pesado" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Faixa</label>
+                    <select name="faixa" className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]">
+                      <option value="Branca">Branca</option>
+                      <option value="Azul">Azul</option>
+                      <option value="Roxa">Roxa</option>
+                      <option value="Marrom">Marrom</option>
+                      <option value="Preta">Preta</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Sexo</label>
+                    <select name="sexo" className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]">
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                      <option value="Unissex">Unissex</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Peso Máximo (kg)</label>
+                  <input type="number" step="0.1" name="peso_max" className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" placeholder="Ex: 88.3" />
+                </div>
+                <button type="submit" className="w-full btn-primary py-4 font-black mt-4">Criar Categoria</button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

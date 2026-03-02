@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { User, Trophy, Calendar, MapPin, Scale, Award, Camera, Edit3, CheckCircle, Loader2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getAutomaticCategorization } from '../services/categorization';
-import { AthleteProfile, Championship, UserProfile } from '../types';
+import { AthleteProfile, Evento, UserProfile, Inscricao } from '../types';
 import { supabase } from '../services/supabase';
 import AthleteProfileForm from './AthleteProfileForm';
 
@@ -13,8 +13,8 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
   const [signedPhotoUrl, setSignedPhotoUrl] = useState<string | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [championships, setChampionships] = useState<Championship[]>([]);
-  const [registrations, setRegistrations] = useState<any[]>([]);
+  const [championships, setChampionships] = useState<Evento[]>([]);
+  const [registrations, setRegistrations] = useState<Inscricao[]>([]);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,9 +67,9 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
 
       // 3. Fetch Championships
       const { data: champs } = await supabase
-        .from('campeonatos')
+        .from('eventos')
         .select('*')
-        .eq('status', 'open')
+        .eq('status', 'aberto')
         .order('data', { ascending: true });
       
       setChampionships(champs || []);
@@ -77,7 +77,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
       // 4. Fetch My Registrations
       const { data: regs } = await supabase
         .from('inscricoes')
-        .select('*, campeonatos(*)')
+        .select('*, eventos(*)')
         .eq('atleta_id', session.user.id);
       
       setRegistrations(regs || []);
@@ -315,10 +315,10 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
               championships.map(champ => (
                 <ChampionshipCard 
                   key={champ.id}
-                  name={champ.name} 
-                  date={new Date(champ.date).toLocaleDateString('pt-BR')} 
-                  location={champ.location}
-                  status={champ.status === 'open' ? 'Inscrições Abertas' : 'Encerrado'}
+                  name={champ.nome} 
+                  date={new Date(champ.data).toLocaleDateString('pt-BR')} 
+                  location={champ.local}
+                  status={champ.status === 'aberto' ? 'Inscrições Abertas' : 'Encerrado'}
                 />
               ))
             ) : (
@@ -338,9 +338,9 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
                       <CheckCircle size={24} />
                     </div>
                     <div>
-                      <h4 className="font-bold text-[var(--text-main)]">{reg.campeonatos?.name}</h4>
+                      <h4 className="font-bold text-[var(--text-main)]">{(reg as any).eventos?.nome}</h4>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {reg.status === 'confirmed' ? 'Inscrição Confirmada' : 'Pendente'} • {reg.final_category}
+                        {reg.status_pagamento === 'pago' ? 'Inscrição Confirmada' : 'Pendente'} • {reg.faixa}
                       </p>
                     </div>
                   </div>

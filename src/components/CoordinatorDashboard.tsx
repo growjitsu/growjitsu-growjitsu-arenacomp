@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Trophy, Users, Plus, Filter, Search, ChevronRight, Download, Calendar, MapPin, Loader2, Clock, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../services/supabase';
-import { Championship } from '../types';
+import { Evento } from '../types';
 import EventRequestWizard from './EventRequestWizard';
 
 export default function CoordinatorDashboard() {
@@ -15,7 +15,7 @@ export default function CoordinatorDashboard() {
     pendingRegs: 0
   });
   const [recentRegistrations, setRecentRegistrations] = useState<any[]>([]);
-  const [myEvents, setMyEvents] = useState<Championship[]>([]);
+  const [myEvents, setMyEvents] = useState<Evento[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -24,7 +24,7 @@ export default function CoordinatorDashboard() {
       if (!session) return;
 
       // 1. Fetch Stats
-      const { data: myChamps } = await supabase.from('campeonatos').select('id').eq('created_by', session.user.id);
+      const { data: myChamps } = await supabase.from('eventos').select('id').eq('coordenador_id', session.user.id);
       const champIds = myChamps?.map(c => c.id) || [];
 
       let athletesCount = 0;
@@ -34,7 +34,7 @@ export default function CoordinatorDashboard() {
         const { data: uniqueAthletes } = await supabase
           .from('inscricoes')
           .select('atleta_id')
-          .in('championship_id', champIds);
+          .in('evento_id', champIds);
         
         const uniqueIds = new Set(uniqueAthletes?.map(a => a.atleta_id));
         athletesCount = uniqueIds.size;
@@ -42,17 +42,17 @@ export default function CoordinatorDashboard() {
         const { count: pendingCount } = await supabase
           .from('inscricoes')
           .select('*', { count: 'exact', head: true })
-          .in('championship_id', champIds)
-          .eq('status', 'pending');
+          .in('evento_id', champIds)
+          .eq('status_pagamento', 'pendente');
         
         pendingRegsCount = pendingCount || 0;
       }
 
       const { count: activeChampsCount } = await supabase
-        .from('campeonatos')
+        .from('eventos')
         .select('*', { count: 'exact', head: true })
-        .eq('created_by', session.user.id)
-        .eq('status', 'open');
+        .eq('coordenador_id', session.user.id)
+        .eq('status', 'aberto');
 
       setStats({
         totalAthletes: athletesCount,
@@ -63,8 +63,8 @@ export default function CoordinatorDashboard() {
       // 2. Fetch Recent Registrations
       const { data: regs } = await supabase
         .from('inscricoes')
-        .select('*, atletas(*, usuarios(nome, foto_url)), campeonatos(name)')
-        .in('championship_id', champIds)
+        .select('*, atletas(*, usuarios(nome, foto_url)), eventos(nome)')
+        .in('evento_id', champIds)
         .order('created_at', { ascending: false })
         .limit(5);
       
@@ -72,10 +72,10 @@ export default function CoordinatorDashboard() {
 
       // 3. Fetch My Events
       const { data: events } = await supabase
-        .from('campeonatos')
+        .from('eventos')
         .select('*')
-        .eq('created_by', session.user.id)
-        .order('date', { ascending: true });
+        .eq('coordenador_id', session.user.id)
+        .order('data', { ascending: true });
       
       setMyEvents(events || []);
 
@@ -210,8 +210,8 @@ export default function CoordinatorDashboard() {
                       name={reg.atletas?.usuarios?.nome} 
                       photo={reg.atletas?.usuarios?.foto_url}
                       belt={reg.atletas?.faixa} 
-                      category={reg.final_category} 
-                      status={reg.status === 'confirmed' ? 'Confirmado' : 'Pendente'} 
+                      category={reg.faixa} 
+                      status={reg.status_pagamento === 'pago' ? 'Confirmado' : 'Pendente'} 
                     />
                   ))
                 ) : (
@@ -234,8 +234,8 @@ export default function CoordinatorDashboard() {
               myEvents.map(event => (
                 <MiniEventCard 
                   key={event.id}
-                  name={event.name} 
-                  date={new Date(event.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} 
+                  name={event.nome} 
+                  date={new Date(event.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} 
                   athletes={0} // This would need another count query per event for full accuracy
                 />
               ))

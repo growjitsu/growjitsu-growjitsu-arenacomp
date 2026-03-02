@@ -27,19 +27,55 @@ export interface AthleteProfile {
   atualizado_em: string;
 }
 
-export interface Championship {
+export interface Evento {
   id: string;
-  name: string;
-  date: string;
-  location: string;
-  created_by: string;
-  status: 'open' | 'closed' | 'finished';
+  nome: string;
+  data: string;
+  horario_inicio: string;
+  local: string;
+  logo_url?: string;
+  status: 'rascunho' | 'aberto' | 'fechado' | 'em_andamento' | 'finalizado';
+  coordenador_id: string;
 }
 
-export interface Registration {
+export interface CategoriaEvento {
   id: string;
-  athlete_id: string;
-  championship_id: string;
-  final_category: string;
-  status: 'pending' | 'confirmed' | 'disqualified';
+  evento_id: string;
+  nome: string;
+  peso_min?: number;
+  peso_max?: number;
+  faixa?: string;
+  idade_min?: number;
+  idade_max?: number;
+  sexo: 'M' | 'F' | 'Unissex';
+  status_chave: 'pendente' | 'gerada' | 'finalizada';
+}
+
+export interface Inscricao {
+  id: string;
+  evento_id: string;
+  atleta_id: string;
+  categoria_id: string;
+  nome_atleta: string;
+  equipe: string;
+  faixa: string;
+  peso_atual: number;
+  status_pagamento: string;
+  status_operacional: 'inscrito' | 'peso_ok' | 'aquecimento' | 'pronto' | 'lutando' | 'finalizado';
+}
+
+export interface Luta {
+  id: string;
+  evento_id: string;
+  categoria_id: string;
+  atleta_a_id?: string;
+  atleta_b_id?: string;
+  vencedor_id?: string;
+  rodada: number;
+  posicao_chave: number;
+  status: 'agendada' | 'em_andamento' | 'finalizada' | 'bye';
+  luta_anterior_a_id?: string;
+  luta_anterior_b_id?: string;
+  atleta_a?: { nome: string, equipe: string };
+  atleta_b?: { nome: string, equipe: string };
 }
