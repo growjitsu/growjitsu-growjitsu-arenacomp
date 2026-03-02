@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Calendar, MapPin, Loader2, X, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Loader2, X, CheckCircle2, ArrowLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../services/supabase';
-import { Evento, CategoriaEvento } from '../types';
+import { Evento, CategoriaEvento, EventLote, EventDocumento } from '../types';
 
 export default function RegistrationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [event, setEvent] = useState<Evento | null>(null);
-  const [categories, setCategories] = useState<CategoriaEvento[]>([]);
+  const [activeLote, setActiveLote] = useState<EventLote | null>(null);
+  const [documento, setDocumento] = useState<EventDocumento | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRegistering, setIsRegistering] = useState(false);
 
@@ -39,6 +40,28 @@ export default function RegistrationPage() {
         
         if (eventError) throw eventError;
         setEvent(eventData);
+
+        // 1.1. Fetch Active Lote
+        const today = new Date().toISOString().split('T')[0];
+        const { data: lotesData } = await supabase
+          .from('event_lotes')
+          .select('*')
+          .eq('evento_id', id)
+          .gte('data_limite', today)
+          .order('data_limite', { ascending: true });
+        
+        if (lotesData && lotesData.length > 0) {
+          setActiveLote(lotesData[0]);
+        }
+
+        // 1.2. Fetch Rules Document
+        const { data: docData } = await supabase
+          .from('event_documentos')
+          .select('*')
+          .eq('evento_id', id)
+          .single();
+        
+        if (docData) setDocumento(docData);
 
         // 2. Fetch Athlete Profile for Auto-Categorization
         const { data: profileData, error: profileError } = await supabase
@@ -184,9 +207,40 @@ export default function RegistrationPage() {
             
             <div className="flex flex-wrap gap-6 mt-6 text-sm text-[var(--text-muted)]">
               <span className="flex items-center gap-2"><Calendar size={18} /> {new Date(event.data).toLocaleDateString('pt-BR')}</span>
-              <span className="flex items-center gap-2"><MapPin size={18} /> {event.local}</span>
+              <span className="flex items-center gap-2"><MapPin size={18} /> {event.cidade} / {event.uf}</span>
             </div>
           </div>
+
+          {documento && (
+            <div className="px-8 py-4 bg-zinc-900/50 border-b border-[var(--border-ui)]">
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-bjj-blue">Ver Edital e Regras do Evento</span>
+                  <ChevronRight size={14} className="group-open:rotate-90 transition-transform text-bjj-blue" />
+                </summary>
+                <div className="mt-4 text-xs text-[var(--text-muted)] leading-relaxed space-y-4 max-h-60 overflow-y-auto pr-2">
+                  {documento.regras_entrada && (
+                    <div>
+                      <p className="font-bold text-[var(--text-main)] uppercase mb-1">Entrada</p>
+                      <p>{documento.regras_entrada}</p>
+                    </div>
+                  )}
+                  {documento.regras_vestimenta && (
+                    <div>
+                      <p className="font-bold text-[var(--text-main)] uppercase mb-1">Vestimenta</p>
+                      <p>{documento.regras_vestimenta}</p>
+                    </div>
+                  )}
+                  {documento.regras_pesagem && (
+                    <div>
+                      <p className="font-bold text-[var(--text-main)] uppercase mb-1">Pesagem</p>
+                      <p>{documento.regras_pesagem}</p>
+                    </div>
+                  )}
+                </div>
+              </details>
+            </div>
+          )}
 
           <form onSubmit={handleRegister} className="p-8 space-y-6">
             {!confirmationStep ? (
@@ -214,7 +268,15 @@ export default function RegistrationPage() {
                 </div>
 
                 <div className="p-6 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                  <h3 className="text-sm font-black uppercase text-emerald-500 tracking-widest mb-4">Categoria Identificada</h3>
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-sm font-black uppercase text-emerald-500 tracking-widest">Categoria Identificada</h3>
+                    {activeLote && (
+                      <div className="text-right">
+                        <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Valor Inscrição</p>
+                        <p className="text-lg font-black text-emerald-500">R$ {activeLote.valor_peso.toFixed(2)}</p>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xl font-black text-[var(--text-main)]">{determinedCategory?.nome}</p>

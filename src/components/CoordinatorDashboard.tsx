@@ -3,7 +3,7 @@ import { Trophy, Users, Plus, Filter, Search, ChevronRight, Download, Calendar, 
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../services/supabase';
 import { Evento } from '../types';
-import EventRequestWizard from './EventRequestWizard';
+import CreateEventWizard from './CreateEventWizard';
 
 interface CoordinatorDashboardProps {
   onEventClick?: (eventId: string) => void;
@@ -263,7 +263,7 @@ export default function CoordinatorDashboard({ onEventClick }: CoordinatorDashbo
 
       {/* Multi-step Wizard */}
       {isWizardOpen && (
-        <EventRequestWizard 
+        <CreateEventWizard 
           onClose={() => setIsWizardOpen(false)} 
           onSuccess={() => {
             setIsWizardOpen(false);
@@ -287,9 +287,9 @@ export default function CoordinatorDashboard({ onEventClick }: CoordinatorDashbo
                 <CheckCircle2 size={48} />
               </div>
               <div className="space-y-2">
-                <h3 className="text-2xl font-black font-display text-[var(--text-main)]">Pedido Enviado!</h3>
+                <h3 className="text-2xl font-black font-display text-[var(--text-main)]">Campeonato Criado!</h3>
                 <p className="text-[var(--text-muted)] text-sm leading-relaxed">
-                  Sua solicitação de evento foi recebida com sucesso. Nossa equipe comercial entrará em contato em breve.
+                  Seu evento foi configurado com sucesso. As categorias padrão foram geradas e os lotes financeiros estão ativos.
                 </p>
               </div>
               <button 

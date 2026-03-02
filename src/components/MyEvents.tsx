@@ -139,7 +139,7 @@ export default function MyEvents({ initialEventId, onClearSelection }: { initial
               <div className="space-y-2 text-sm text-[var(--text-muted)]">
                 <p className="flex items-center gap-2"><Calendar size={16} /> {new Date(event.data).toLocaleDateString('pt-BR')}</p>
                 <p className="flex items-center gap-2"><Clock size={16} /> {event.horario_inicio.slice(0, 5)}</p>
-                <p className="flex items-center gap-2"><MapPin size={16} /> {event.local || 'Local não definido'}</p>
+                <p className="flex items-center gap-2"><MapPin size={16} /> {event.cidade ? `${event.cidade} / ${event.uf}` : 'Local não definido'}</p>
               </div>
               <button className="w-full mt-6 btn-outline py-2 text-xs font-bold group-hover:bg-bjj-purple group-hover:text-white group-hover:border-bjj-purple transition-all">
                 Gerenciar Operação
@@ -165,7 +165,8 @@ function EditEventModal({ event, onClose, onUpdate }: { event: Evento, onClose: 
     nome: event.nome,
     data: event.data,
     horario_inicio: event.horario_inicio,
-    local: event.local || '',
+    cidade: event.cidade || '',
+    uf: event.uf || '',
     status: event.status
   });
 
@@ -234,13 +235,24 @@ function EditEventModal({ event, onClose, onUpdate }: { event: Evento, onClose: 
               />
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Local</label>
-            <input 
-              value={formData.local}
-              onChange={e => setFormData(prev => ({ ...prev, local: e.target.value }))}
-              className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Cidade</label>
+              <input 
+                value={formData.cidade}
+                onChange={e => setFormData(prev => ({ ...prev, cidade: e.target.value }))}
+                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">UF</label>
+              <input 
+                value={formData.uf}
+                onChange={e => setFormData(prev => ({ ...prev, uf: e.target.value }))}
+                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+                maxLength={2}
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Status</label>
