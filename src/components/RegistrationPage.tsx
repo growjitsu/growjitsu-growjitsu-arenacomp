@@ -61,7 +61,17 @@ export default function RegistrationPage() {
         });
 
         if (rpcError) throw rpcError;
-        if (!catId) throw new Error('Nenhuma categoria compatível encontrada para o seu perfil neste evento.');
+        
+        if (!catId) {
+          const diagnostic = `Nenhuma categoria compatível encontrada para:
+          • Idade: ${birthYear} (${new Date().getFullYear() - birthYear} anos)
+          • Faixa: ${profileData.graduacao}
+          • Peso: ${profileData.peso_kg}kg
+          • Sexo: ${profileData.genero}
+          
+          Verifique se o organizador criou categorias para o seu perfil.`;
+          throw new Error(diagnostic);
+        }
 
         // 4. Fetch the specific category details
         const { data: catData, error: catError } = await supabase
