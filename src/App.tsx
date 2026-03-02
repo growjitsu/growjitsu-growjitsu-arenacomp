@@ -24,6 +24,7 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isSwitching, setIsSwitching] = useState(false);
   const [checkingAthlete, setCheckingAthlete] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
   const fetchAthleteProfile = async (userId: string) => {
     try {
@@ -330,9 +331,21 @@ export default function App() {
               className="h-full"
             >
               {activeTab === 'dashboard' && (
-                userType === 'atleta' ? <AthleteDashboard onPhotoUpdate={() => fetchAthleteProfile(profile.id)} /> : <CoordinatorDashboard />
+                userType === 'atleta' ? (
+                  <AthleteDashboard onPhotoUpdate={() => fetchAthleteProfile(profile.id)} />
+                ) : (
+                  <CoordinatorDashboard onEventClick={(id) => {
+                    setSelectedEventId(id);
+                    setActiveTab('my-events');
+                  }} />
+                )
               )}
-              {activeTab === 'my-events' && <MyEvents />}
+              {activeTab === 'my-events' && (
+                <MyEvents 
+                  initialEventId={selectedEventId} 
+                  onClearSelection={() => setSelectedEventId(null)} 
+                />
+              )}
               {activeTab === 'techniques' && <TechniqueLibrary />}
               {activeTab === 'championships' && <ChampionshipModule />}
               {activeTab === 'scoreboard' && <Scoreboard />}

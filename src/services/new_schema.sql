@@ -242,10 +242,26 @@ DROP POLICY IF EXISTS "Eventos_Insert_Owner" ON eventos;
 DROP POLICY IF EXISTS "Eventos_Update_Owner" ON eventos;
 DROP POLICY IF EXISTS "Eventos_Delete_Owner" ON eventos;
 
-CREATE POLICY "Eventos_Select_Public" ON eventos FOR SELECT USING (true);
-CREATE POLICY "Eventos_Insert_Owner" ON eventos FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Eventos_Update_Owner" ON eventos FOR UPDATE TO authenticated USING (auth.uid() = coordenador_id);
-CREATE POLICY "Eventos_Delete_Owner" ON eventos FOR DELETE TO authenticated USING (auth.uid() = coordenador_id);
+-- Atletas e público podem ver eventos abertos. Coordenadores veem todos os seus.
+CREATE POLICY "Eventos_Select_Public" ON eventos 
+FOR SELECT 
+USING (status = 'aberto' OR auth.uid() = coordenador_id);
+
+CREATE POLICY "Eventos_Insert_Owner" ON eventos 
+FOR INSERT 
+TO authenticated 
+WITH CHECK (auth.uid() = coordenador_id);
+
+CREATE POLICY "Eventos_Update_Owner" ON eventos 
+FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = coordenador_id AND status != 'finalizado')
+WITH CHECK (auth.uid() = coordenador_id);
+
+CREATE POLICY "Eventos_Delete_Owner" ON eventos 
+FOR DELETE 
+TO authenticated 
+USING (auth.uid() = coordenador_id AND status = 'rascunho');
 
 -- 2. Pedidos Policies
 DROP POLICY IF EXISTS "Pedidos_Select_Owner" ON pedidos_evento;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trophy, Calendar, MapPin, ChevronRight, Users, Scale, Clock, Play, CheckCircle2, Loader2, Search, Filter, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../services/supabase';
@@ -6,12 +6,13 @@ import Scoreboard from './Scoreboard';
 import BracketView from './BracketView';
 import { CategoriaEvento, Evento } from '../types';
 
-export default function MyEvents() {
+export default function MyEvents({ initialEventId, onClearSelection }: { initialEventId?: string | null, onClearSelection?: () => void }) {
   const [events, setEvents] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
   const [selectedLuta, setSelectedLuta] = useState<{ id: string, a: string, b: string } | null>(null);
   const [view, setView] = useState<'list' | 'operational' | 'scoreboard'>('list');
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -38,6 +39,17 @@ export default function MyEvents() {
     fetchEvents();
   }, []);
 
+  useEffect(() => {
+    if (initialEventId && events.length > 0) {
+      const event = events.find(e => e.id === initialEventId);
+      if (event) {
+        setSelectedEvent(event);
+        setView('operational');
+        onClearSelection?.();
+      }
+    }
+  }, [initialEventId, events]);
+
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center">
@@ -60,14 +72,30 @@ export default function MyEvents() {
 
   if (view === 'operational' && selectedEvent) {
     return (
-      <EventOperational 
-        event={selectedEvent} 
-        onBack={() => setView('list')} 
-        onStartLuta={(luta) => {
-          setSelectedLuta(luta);
-          setView('scoreboard');
-        }}
-      />
+      <>
+        <EventOperational 
+          event={selectedEvent} 
+          onBack={() => setView('list')} 
+          onEdit={() => setIsEditingEvent(true)}
+          onStartLuta={(luta) => {
+            setSelectedLuta(luta);
+            setView('scoreboard');
+          }}
+        />
+        <AnimatePresence>
+          {isEditingEvent && (
+            <EditEventModal 
+              event={selectedEvent} 
+              onClose={() => setIsEditingEvent(false)} 
+              onUpdate={(updatedEvent) => {
+                setSelectedEvent(updatedEvent);
+                setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+                setIsEditingEvent(false);
+              }}
+            />
+          )}
+        </AnimatePresence>
+      </>
     );
   }
 
@@ -131,9 +159,123 @@ export default function MyEvents() {
   );
 }
 
-function EventOperational({ event, onBack, onStartLuta }: { 
+function EditEventModal({ event, onClose, onUpdate }: { event: Evento, onClose: () => void, onUpdate: (e: Evento) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    nome: event.nome,
+    data: event.data,
+    horario_inicio: event.horario_inicio,
+    local: event.local || '',
+    status: event.status
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('eventos')
+        .update(formData)
+        .eq('id', event.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      onUpdate(data);
+    } catch (err: any) {
+      alert(`Erro ao atualizar evento: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[var(--bg-card)] w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="p-6 border-b border-[var(--border-ui)] flex justify-between items-center">
+          <h3 className="text-xl font-black font-display text-[var(--text-main)]">Editar Evento</h3>
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-main)]">
+            <X size={24} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Nome do Evento</label>
+            <input 
+              required 
+              value={formData.nome}
+              onChange={e => setFormData(prev => ({ ...prev, nome: e.target.value }))}
+              className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Data</label>
+              <input 
+                required 
+                type="date"
+                value={formData.data}
+                onChange={e => setFormData(prev => ({ ...prev, data: e.target.value }))}
+                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Horário</label>
+              <input 
+                required 
+                type="time"
+                value={formData.horario_inicio}
+                onChange={e => setFormData(prev => ({ ...prev, horario_inicio: e.target.value }))}
+                className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Local</label>
+            <input 
+              value={formData.local}
+              onChange={e => setFormData(prev => ({ ...prev, local: e.target.value }))}
+              className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]" 
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Status</label>
+            <select 
+              value={formData.status}
+              onChange={e => setFormData(prev => ({ ...prev, status: e.target.value as any }))}
+              className="w-full bg-[var(--bg-app)] border border-[var(--border-ui)] rounded-xl py-3 px-4 text-sm text-[var(--text-main)]"
+            >
+              <option value="rascunho">Rascunho</option>
+              <option value="aberto">Aberto (Inscrições)</option>
+              <option value="fechado">Fechado</option>
+              <option value="em_andamento">Em Andamento</option>
+              <option value="finalizado">Finalizado</option>
+            </select>
+          </div>
+          <button 
+            disabled={loading || event.status === 'finalizado'}
+            type="submit" 
+            className="w-full btn-primary py-4 font-black mt-4 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="animate-spin mx-auto" size={24} /> : 'Salvar Alterações'}
+          </button>
+          {event.status === 'finalizado' && (
+            <p className="text-[10px] text-red-500 text-center font-bold uppercase">Eventos finalizados não podem ser editados.</p>
+          )}
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
+function EventOperational({ event, onBack, onEdit, onStartLuta }: { 
   event: Evento, 
   onBack: () => void,
+  onEdit: () => void,
   onStartLuta: (luta: { id: string, a: string, b: string }) => void
 }) {
   const [activeTab, setActiveTab] = useState<'weight' | 'warmup' | 'marshal' | 'brackets'>('weight');
@@ -217,7 +359,15 @@ function EventOperational({ event, onBack, onStartLuta }: {
           </button>
           <div>
             <h2 className="text-xl font-black font-display text-[var(--text-main)]">{event.nome}</h2>
-            <p className="text-xs text-bjj-purple font-bold uppercase tracking-widest">Controle Operacional</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-bjj-purple font-bold uppercase tracking-widest">Controle Operacional</p>
+              <button 
+                onClick={onEdit}
+                className="text-[10px] font-black text-bjj-purple hover:underline uppercase"
+              >
+                • Editar Evento
+              </button>
+            </div>
           </div>
         </div>
         <div className="flex bg-[var(--border-ui)] p-1 rounded-xl overflow-x-auto max-w-full">

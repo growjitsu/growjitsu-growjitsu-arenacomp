@@ -5,7 +5,11 @@ import { supabase } from '../services/supabase';
 import { Evento } from '../types';
 import EventRequestWizard from './EventRequestWizard';
 
-export default function CoordinatorDashboard() {
+interface CoordinatorDashboardProps {
+  onEventClick?: (eventId: string) => void;
+}
+
+export default function CoordinatorDashboard({ onEventClick }: CoordinatorDashboardProps) {
   const [loading, setLoading] = useState(true);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -237,6 +241,7 @@ export default function CoordinatorDashboard() {
                   name={event.nome} 
                   date={new Date(event.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} 
                   athletes={0} // This would need another count query per event for full accuracy
+                  onClick={() => onEventClick?.(event.id)}
                 />
               ))
             ) : (
@@ -342,9 +347,12 @@ function AthleteRow({ name, photo, belt, category, status }: any) {
   );
 }
 
-function MiniEventCard({ name, date, athletes }: any) {
+function MiniEventCard({ name, date, athletes, onClick }: any) {
   return (
-    <div className="card-surface p-4 flex items-center justify-between hover:border-bjj-purple/30 transition-colors cursor-pointer">
+    <div 
+      onClick={onClick}
+      className="card-surface p-4 flex items-center justify-between hover:border-bjj-purple/30 transition-colors cursor-pointer"
+    >
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-[var(--border-ui)] flex items-center justify-center text-bjj-purple">
           <Trophy size={20} />
