@@ -111,29 +111,9 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
         throw new Error('Apenas coordenadores podem criar eventos.');
       }
 
-      let logoUrl = '';
-      if (logoFile) {
-        const fileExt = logoFile.name.split('.').pop();
-        const fileName = `${session.user.id}-${Math.random()}.${fileExt}`;
-        const filePath = `logos/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('eventos-logos')
-          .upload(filePath, logoFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('eventos-logos')
-          .getPublicUrl(filePath);
-        
-        logoUrl = publicUrl;
-      }
-
       // 1. Create Event Request (pedidos_evento)
       console.log('Iniciando inserção em pedidos_evento...');
       const { data: pedido, error: pedidoError } = await supabase.from('pedidos_evento').insert({
-        // coordenador_id removido: o banco de dados define via DEFAULT e TRIGGER
         modalidade: formData.modalidade === 'Outros' ? formData.modalidadeOutros : formData.modalidade,
         modalidade_outros: formData.modalidade === 'Outros' ? formData.modalidadeOutros : null,
         responsavel_nome: formData.responsavelNome,
@@ -156,35 +136,57 @@ export default function EventRequestWizard({ onClose, onSuccess }: EventRequestW
       }).select().single();
 
       if (pedidoError) {
-        console.error('Erro detalhado RLS (pedidos_evento):', {
-          message: pedidoError.message,
-          details: pedidoError.details,
-          hint: pedidoError.hint,
-          code: pedidoError.code
-        });
-        throw new Error(`Erro de permissão ao criar pedido: ${pedidoError.message} (${pedidoError.hint || 'Verifique se o perfil de coordenador está ativo'})`);
+        console.error('Erro detalhado RLS (pedidos_evento):', pedidoError);
+        throw new Error(`Erro ao criar pedido: ${pedidoError.message}`);
       }
 
-      // 2. Create the Event itself (eventos)
+      // 2. Create the Event itself (eventos) - SEM LOGO INICIALMENTE
       console.log('Iniciando inserção em eventos...');
-      const { error: eventoError } = await supabase.from('eventos').insert({
-        // coordenador_id removido: o banco de dados define via DEFAULT e TRIGGER
+      const { data: evento, error: eventoError } = await supabase.from('eventos').insert({
         nome: formData.eventoNome,
         data: formData.eventoData,
         horario_inicio: formData.eventoHorario,
         local: formData.eventoLocal,
-        logo_url: logoUrl,
         status: 'rascunho'
-      });
+      }).select().single();
 
       if (eventoError) {
-        console.error('Erro detalhado RLS (eventos):', {
-          message: eventoError.message,
-          details: eventoError.details,
-          hint: eventoError.hint,
-          code: eventoError.code
-        });
-        throw new Error(`Erro de permissão ao criar evento: ${eventoError.message}`);
+        console.error('Erro detalhado RLS (eventos):', eventoError);
+        throw new Error(`Erro ao criar evento: ${eventoError.message}`);
+      }
+
+      // 3. Upload Logo e Update Event (Se houver logo)
+      if (logoFile && evento) {
+        console.log('Iniciando upload do logo para evento:', evento.id);
+        const fileExt = logoFile.name.split('.').pop();
+        // Path seguro: auth.uid() / evento_id / logo.ext
+        const filePath = `${session.user.id}/${evento.id}/logo.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('eventos')
+          .upload(filePath, logoFile, {
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Erro no upload do logo:', uploadError);
+          // Não travamos o processo todo se apenas o logo falhar, mas avisamos
+          alert('Evento criado, mas houve um erro ao enviar o logo. Você poderá editá-lo depois.');
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('eventos')
+            .getPublicUrl(filePath);
+          
+          // Atualiza o evento com a URL do logo
+          const { error: updateError } = await supabase
+            .from('eventos')
+            .update({ logo_url: publicUrl })
+            .eq('id', evento.id);
+
+          if (updateError) {
+            console.error('Erro ao atualizar logo_url:', updateError);
+          }
+        }
       }
 
       onSuccess();

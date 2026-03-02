@@ -85,7 +85,45 @@ CREATE TABLE IF NOT EXISTS resultados (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS POLICIES
+-- STORAGE CONFIGURATION
+-- Configuração do bucket e políticas de storage para logos de eventos
+
+-- 1. Criar bucket 'eventos'
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('eventos', 'eventos', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Políticas de Storage
+DROP POLICY IF EXISTS "Logo_Upload_Policy" ON storage.objects;
+DROP POLICY IF EXISTS "Logo_Update_Policy" ON storage.objects;
+DROP POLICY IF EXISTS "Logo_Delete_Policy" ON storage.objects;
+DROP POLICY IF EXISTS "Logo_Public_View" ON storage.objects;
+
+CREATE POLICY "Logo_Upload_Policy" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        bucket_id = 'eventos' AND
+        (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+CREATE POLICY "Logo_Update_Policy" ON storage.objects
+    FOR UPDATE TO authenticated
+    USING (
+        bucket_id = 'eventos' AND
+        (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+CREATE POLICY "Logo_Delete_Policy" ON storage.objects
+    FOR DELETE TO authenticated
+    USING (
+        bucket_id = 'eventos' AND
+        (storage.foldername(name))[1] = auth.uid()::text
+    );
+
+CREATE POLICY "Logo_Public_View" ON storage.objects
+    FOR SELECT USING (bucket_id = 'eventos');
+
+-- RLS POLICIES FOR TABLES
 
 -- 0. Security Functions & Triggers (Força o dono do registro no INSERT)
 CREATE OR REPLACE FUNCTION public.force_item_owner()
