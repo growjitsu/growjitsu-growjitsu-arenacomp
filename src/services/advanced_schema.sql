@@ -5,9 +5,12 @@
 -- 1. EXTENSIONS & TYPES
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Update UserType if needed (assuming it's a check constraint in usuarios)
--- ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_tipo_usuario_check;
--- ALTER TABLE usuarios ADD CONSTRAINT usuarios_tipo_usuario_check CHECK (tipo_usuario IN ('atleta', 'coordenador', 'responsavel'));
+-- Update UserType constraints in usuarios table
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_tipo_usuario_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_tipo_usuario_check CHECK (tipo_usuario IN ('atleta', 'coordenador', 'responsavel'));
+
+ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_perfil_ativo_check;
+ALTER TABLE usuarios ADD CONSTRAINT usuarios_perfil_ativo_check CHECK (perfil_ativo IN ('atleta', 'coordenador', 'responsavel'));
 
 -- 2. TEAMS (EQUIPES)
 CREATE TABLE IF NOT EXISTS equipes (
