@@ -1,3 +1,73 @@
+// ArenaComp Types
+export type UserRole = 'athlete' | 'coach' | 'gym' | 'admin';
+export type EventLevel = 'local' | 'state' | 'national' | 'international';
+export type PostType = 'text' | 'image' | 'video' | 'result';
+
+export interface ArenaProfile {
+  id: string;
+  username: string;
+  full_name: string;
+  role: UserRole;
+  modality?: string;
+  category?: string;
+  gym_id?: string;
+  city?: string;
+  state?: string;
+  avatar_url?: string;
+  bio?: string;
+  arena_score: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ArenaPost {
+  id: string;
+  author_id: string;
+  type: PostType;
+  content?: string;
+  media_url?: string;
+  likes_count: number;
+  comments_count: number;
+  created_at: string;
+  author?: ArenaProfile;
+}
+
+export interface ArenaGym {
+  id: string;
+  name: string;
+  owner_id?: string;
+  city?: string;
+  state?: string;
+  address?: string;
+  logo_url?: string;
+  bio?: string;
+  verified: boolean;
+  created_at: string;
+}
+
+export interface ArenaCompetition {
+  id: string;
+  name: string;
+  date: string;
+  level: EventLevel;
+  modality: string;
+  city?: string;
+  state?: string;
+}
+
+export interface ArenaResult {
+  id: string;
+  competition_id: string;
+  athlete_id: string;
+  placement: number;
+  points_earned: number;
+  created_at: string;
+  competition?: ArenaCompetition;
+}
+
 export type UserType = 'atleta' | 'coordenador' | 'responsavel';
 
 export type Belt = 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';
