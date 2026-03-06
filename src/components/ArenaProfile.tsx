@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Award, Target, TrendingUp, Grid, History, MapPin, Calendar, 
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
-  User, Dumbbell, Ruler, Scale, GraduationCap, Trophy
+  User, Dumbbell, Ruler, Scale, GraduationCap, Trophy,
+  Database
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, ArenaResult, ArenaPost } from '../types';
@@ -119,8 +120,13 @@ export const ArenaProfileView: React.FC<{ userId?: string; forceEdit?: boolean }
       
       setPosts(postsData || []);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching profile data:', error);
+      if (error.message?.includes("Could not find the table 'public.profiles'")) {
+        setError('DATABASE_MISSING');
+      } else {
+        setError(`Erro ao buscar perfil: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -168,6 +174,157 @@ export const ArenaProfileView: React.FC<{ userId?: string; forceEdit?: boolean }
   if (loading) return <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]" /></div>;
   
   if (!profile) {
+    if (error === 'DATABASE_MISSING') {
+      return (
+        <div className="max-w-2xl mx-auto py-12 px-4 space-y-8">
+          <div className="bg-rose-500/10 border border-rose-500/20 p-8 rounded-3xl text-center space-y-6">
+            <div className="w-20 h-20 bg-rose-500/20 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+              <Database size={40} />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black uppercase italic text-rose-500">Configuração Necessária</h2>
+              <p className="text-[var(--text-muted)] text-sm">
+                A tabela <code className="bg-black/20 px-2 py-1 rounded text-rose-400">profiles</code> não foi encontrada no seu banco de dados Supabase.
+              </p>
+            </div>
+            
+            <div className="bg-black/40 p-6 rounded-2xl text-left space-y-4">
+              <p className="text-xs font-bold uppercase tracking-widest text-[var(--text-muted)]">Como resolver:</p>
+              <ol className="text-sm text-[var(--text-main)] space-y-3 list-decimal list-inside">
+                <li>Acesse o <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline">Dashboard do Supabase</a></li>
+                <li>Vá em <span className="font-bold">SQL Editor</span></li>
+                <li>Clique em <span className="font-bold">+ New Query</span></li>
+                <li>Copie e cole o conteúdo do script SQL abaixo</li>
+                <li>Clique em <span className="font-bold">Run</span></li>
+              </ol>
+
+              <details className="mt-4">
+                <summary className="text-[10px] font-black uppercase tracking-widest text-[var(--primary)] cursor-pointer hover:opacity-80">Ver Script SQL de Inicialização</summary>
+                <div className="mt-2 p-4 bg-black/60 rounded-xl overflow-x-auto">
+                  <pre className="text-[10px] text-[var(--text-muted)] font-mono leading-relaxed">
+{`-- ArenaComp: National Social Network for Athletes
+-- Database Schema (PostgreSQL / Supabase)
+
+-- 1. Extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. Enums
+DO $$ BEGIN
+    CREATE TYPE user_role AS ENUM ('athlete', 'coach', 'gym', 'admin');
+    CREATE TYPE event_level AS ENUM ('local', 'state', 'national', 'international');
+    CREATE TYPE post_type AS ENUM ('text', 'image', 'video', 'result');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+-- 3. Tables
+CREATE TABLE IF NOT EXISTS gyms (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    owner_id UUID,
+    city TEXT,
+    state CHAR(2),
+    address TEXT,
+    logo_url TEXT,
+    bio TEXT,
+    verified BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    username TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    nickname TEXT,
+    role user_role DEFAULT 'athlete',
+    modality TEXT,
+    category TEXT,
+    weight DECIMAL(5,2),
+    height DECIMAL(5,2),
+    graduation TEXT,
+    gym_id UUID REFERENCES gyms(id) ON DELETE SET NULL,
+    gym_name TEXT,
+    professor TEXT,
+    city TEXT,
+    state CHAR(2),
+    country TEXT,
+    avatar_url TEXT,
+    bio TEXT,
+    instagram_url TEXT,
+    youtube_url TEXT,
+    tiktok_url TEXT,
+    titles TEXT,
+    medals INTEGER DEFAULT 0,
+    perfil_publico BOOLEAN DEFAULT TRUE,
+    permitir_seguidores BOOLEAN DEFAULT TRUE,
+    arena_score DECIMAL(12,2) DEFAULT 0,
+    wins INTEGER DEFAULT 0,
+    losses INTEGER DEFAULT 0,
+    draws INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS follows (
+    follower_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    following_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (follower_id, following_id)
+);
+
+CREATE TABLE IF NOT EXISTS posts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    type post_type DEFAULT 'text',
+    content TEXT,
+    media_url TEXT,
+    likes_count INTEGER DEFAULT 0,
+    comments_count INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS likes (
+    post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (post_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS competition_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    competition_id UUID,
+    athlete_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    placement INTEGER,
+    points_earned DECIMAL(10,2),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS Policies
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+
+CREATE POLICY "Posts are viewable by everyone" ON posts FOR SELECT USING (true);
+CREATE POLICY "Users can create posts" ON posts FOR INSERT WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (auth.uid() = author_id);`}
+                  </pre>
+                </div>
+              </details>
+            </div>
+
+            <button 
+              onClick={() => fetchProfileData()}
+              className="px-8 py-4 bg-[var(--primary)] text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
+            >
+              Já executei o SQL, tentar novamente
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="text-center py-24 space-y-6">
         <div className="flex justify-center">
