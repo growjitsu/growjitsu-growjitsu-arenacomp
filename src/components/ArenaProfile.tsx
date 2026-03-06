@@ -8,20 +8,21 @@ import {
 import { supabase } from '../services/supabase';
 import { ArenaProfile, ArenaResult, ArenaPost } from '../types';
 
-export const ArenaProfileView: React.FC<{ userId?: string }> = ({ userId }) => {
+export const ArenaProfileView: React.FC<{ userId?: string; forceEdit?: boolean }> = ({ userId, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
   const [results, setResults] = useState<ArenaResult[]>([]);
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'posts' | 'history'>('posts');
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(forceEdit || false);
   const [editData, setEditData] = useState<Partial<ArenaProfile>>({});
   const [saving, setSaving] = useState(false);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
 
   useEffect(() => {
+    setIsEditing(forceEdit || false);
     fetchProfileData();
-  }, [userId]);
+  }, [userId, forceEdit]);
 
   const fetchProfileData = async () => {
     try {
@@ -32,15 +33,40 @@ export const ArenaProfileView: React.FC<{ userId?: string }> = ({ userId }) => {
       setIsOwnProfile(user?.id === targetId);
 
       // Fetch Profile
-      const { data: profileData, error: profileError } = await supabase
+      let { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', targetId)
         .single();
       
-      if (profileError) throw profileError;
+      // Auto-create profile if it doesn't exist and it's the own profile
+      if (profileError && profileError.code === 'PGRST116' && user?.id === targetId) {
+        const newProfile = {
+          id: targetId,
+          username: user.email?.split('@')[0] || `user_${targetId.slice(0, 5)}`,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Novo Atleta',
+          avatar_url: user.user_metadata?.avatar_url || null,
+          arena_score: 0,
+          wins: 0,
+          losses: 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: createdProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([newProfile])
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        profileData = createdProfile;
+      } else if (profileError) {
+        throw profileError;
+      }
+
       setProfile(profileData);
-      setEditData(profileData);
+      setEditData(profileData || {});
 
       // Fetch Results
       const { data: resultsData } = await supabase
