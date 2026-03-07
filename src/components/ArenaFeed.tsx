@@ -186,7 +186,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if (uploadError) {
           console.error('Upload error:', uploadError);
           if (uploadError.message.includes('Bucket not found')) {
-            throw new Error('Erro crítico: O sistema de armazenamento (bucket "posts") não foi encontrado. Por favor, contate o administrador.');
+            throw new Error('Erro crítico: O sistema de armazenamento (bucket "posts") não foi encontrado. Por favor, crie o bucket no painel do Supabase.');
+          }
+          if (uploadError.message.includes('row-level security policy')) {
+            throw new Error('Erro de permissão: As políticas de segurança (RLS) do Storage não permitem o upload. Por favor, execute o script SQL de permissões no painel do Supabase.');
           }
           throw new Error('Erro ao enviar arquivo: ' + uploadError.message);
         }
