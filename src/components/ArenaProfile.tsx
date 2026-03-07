@@ -26,10 +26,35 @@ export const ArenaProfileView: React.FC<{ userId?: string; forceEdit?: boolean }
 
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsEditing(forceEdit || false);
-    fetchProfileData();
-  }, [userId, forceEdit]);
+  async function fetchFollowerCount(targetId: string) {
+    try {
+      const { count, error } = await supabase
+        .from('followers')
+        .select('*', { count: 'exact', head: true })
+        .eq('following_id', targetId);
+      
+      if (error) throw error;
+      setFollowerCount(count || 0);
+    } catch (err) {
+      console.error('Error fetching follower count:', err);
+    }
+  }
+
+  async function checkIfFollowing(followerId: string, followingId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('followers')
+        .select('*')
+        .eq('follower_id', followerId)
+        .eq('following_id', followingId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      setIsFollowing(!!data);
+    } catch (err) {
+      console.error('Error checking follow status:', err);
+    }
+  }
 
   const fetchProfileData = async () => {
     setLoading(true);
@@ -140,6 +165,11 @@ export const ArenaProfileView: React.FC<{ userId?: string; forceEdit?: boolean }
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setIsEditing(forceEdit || false);
+    fetchProfileData();
+  }, [userId, forceEdit]);
 
   const handleSave = async () => {
     if (!profile) return;
@@ -413,36 +443,6 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
     );
   }
 
-  const fetchFollowerCount = async (targetId: string) => {
-    try {
-      const { count, error } = await supabase
-        .from('followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', targetId);
-      
-      if (error) throw error;
-      setFollowerCount(count || 0);
-    } catch (err) {
-      console.error('Error fetching follower count:', err);
-    }
-  };
-
-  const checkIfFollowing = async (followerId: string, followingId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('followers')
-        .select('*')
-        .eq('follower_id', followerId)
-        .eq('following_id', followingId)
-        .maybeSingle();
-      
-      if (error) throw error;
-      setIsFollowing(!!data);
-    } catch (err) {
-      console.error('Error checking follow status:', err);
-    }
-  };
-
   const handleFollow = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -482,7 +482,7 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
     }
   };
 
-  const winRate = profile.wins + profile.losses > 0 
+  const winRate = (profile && (profile.wins + profile.losses > 0))
     ? Math.round((profile.wins / (profile.wins + profile.losses)) * 100) 
     : 0;
 
