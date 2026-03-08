@@ -19,11 +19,20 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(null);
 
   useEffect(() => {
     const getAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+      if (user) {
+        setCurrentUser(user);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        setCurrentUserProfile(profile);
+      }
     };
     getAuth();
 
@@ -215,8 +224,14 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                   <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">@{post.author?.username || 'user'}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] hidden md:block">
-                <X size={20} />
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }} 
+                className="p-2 text-[var(--text-muted)] hover:text-rose-500 transition-colors hidden md:block"
+              >
+                <X size={24} />
               </button>
             </div>
 
@@ -323,25 +338,37 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
             </div>
 
             {/* Footer / Add Comment */}
-            <div className="p-4 border-t border-[var(--border-ui)]">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 rounded-full bg-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)]">
-                  {currentUser?.user_metadata?.avatar_url && (
-                    <img src={currentUser.user_metadata.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div className="p-4 border-t border-[var(--border-ui)] bg-[var(--surface)]">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-full bg-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-inner">
+                  {currentUserProfile?.profile_photo || currentUserProfile?.avatar_url ? (
+                    <img src={currentUserProfile.profile_photo || currentUserProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-[var(--primary)]/10 text-[var(--primary)]">
+                      <User size={20} />
+                    </div>
                   )}
                 </div>
                 <input 
                   type="text" 
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddComment()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleAddComment();
+                    }
+                  }}
                   placeholder="Adicione um comentário..." 
                   className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]"
                 />
                 <button 
-                  onClick={handleAddComment}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddComment();
+                  }}
                   disabled={!newComment.trim() || submittingComment}
-                  className="text-[var(--primary)] font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:opacity-80 transition-opacity"
+                  className="text-[var(--primary)] font-black text-[11px] uppercase tracking-[0.2em] disabled:opacity-30 hover:text-[var(--primary-highlight)] transition-all px-2 py-1"
                 >
                   {submittingComment ? '...' : 'Publicar'}
                 </button>
