@@ -117,7 +117,7 @@ export default function App() {
     if (!isLoggedIn) return <Navigate to="/login" replace />;
     
     return (
-      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-20 transition-colors duration-300">
+      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-24 transition-all duration-500">
         <ArenaNavbar 
           activeTab={tabId} 
           setActiveTab={(tab) => navigate(`/${tab === 'feed' ? '' : tab}`)} 
@@ -126,25 +126,25 @@ export default function App() {
         />
         
         {/* Mobile Header */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-[var(--bg)]/80 backdrop-blur-xl border-b border-[var(--border-ui)] flex items-center justify-between px-4 z-40">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-lg flex items-center justify-center font-black text-white italic overflow-hidden">
+        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[var(--bg)]/60 backdrop-blur-2xl border-b border-[var(--border-ui)] flex items-center justify-between px-6 z-40 transition-all duration-500">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-xl flex items-center justify-center font-black text-white italic overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10">
               {profile?.profile_photo || profile?.avatar_url ? (
                 <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 'A'
               )}
             </div>
-            <span className="text-xs font-black uppercase tracking-tighter italic">ArenaComp</span>
+            <span className="text-[11px] font-black uppercase tracking-[0.2em] italic text-[var(--text-main)]">ArenaComp</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
             <button 
               onClick={() => navigate('/notifications')}
-              className="relative p-2 text-[var(--text-muted)]"
+              className="relative p-2.5 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
             >
               <Bell size={20} />
               {unreadNotifications > 0 && (
-                <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)]">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)] shadow-lg">
                   {unreadNotifications}
                 </span>
               )}
@@ -152,7 +152,7 @@ export default function App() {
             <div className="relative">
               <button 
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="w-8 h-8 rounded-full bg-[var(--surface)] border border-[var(--border-ui)] overflow-hidden"
+                className="w-10 h-10 rounded-xl bg-[var(--surface)] border border-[var(--border-ui)] overflow-hidden shadow-lg"
               >
                 {profile?.profile_photo || profile?.avatar_url ? (
                   <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -203,14 +203,14 @@ export default function App() {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto pt-14 md:pt-16">
+        <main className="max-w-7xl mx-auto pt-16 md:pt-20">
           <AnimatePresence mode="wait">
             <motion.div
               key={tabId}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
             >
               {content}
             </motion.div>
@@ -218,39 +218,47 @@ export default function App() {
         </main>
 
         {/* Header (Desktop Only) */}
-        <header className="hidden md:flex fixed top-0 right-0 left-20 h-16 bg-[var(--bg)]/50 backdrop-blur-xl border-b border-[var(--border-ui)] items-center justify-between px-8 z-40 transition-colors duration-300">
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Arena</span>
-            <span className="text-xs font-black uppercase tracking-widest text-[var(--primary)]">{tabId}</span>
+        <header className="hidden md:flex fixed top-0 right-0 left-24 h-20 bg-[var(--bg)]/40 backdrop-blur-2xl border-b border-[var(--border-ui)] items-center justify-between px-12 z-40 transition-all duration-500">
+          <div className="flex items-center space-x-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--primary)] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Arena Protocol</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--primary)]">/ {tabId}</span>
           </div>
           
-          <div className="flex items-center space-x-4 relative">
-            {/* Notification Bell */}
+          <div className="flex items-center space-x-8 relative">
+            <div className="flex items-center space-x-4 bg-[var(--surface)]/50 px-6 py-2.5 rounded-2xl border border-[var(--border-ui)] shadow-inner">
+              <div className="text-right">
+                <p className="text-[11px] font-black text-[var(--text-main)] uppercase tracking-tight">{profile?.full_name}</p>
+                <p className="text-[9px] font-black text-[var(--primary)] uppercase tracking-[0.2em]">Level {Math.floor((profile?.arena_score || 0) / 100) + 1}</p>
+              </div>
+              <div className="w-px h-6 bg-[var(--border-ui)]" />
+              <div className="flex flex-col items-center">
+                <span className="text-[12px] font-black text-[var(--text-main)]">{Math.round(profile?.arena_score || 0)}</span>
+                <span className="text-[7px] font-black text-[var(--text-muted)] uppercase tracking-widest">Points</span>
+              </div>
+            </div>
+
             <button 
               onClick={() => navigate('/notifications')}
-              className="relative p-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+              className="relative p-3 text-[var(--text-muted)] hover:text-[var(--primary)] bg-[var(--surface)]/50 rounded-2xl border border-[var(--border-ui)] transition-all hover:scale-105 active:scale-95"
             >
               <Bell size={20} />
               {unreadNotifications > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)]">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)] shadow-lg">
                   {unreadNotifications}
                 </span>
               )}
             </button>
 
-            <div className="text-right">
-              <p className="text-xs font-bold text-[var(--text-main)]">{profile?.full_name}</p>
-              <p className="text-[10px] font-black text-[var(--primary)] uppercase tracking-widest">Score: {Math.round(profile?.arena_score || 0)}</p>
-            </div>
             <button 
               onClick={() => setShowProfileMenu(!showProfileMenu)}
-              className="w-10 h-10 rounded-full bg-[var(--surface)] border border-[var(--border-ui)] overflow-hidden hover:border-[var(--primary)] transition-all"
+              className="w-12 h-12 rounded-2xl bg-[var(--surface)] border border-[var(--border-ui)] overflow-hidden hover:border-[var(--primary)] transition-all shadow-xl hover:shadow-[var(--primary)]/20 group"
             >
               {profile?.profile_photo || profile?.avatar_url ? (
-                <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-[var(--primary)]/10 text-[var(--primary)]">
-                  <span className="text-xs font-bold">{profile?.full_name?.charAt(0)}</span>
+                  <span className="text-sm font-bold">{profile?.full_name?.charAt(0)}</span>
                 </div>
               )}
             </button>

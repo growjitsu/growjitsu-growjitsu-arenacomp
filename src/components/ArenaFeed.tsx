@@ -400,215 +400,382 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
-      {/* Create Post */}
-      <div className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl p-4 space-y-4 transition-colors duration-300">
-        <div className="flex space-x-4">
-          <div className="w-10 h-10 rounded-full bg-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)]">
-            {userProfile?.profile_photo || userProfile?.avatar_url ? (
-              <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                <User size={20} />
+    <div className="max-w-7xl mx-auto py-4 md:py-8 px-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column - Feed Content */}
+        <div className="lg:col-span-8 space-y-8">
+          
+          {/* Top Athletes Rail - Immersive Style */}
+          <div className="bg-[var(--surface)]/40 backdrop-blur-2xl border border-[var(--border-ui)] rounded-[2.5rem] p-6 overflow-hidden shadow-2xl shadow-black/20">
+            <div className="flex items-center justify-between mb-6 px-2">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-main)]">Elite Arena</h3>
               </div>
-            )}
-          </div>
-          <textarea
-            value={newPostContent}
-            onChange={(e) => setNewPostContent(e.target.value)}
-            placeholder="O que está treinando hoje?"
-            className="w-full bg-transparent border-none focus:ring-0 text-[var(--text-main)] placeholder-[var(--text-muted)] resize-none h-20"
-          />
-        </div>
-
-        {/* Preview Section */}
-        {previewUrls.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            {previewUrls.map((url, index) => (
-              <div key={index} className="relative rounded-xl overflow-hidden border border-[var(--border-ui)] bg-black/5 aspect-[4/5] flex items-center justify-center">
-                {selectedFiles[index]?.type.startsWith('image/') ? (
-                  <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="relative w-full h-full">
-                    <video src={url} className="w-full h-full object-cover" />
-                    {/* Safe Zone Hint for 9:16 videos */}
-                    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8 opacity-50">
-                      <div className="h-20 border-t border-dashed border-white/30" />
-                      <div className="flex-1 flex items-center justify-center">
-                        <span className="text-[8px] text-white/50 uppercase font-black">Zona Segura Central</span>
+              <Link to="/rankings" className="text-[9px] font-black uppercase tracking-widest text-[var(--primary)] hover:text-[var(--primary-highlight)] transition-all flex items-center space-x-1 group">
+                <span>Ranking Global</span>
+                <Plus size={10} className="group-hover:rotate-90 transition-transform" />
+              </Link>
+            </div>
+            <div className="flex space-x-8 overflow-x-auto pb-4 hide-scrollbar snap-x">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="flex-shrink-0 flex flex-col items-center space-y-3 snap-start group cursor-pointer">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-tr from-[var(--primary)] to-cyan-400 rounded-full blur-md opacity-0 group-hover:opacity-50 transition-opacity duration-500" />
+                    <div className="relative p-1 rounded-full bg-gradient-to-tr from-[var(--border-ui)] to-[var(--primary)]/30 group-hover:from-[var(--primary)] group-hover:to-cyan-400 transition-all duration-500">
+                      <div className="w-16 h-16 rounded-full bg-[var(--bg)] p-1">
+                        <div className="w-full h-full rounded-full bg-[var(--surface)] overflow-hidden border border-[var(--border-ui)]">
+                          <img 
+                            src={`https://picsum.photos/seed/athlete${i}/200/200`} 
+                            alt="" 
+                            className="w-full h-full object-cover grayscale group-hover:grayscale-0 group-hover:scale-110 transition-all duration-500"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
                       </div>
-                      <div className="h-20 border-b border-dashed border-white/30" />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-white text-black text-[9px] font-black w-6 h-6 flex items-center justify-center rounded-full border-2 border-[var(--bg)] shadow-lg">
+                      {i}
                     </div>
                   </div>
-                )}
-                <button 
-                  onClick={() => {
-                    const newFiles = [...selectedFiles];
-                    const newUrls = [...previewUrls];
-                    newFiles.splice(index, 1);
-                    newUrls.splice(index, 1);
-                    setSelectedFiles(newFiles);
-                    setPreviewUrls(newUrls);
-                    window.URL.revokeObjectURL(url);
-                  }}
-                  className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full hover:bg-rose-500 transition-colors"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-col space-y-4 pt-2 border-t border-[var(--border-ui)]">
-          <div className="flex flex-wrap gap-4">
-            <label className="flex items-center space-x-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer group">
-              <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
-              <div className="p-2 rounded-lg bg-[var(--bg)] group-hover:bg-[var(--primary)]/10">
-                <ImageIcon size={20} />
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Galeria</span>
-            </label>
-            <label className="flex items-center space-x-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer group">
-              <input type="file" className="hidden" accept="image/jpeg,image/png" capture="environment" onChange={handleFileChange} />
-              <div className="p-2 rounded-lg bg-[var(--bg)] group-hover:bg-[var(--primary)]/10">
-                <Plus size={20} />
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Câmera</span>
-            </label>
-            <label className="flex items-center space-x-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors cursor-pointer group">
-              <input type="file" className="hidden" accept="video/mp4,video/quicktime" capture="environment" onChange={handleFileChange} />
-              <div className="p-2 rounded-lg bg-[var(--bg)] group-hover:bg-[var(--primary)]/10">
-                <Video size={20} />
-              </div>
-              <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Vídeo</span>
-            </label>
-          </div>
-          
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              {selectedFiles.length > 0 && (
-                <div className="flex items-center space-x-2 bg-[var(--bg)] px-3 py-1 rounded-full border border-[var(--border-ui)]">
-                  <span className="text-[10px] font-bold">{selectedFiles.length} arquivos selecionados</span>
+                  <div className="text-center">
+                    <p className="text-[10px] font-black uppercase tracking-tighter text-[var(--text-main)]">Atleta_{i}</p>
+                    <p className="text-[8px] font-bold text-[var(--primary)] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">+{Math.floor(Math.random() * 100)} pts</p>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-            <button
-              onClick={handleCreatePost}
-              disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
-              className="bg-[var(--primary)] text-white px-8 py-2 rounded-full font-black text-xs uppercase tracking-widest disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
-            >
-              {uploading ? 'Enviando...' : 'Postar'}
-            </button>
+          </div>
+
+          {/* Create Post - Command Center Style */}
+          <div className="bg-[var(--surface)]/60 backdrop-blur-xl border border-[var(--border-ui)] rounded-[2.5rem] p-8 shadow-2xl shadow-black/40 relative overflow-hidden group/post">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover/post:bg-[var(--primary)]/10 transition-colors" />
+            <div className="flex space-x-6">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl relative z-10">
+                  {userProfile?.profile_photo || userProfile?.avatar_url ? (
+                    <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
+                      <User size={28} />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-lg border-4 border-[var(--surface)] flex items-center justify-center z-20">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-6">
+                <textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder="Relatório de performance..."
+                  className="w-full bg-transparent border-none focus:ring-0 text-base text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-16 font-semibold tracking-tight"
+                />
+                
+                {previewUrls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    {previewUrls.map((url, index) => (
+                      <motion.div 
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group/preview shadow-2xl"
+                      >
+                        {selectedFiles[index]?.type.startsWith('image/') ? (
+                          <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <video src={url} className="w-full h-full object-cover" />
+                        )}
+                        <button 
+                          onClick={() => {
+                            const newFiles = [...selectedFiles];
+                            const newUrls = [...previewUrls];
+                            newFiles.splice(index, 1);
+                            newUrls.splice(index, 1);
+                            setSelectedFiles(newFiles);
+                            setPreviewUrls(newUrls);
+                            window.URL.revokeObjectURL(url);
+                          }}
+                          className="absolute top-4 right-4 p-2.5 bg-black/80 text-white rounded-2xl hover:bg-rose-500 transition-all opacity-0 group-hover/preview:opacity-100 scale-90 group-hover/preview:scale-100 backdrop-blur-md"
+                        >
+                          <X size={18} />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-6 border-t border-[var(--border-ui)]/20">
+                  <div className="flex space-x-3">
+                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+                      <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
+                      <ImageIcon size={20} />
+                    </label>
+                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+                      <input type="file" className="hidden" accept="video/mp4,video/quicktime" onChange={handleFileChange} />
+                      <Video size={20} />
+                    </label>
+                  </div>
+                  <button
+                    onClick={handleCreatePost}
+                    disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
+                    className="bg-[var(--primary)] text-white px-10 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30 active:scale-95"
+                  >
+                    {uploading ? 'Processando...' : 'Transmitir'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feed List - Immersive Cards */}
+          <div className="space-y-12">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-32 space-y-6">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-[var(--primary)]/20 rounded-full" />
+                  <div className="absolute top-0 left-0 w-16 h-16 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                </div>
+                <span className="text-[11px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)] animate-pulse">Sincronizando Arena</span>
+              </div>
+            ) : (
+              posts.map((post) => (
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-100px" }}
+                  onClick={() => {
+                    setSelectedPost(post);
+                    setIsPostModalOpen(true);
+                  }}
+                  className="group bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-ui)] rounded-[3rem] overflow-hidden transition-all duration-700 hover:border-[var(--primary)]/40 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] cursor-pointer relative"
+                >
+                  {/* Post Header - Cinematic Style */}
+                  <div className="p-8 flex items-center justify-between relative z-10">
+                    <div className="flex items-center space-x-5">
+                      <Link 
+                        to={`/user/@${post.author?.username}`} 
+                        className="relative group/avatar"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="absolute inset-0 bg-[var(--primary)] rounded-[1.5rem] blur-lg opacity-0 group-hover/avatar:opacity-30 transition-opacity" />
+                        <div className="w-14 h-14 rounded-[1.5rem] bg-[var(--bg)] overflow-hidden relative z-10 border border-[var(--border-ui)] group-hover/avatar:border-[var(--primary)]/50 transition-all duration-500">
+                          {(post.author?.profile_photo || post.author?.avatar_url) && (
+                            <img src={post.author.profile_photo || post.author.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          )}
+                        </div>
+                      </Link>
+                      <div>
+                        <div className="flex items-center space-x-3">
+                          <Link 
+                            to={`/user/@${post.author?.username}`} 
+                            className="font-black text-sm uppercase tracking-wider text-[var(--text-main)] hover:text-[var(--primary)] transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {post.author?.full_name || 'Atleta'}
+                          </Link>
+                          <div className="px-2 py-0.5 rounded-md bg-[var(--bg)] border border-[var(--border-ui)] text-[9px] font-mono font-bold text-[var(--primary)]">
+                            LVL {Math.floor((post.author?.arena_score || 0) / 100) + 1}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3 mt-1.5">
+                          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">@{post.author?.username}</span>
+                          <span className="w-1 h-1 rounded-full bg-[var(--primary)]/40" />
+                          <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.2em]">{post.author?.modality || 'Geral'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-end space-y-2">
+                      <div className="text-[10px] font-mono font-bold text-[var(--text-muted)] bg-[var(--bg)]/50 px-3 py-1 rounded-full border border-[var(--border-ui)]">
+                        {new Date(post.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      {post.type === 'result' && (
+                        <div className="bg-gradient-to-r from-amber-400 to-orange-600 text-white px-4 py-1.5 rounded-xl flex items-center space-x-2 shadow-2xl shadow-orange-500/30 border border-white/10">
+                          <Award size={12} className="fill-current" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Pódio</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Post Content */}
+                  <div className="px-8 pb-4">
+                    <p className="text-[var(--text-main)]/90 text-base leading-relaxed font-medium mb-6 tracking-tight">{post.content}</p>
+                    
+                    {post.media_url && (
+                      <div className="relative rounded-[2.5rem] overflow-hidden border border-[var(--border-ui)] bg-black group/media shadow-2xl">
+                        {(() => {
+                          let urls: string[] = [];
+                          try {
+                            if (post.media_url.startsWith('[')) {
+                              urls = JSON.parse(post.media_url);
+                            } else {
+                              urls = [post.media_url];
+                            }
+                          } catch (e) {
+                            urls = [post.media_url];
+                          }
+
+                          if (urls.length > 1) {
+                            return (
+                              <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar aspect-[4/5]">
+                                {urls.map((url, i) => (
+                                  <div key={i} className="flex-shrink-0 w-full snap-center relative">
+                                    <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    <div className="absolute top-6 right-6 bg-black/60 backdrop-blur-xl text-white text-[10px] font-black px-3 py-1.5 rounded-xl border border-white/10 shadow-2xl">
+                                      {i + 1} / {urls.length}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }
+
+                          return post.type === 'video' ? (
+                            <div className="relative aspect-video flex items-center justify-center bg-black group/vid">
+                              <video src={urls[0]} className="w-full h-full object-contain" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 opacity-0 group-hover/media:opacity-100 transition-all duration-500 pointer-events-none" />
+                              <div className="absolute top-6 left-6 bg-[var(--primary)] text-white text-[10px] font-black px-4 py-2 rounded-xl uppercase tracking-[0.3em] shadow-2xl shadow-[var(--primary)]/40 border border-white/10">Replay</div>
+                              <div className="absolute bottom-6 left-6 flex items-center space-x-3 opacity-0 group-hover/media:opacity-100 transition-all duration-500 delay-100">
+                                <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">4K Ultra HD</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="relative group/img overflow-hidden">
+                              <img src={urls[0]} alt="" className="w-full h-auto max-h-[700px] object-cover group-hover/img:scale-105 transition-transform duration-1000" referrerPolicy="no-referrer" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Post Actions - High-End Interaction */}
+                  <div className="px-10 py-8 flex items-center justify-between relative">
+                    <div className="absolute top-0 left-10 right-10 h-px bg-gradient-to-r from-transparent via-[var(--border-ui)] to-transparent" />
+                    <div className="flex items-center space-x-12">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLike(post.id, post.author_id);
+                        }}
+                        className={`flex items-center space-x-4 group/btn transition-all ${
+                          post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
+                        }`}
+                      >
+                        <div className={`p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
+                          <Heart size={22} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Curtidas</span>
+                        </div>
+                      </button>
+
+                      <button className="flex items-center space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
+                        <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
+                          <MessageCircle size={22} className="group-hover/btn:scale-110 transition-transform" />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
+                          <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Comentários</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    <button className="p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500">
+                      <Share2 size={22} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Feed */}
-      <div className="space-y-6">
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]" />
-          </div>
-        ) : (
-          posts.map((post) => (
-            <motion.div
-              key={post.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => {
-                setSelectedPost(post);
-                setIsPostModalOpen(true);
-              }}
-              className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl overflow-hidden transition-colors duration-300 cursor-pointer"
-            >
-              {/* Post Header */}
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Link to={`/user/@${post.author?.username}`} className="w-10 h-10 rounded-full bg-[var(--bg)] overflow-hidden block">
-                    {(post.author?.profile_photo || post.author?.avatar_url) && (
-                      <img src={post.author.profile_photo || post.author.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    )}
-                  </Link>
-                  <div>
-                    <Link to={`/user/@${post.author?.username}`} className="font-bold text-sm text-[var(--text-main)] hover:text-[var(--primary)] transition-colors block">
-                      {post.author?.full_name || 'Atleta'}
-                    </Link>
-                    <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">@{post.author?.username || 'user'}</p>
+        {/* Right Column - Arena Intelligence - Premium Sidebar */}
+        <div className="hidden lg:block lg:col-span-4 space-y-8">
+          <div className="bg-[var(--surface)]/40 backdrop-blur-2xl border border-[var(--border-ui)] rounded-[3rem] p-8 sticky top-24 shadow-2xl shadow-black/40 overflow-hidden group/sidebar">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent opacity-50" />
+            
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Arena Intelligence</h3>
+              </div>
+              <Award size={16} className="text-[var(--primary)] opacity-50" />
+            </div>
+
+            <div className="space-y-10">
+              {/* Score Visualization */}
+              <div className="relative p-6 rounded-[2rem] bg-gradient-to-br from-[var(--bg)] to-[var(--surface)] border border-[var(--border-ui)] shadow-inner group/score">
+                <div className="absolute top-4 right-4 text-[8px] font-black text-[var(--primary)] uppercase tracking-widest">Global Rank</div>
+                <div className="flex flex-col items-center justify-center space-y-2 py-4">
+                  <span className="text-5xl font-black text-[var(--text-main)] tracking-tighter group-hover/score:scale-110 transition-transform duration-500">{Math.round(userProfile?.arena_score || 0)}</span>
+                  <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.3em]">Arena Points</span>
+                </div>
+                <div className="space-y-3 mt-4">
+                  <div className="flex justify-between items-center px-1">
+                    <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Progresso Mensal</span>
+                    <span className="text-[9px] font-black text-emerald-500">+12.5%</span>
+                  </div>
+                  <div className="w-full h-2 bg-[var(--surface)] rounded-full overflow-hidden p-0.5 border border-[var(--border-ui)]">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: '78%' }}
+                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-[var(--primary)] via-cyan-400 to-[var(--primary)] rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" 
+                    />
                   </div>
                 </div>
-                {post.type === 'result' && (
-                  <div className="bg-[var(--primary)]/10 text-[var(--primary)] px-3 py-1 rounded-full flex items-center space-x-1">
-                    <Award size={12} />
-                    <span className="text-[10px] font-black uppercase">Resultado</span>
-                  </div>
-                )}
               </div>
 
-              {/* Post Content */}
-              <div className="px-4 pb-4">
-                <p className="text-[var(--text-main)]/90 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
-                {post.media_url && (
-                  <div className="mt-4 rounded-xl overflow-hidden border border-[var(--border-ui)] bg-black">
-                    {(() => {
-                      let urls: string[] = [];
-                      try {
-                        if (post.media_url.startsWith('[')) {
-                          urls = JSON.parse(post.media_url);
-                        } else {
-                          urls = [post.media_url];
-                        }
-                      } catch (e) {
-                        urls = [post.media_url];
-                      }
-
-                      if (urls.length > 1) {
-                        return (
-                          <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar">
-                            {urls.map((url, i) => (
-                              <div key={i} className="flex-shrink-0 w-full snap-center aspect-[4/5]">
-                                <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      }
-
-                      return post.type === 'video' ? (
-                        <video src={urls[0]} controls className="w-full h-auto max-h-[500px]" />
-                      ) : (
-                        <img src={urls[0]} alt="" className="w-full h-auto" referrerPolicy="no-referrer" />
-                      );
-                    })()}
-                  </div>
-                )}
+              {/* Trending Modalities */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between px-1">
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-main)]">Trending Arena</h4>
+                  <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Live Updates</span>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { tag: 'JiuJitsu', count: '2.4k', trend: '+12%', color: 'from-blue-500 to-indigo-600' },
+                    { tag: 'Crossfit', count: '1.8k', trend: '+5%', color: 'from-emerald-500 to-teal-600' },
+                    { tag: 'MuayThai', count: '950', trend: '+24%', color: 'from-rose-500 to-orange-600' }
+                  ].map((trend, idx) => (
+                    <motion.div 
+                      key={idx}
+                      whileHover={{ x: 5 }}
+                      className="flex items-center justify-between p-4 rounded-2xl bg-[var(--bg)]/30 border border-[var(--border-ui)] hover:border-[var(--primary)]/30 hover:bg-[var(--bg)]/50 transition-all cursor-pointer group/item"
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${trend.color} flex items-center justify-center text-white text-[10px] font-black shadow-lg shadow-black/20`}>
+                          #{idx + 1}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-[var(--text-main)] group-hover/item:text-[var(--primary)] transition-colors">#{trend.tag}</p>
+                          <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">{trend.count} interações</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-[10px] font-black ${trend.trend.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>{trend.trend}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
 
-              {/* Post Actions */}
-              <div className="px-4 py-3 border-t border-[var(--border-ui)] flex items-center space-x-6">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleLike(post.id, post.author_id);
-                  }}
-                  className={`flex items-center space-x-2 transition-colors ${
-                    post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
-                  }`}
-                >
-                  <Heart size={18} className={post.is_liked ? 'fill-current' : ''} />
-                  <span className="text-xs font-bold">{post.likes_count}</span>
-                </button>
-                <button className="flex items-center space-x-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors">
-                  <MessageCircle size={18} />
-                  <span className="text-xs font-bold">{post.comments_count}</span>
-                </button>
-                <button className="flex items-center space-x-2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors ml-auto">
-                  <Share2 size={18} />
-                </button>
-              </div>
-            </motion.div>
-          ))
-        )}
+              <button className="group relative w-full py-5 rounded-[2rem] bg-[var(--primary)] overflow-hidden shadow-2xl shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <span className="relative z-10 text-white text-[11px] font-black uppercase tracking-[0.4em]">Explorar Competições</span>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <PostModal 
