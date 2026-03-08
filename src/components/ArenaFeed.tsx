@@ -38,7 +38,30 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 1. Fetch all posts with author info
+      // 1. Fetch current user's profile and following for the algorithm
+      let currentUserProfile: ArenaProfile | null = null;
+      let followingSet: Set<string> = new Set();
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        currentUserProfile = profile;
+
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
+        
+        if (follows) {
+          followingSet = new Set(follows.map(f => f.following_id));
+          setFollowingIds(followingSet);
+        }
+      }
+
+      // 2. Fetch all posts with author info
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
         .select(`
@@ -49,7 +72,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
       if (postsError) throw postsError;
 
-      // 2. Fetch user's likes to mark posts as liked
+      // 3. Fetch user's likes to mark posts as liked
       let userLikes: Set<string> = new Set();
       if (user) {
         const { data: likesData } = await supabase
@@ -62,13 +85,68 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         }
       }
 
-      // 3. Map posts with is_liked status
-      const postsWithLikes = (postsData || []).map(post => ({
-        ...post,
-        is_liked: userLikes.has(post.id)
-      }));
+      // 4. Calculate scores for the "Instagram-inspired" algorithm
+      // Factors: Following (+50), Modality (+40), Engagement (L*2, C*4, S*6), 
+      // Recency (<1h +30, <6h +20, <24h +10), Geography (City+30, State+20, Country+10),
+      // Ranking (Top+50, +30, +20), Content (Video+15, Image+10, Text+5)
+      const now = new Date();
+      const scoredPosts = (postsData || []).map(post => {
+        let score = 0;
+        const postDate = new Date(post.created_at);
+        const diffHours = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60);
 
-      setPosts(postsWithLikes);
+        // 1) Seguindo
+        if (followingSet.has(post.author_id)) score += 50;
+
+        // 2) Modalidade
+        if (currentUserProfile && post.author?.modality === currentUserProfile.modality) score += 40;
+
+        // 3) Engajamento
+        score += (post.likes_count || 0) * 2;
+        score += (post.comments_count || 0) * 4;
+        score += (post.shares_count || 0) * 6;
+
+        // 4) Tempo da postagem
+        if (diffHours <= 1) score += 30;
+        else if (diffHours <= 6) score += 20;
+        else if (diffHours <= 24) score += 10;
+
+        // 5) Proximidade geográfica
+        if (currentUserProfile && post.author) {
+          if (post.author.city === currentUserProfile.city) score += 30;
+          else if (post.author.state === currentUserProfile.state) score += 20;
+          else if (post.author.country === currentUserProfile.country) score += 10;
+        }
+
+        // 6) Ranking do atleta (Simplified based on arena_score)
+        const authorScore = post.author?.arena_score || 0;
+        if (authorScore > 1000) score += 50;
+        else if (authorScore > 500) score += 30;
+        else if (authorScore > 100) score += 20;
+
+        // 7) Tipo de conteúdo
+        if (post.type === 'video') score += 15;
+        else if (post.type === 'image') score += 10;
+        else if (post.type === 'text') score += 5;
+
+        return {
+          ...post,
+          is_liked: userLikes.has(post.id),
+          feed_score: score
+        };
+      });
+
+      // 5. Final Sorting
+      // Requirement: "garantindo que o último post publicado sempre apareça primeiro"
+      // We sort primarily by created_at DESC. Tie-breaker is the calculated feed_score.
+      const sortedPosts = scoredPosts.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.feed_score || 0) - (a.feed_score || 0);
+      });
+
+      setPosts(sortedPosts);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
