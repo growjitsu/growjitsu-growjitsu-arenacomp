@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X } from 'lucide-react';
 import { supabase } from '../services/supabase';
@@ -875,15 +875,20 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         </div>
       </div>
 
-      <PostModal 
-        post={selectedPost} 
-        onClose={() => {
-          setIsPostModalOpen(false);
-          setSelectedPost(null);
-        }} 
-        onLike={handleLike}
-        onShare={handleShare}
-      />
+      <AnimatePresence>
+        {isPostModalOpen && selectedPost && (
+          <PostModal 
+            key={selectedPost.id}
+            post={selectedPost} 
+            onClose={() => {
+              setIsPostModalOpen(false);
+              setSelectedPost(null);
+            }} 
+            onLike={handleLike}
+            onShare={handleShare}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

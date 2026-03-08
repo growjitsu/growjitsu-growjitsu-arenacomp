@@ -92,13 +92,16 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
 
   const handleAddComment = async () => {
     if (!post || !newComment.trim() || !currentUser) {
-      console.log('Cannot add comment:', { post: !!post, newComment: !!newComment.trim(), currentUser: !!currentUser });
+      console.log('Cannot add comment - missing data:', { post: !!post, newComment: !!newComment.trim(), currentUser: !!currentUser });
       return;
     }
+    
     setSubmittingComment(true);
     try {
       console.log('Submitting comment for post:', post.id);
-      const { data, error } = await supabase
+      
+      // 1. Insert the comment
+      const { data: commentData, error: commentError } = await supabase
         .from('comments')
         .insert({
           post_id: post.id,
@@ -111,60 +114,73 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
         `)
         .single();
 
-      if (error) throw error;
+      if (commentError) {
+        console.error('Database error inserting comment:', commentError);
+        throw new Error(`Erro ao inserir comentário: ${commentError.message}`);
+      }
       
-      setComments(prev => [...prev, data]);
+      // Update local state immediately for better UX
+      setComments(prev => [...prev, commentData]);
       setNewComment('');
       
-      // Update comment count in posts table
-      const { data: postData } = await supabase
-        .from('posts')
-        .select('comments_count')
-        .eq('id', post.id)
-        .single();
-      
-      if (postData) {
-        await supabase
+      // 2. Attempt to update comment count (Optional - might fail due to RLS)
+      try {
+        const { data: postData } = await supabase
           .from('posts')
-          .update({ comments_count: (postData.comments_count || 0) + 1 })
-          .eq('id', post.id);
+          .select('comments_count')
+          .eq('id', post.id)
+          .single();
+        
+        if (postData) {
+          await supabase
+            .from('posts')
+            .update({ comments_count: (postData.comments_count || 0) + 1 })
+            .eq('id', post.id);
+        }
+      } catch (countError) {
+        console.warn('Could not update comment count:', countError);
       }
       
-      // Create notification for post author
-      if (currentUser.id !== post.author_id) {
-        await supabase.from('notifications').insert({
-          user_id: post.author_id,
-          actor_id: currentUser.id,
-          type: 'comment',
-          post_id: post.id
-        });
+      // 3. Create notification for post author (Optional)
+      try {
+        if (currentUser.id !== post.author_id) {
+          await supabase.from('notifications').insert({
+            user_id: post.author_id,
+            actor_id: currentUser.id,
+            type: 'comment',
+            post_id: post.id
+          });
+        }
+      } catch (notifError) {
+        console.warn('Could not create notification:', notifError);
       }
-      console.log('Comment added successfully');
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      alert('Erro ao publicar comentário. Tente novamente.');
+
+      console.log('Comment process completed successfully');
+    } catch (error: any) {
+      console.error('Full error in handleAddComment:', error);
+      alert(error.message || 'Erro ao publicar comentário. Por favor, verifique sua conexão e tente novamente.');
     } finally {
       setSubmittingComment(false);
     }
   };
 
+  if (!post) return null;
+
   return (
-    <AnimatePresence>
-      {post && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-[var(--surface)] w-full max-w-5xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col md:flex-row shadow-2xl border border-[var(--border-ui)]"
-            onClick={(e) => e.stopPropagation()}
-          >
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[var(--bg)] w-full max-w-5xl h-full max-h-[800px] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-[var(--border-ui)]"
+      >
           {/* Media Section */}
           <div className="flex-1 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-0">
             {post.media_url ? (
@@ -234,7 +250,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                   e.stopPropagation();
                   onClose();
                 }} 
-                className="p-2 text-[var(--text-muted)] hover:text-rose-500 transition-colors hidden md:block"
+                className="p-2 text-[var(--text-muted)] hover:text-rose-500 transition-colors hidden md:block relative z-50"
               >
                 <X size={24} />
               </button>
@@ -382,7 +398,5 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
           </div>
         </motion.div>
       </motion.div>
-    )}
-  </AnimatePresence>
-  );
+    );
 };
