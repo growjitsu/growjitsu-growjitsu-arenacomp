@@ -17,10 +17,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [arenaStats, setArenaStats] = useState({
+    totalPosts: 0,
+    activeUsers: 0,
+    totalInteractions: 0,
+    growth: 0
+  });
+  const [trendingPosts, setTrendingPosts] = useState<ArenaPost[]>([]);
 
   useEffect(() => {
     fetchPosts();
     fetchTopAthletes();
+    fetchArenaStats();
+    fetchTrendingPosts();
 
     // Check for deep link
     const urlParams = new URLSearchParams(window.location.search);
@@ -71,15 +80,21 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       }
 
       // 2. Fetch all posts with author info
+      console.log('ArenaFeed: Fetching posts...');
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
         .select(`
           *,
           author:profiles(*)
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
-      if (postsError) throw postsError;
+      if (postsError) {
+        console.error('ArenaFeed: Error fetching posts:', postsError);
+        throw postsError;
+      }
+      console.log(`ArenaFeed: Fetched ${postsData?.length || 0} posts`);
 
       // 3. Fetch user's likes to mark posts as liked
       let userLikes: Set<string> = new Set();
@@ -170,6 +185,57 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       setTopAthletes(data || []);
     } catch (error) {
       console.error('Error fetching top athletes:', error);
+    }
+  };
+
+  const fetchArenaStats = async () => {
+    try {
+      // Fetch total posts
+      const { count: postsCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch active users (total profiles for now)
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch total likes for interactions
+      const { count: likesCount } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch total comments for interactions
+      const { count: commentsCount } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true });
+
+      setArenaStats({
+        totalPosts: postsCount || 0,
+        activeUsers: usersCount || 0,
+        totalInteractions: (likesCount || 0) + (commentsCount || 0),
+        growth: 15.4 // Simulated growth for now or could be calculated
+      });
+    } catch (error) {
+      console.error('Error fetching arena stats:', error);
+    }
+  };
+
+  const fetchTrendingPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          author:profiles(*)
+        `)
+        .order('likes_count', { ascending: false })
+        .limit(3);
+      
+      if (error) throw error;
+      setTrendingPosts(data || []);
+    } catch (error) {
+      console.error('Error fetching trending posts:', error);
     }
   };
 
@@ -449,8 +515,12 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
       if (isLiked) {
         await supabase.from('likes').delete().eq('post_id', postId).eq('user_id', user.id);
+        // Update posts table count using update instead of rpc for better compatibility
+        await supabase.from('posts').update({ likes_count: Math.max(0, post.likes_count - 1) }).eq('id', postId);
       } else {
         await supabase.from('likes').insert({ post_id: postId, user_id: user.id });
+        // Update posts table count using update instead of rpc for better compatibility
+        await supabase.from('posts').update({ likes_count: post.likes_count + 1 }).eq('id', postId);
         
         if (user.id !== authorId) {
           await supabase.from('notifications').insert({
@@ -707,7 +777,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
               ))
             ) : (
               <div className="bg-[var(--surface)]/20 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center">
-                <p className="text-[var(--text-muted)] font-bold italic">A Arena está silenciosa... Seja o primeiro a transmitir!</p>
+                <p className="text-[var(--text-muted)] font-bold italic">A Arena está silenciosa... Seja o primeiro a publicar!</p>
               </div>
             )}
           </div>
@@ -787,7 +857,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                     disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
                     className="bg-[var(--primary)] text-white px-10 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30 active:scale-95"
                   >
-                    {uploading ? 'Processando...' : 'Transmitir'}
+                    {uploading ? 'Processando...' : 'Publicar'}
                   </button>
                 </div>
               </div>
@@ -818,13 +888,23 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 </div>
                 <div className="space-y-3 mt-4">
                   <div className="flex justify-between items-center px-1">
-                    <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Progresso Mensal</span>
-                    <span className="text-[9px] font-black text-emerald-500">+12.5%</span>
+                    <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Atividade Total</span>
+                    <span className="text-[9px] font-black text-emerald-500">+{arenaStats.growth}%</span>
                   </div>
-                  <div className="w-full h-2 bg-[var(--surface)] rounded-full overflow-hidden p-0.5 border border-[var(--border-ui)]">
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)]">
+                      <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Posts</p>
+                      <p className="text-sm font-black text-[var(--text-main)]">{arenaStats.totalPosts}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)]">
+                      <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Atletas</p>
+                      <p className="text-sm font-black text-[var(--text-main)]">{arenaStats.activeUsers}</p>
+                    </div>
+                  </div>
+                  <div className="w-full h-2 bg-[var(--surface)] rounded-full overflow-hidden p-0.5 border border-[var(--border-ui)] mt-4">
                     <motion.div 
                       initial={{ width: 0 }}
-                      animate={{ width: '78%' }}
+                      animate={{ width: `${Math.min(100, (arenaStats.totalInteractions / 1000) * 100)}%` }}
                       transition={{ duration: 1.5, ease: "easeOut" }}
                       className="h-full bg-gradient-to-r from-[var(--primary)] via-cyan-400 to-[var(--primary)] rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" 
                     />
@@ -832,37 +912,43 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 </div>
               </div>
 
-              {/* Trending Modalities */}
+              {/* Trending Arena */}
               <div className="space-y-6">
                 <div className="flex items-center justify-between px-1">
                   <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-main)]">Trending Arena</h4>
                   <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Live Updates</span>
                 </div>
                 <div className="space-y-3">
-                  {[
-                    { tag: 'JiuJitsu', count: '2.4k', trend: '+12%', color: 'from-blue-500 to-indigo-600' },
-                    { tag: 'Crossfit', count: '1.8k', trend: '+5%', color: 'from-emerald-500 to-teal-600' },
-                    { tag: 'MuayThai', count: '950', trend: '+24%', color: 'from-rose-500 to-orange-600' }
-                  ].map((trend, idx) => (
-                    <motion.div 
-                      key={idx}
-                      whileHover={{ x: 5 }}
-                      className="flex items-center justify-between p-4 rounded-2xl bg-[var(--bg)]/30 border border-[var(--border-ui)] hover:border-[var(--primary)]/30 hover:bg-[var(--bg)]/50 transition-all cursor-pointer group/item"
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${trend.color} flex items-center justify-center text-white text-[10px] font-black shadow-lg shadow-black/20`}>
-                          #{idx + 1}
+                  {trendingPosts.length > 0 ? (
+                    trendingPosts.map((post, idx) => (
+                      <motion.div 
+                        key={post.id}
+                        whileHover={{ x: 5 }}
+                        onClick={() => {
+                          setSelectedPost(post);
+                          setIsPostModalOpen(true);
+                        }}
+                        className="flex items-center justify-between p-4 rounded-2xl bg-[var(--bg)]/30 border border-[var(--border-ui)] hover:border-[var(--primary)]/30 hover:bg-[var(--bg)]/50 transition-all cursor-pointer group/item"
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${idx === 0 ? 'from-amber-400 to-orange-600' : idx === 1 ? 'from-slate-300 to-slate-500' : 'from-orange-700 to-orange-900'} flex items-center justify-center text-white text-[10px] font-black shadow-lg shadow-black/20`}>
+                            #{idx + 1}
+                          </div>
+                          <div>
+                            <p className="text-xs font-black text-[var(--text-main)] group-hover/item:text-[var(--primary)] transition-colors truncate w-32">
+                              {post.author?.full_name || 'Atleta'}
+                            </p>
+                            <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">{post.likes_count} curtidas</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-xs font-black text-[var(--text-main)] group-hover/item:text-[var(--primary)] transition-colors">#{trend.tag}</p>
-                          <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">{trend.count} interações</p>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-emerald-500">POPULAR</p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-[10px] font-black ${trend.trend.startsWith('+') ? 'text-emerald-500' : 'text-rose-500'}`}>{trend.trend}</p>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-[10px] text-[var(--text-muted)] italic text-center py-4">Nenhuma tendência ainda...</p>
+                  )}
                 </div>
               </div>
 

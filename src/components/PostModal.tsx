@@ -180,19 +180,6 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
       className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
       onClick={() => handleClose()}
     >
-      {/* Global Close Button - Fixed outside the modal container for absolute reliability */}
-      <button 
-        onClick={(e) => {
-          e.stopPropagation();
-          handleClose();
-        }}
-        className="fixed top-6 right-6 md:top-10 md:right-10 p-4 bg-white/10 text-white rounded-full hover:bg-rose-500 hover:scale-110 transition-all z-[120] shadow-2xl backdrop-blur-xl border border-white/20 group cursor-pointer"
-        aria-label="Fechar"
-        type="button"
-      >
-        <X size={28} className="pointer-events-none group-hover:rotate-90 transition-transform duration-300" />
-      </button>
-
       <motion.div
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -200,6 +187,19 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
         onClick={(e) => e.stopPropagation()}
         className="bg-[var(--bg)] w-full max-w-5xl h-full max-h-[800px] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-[var(--border-ui)] relative"
       >
+        {/* Close Button - Inside the modal content for better reliability */}
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            console.log('PostModal: X button clicked');
+            handleClose();
+          }}
+          className="absolute top-6 right-6 p-3 bg-white/10 text-white rounded-xl hover:bg-rose-500 hover:scale-110 transition-all z-[130] shadow-2xl backdrop-blur-xl border border-white/20 group cursor-pointer"
+          aria-label="Fechar"
+          type="button"
+        >
+          <X size={24} className="pointer-events-none group-hover:rotate-90 transition-transform duration-300" />
+        </button>
           {/* Media Section */}
           <div className="flex-1 bg-black flex items-center justify-center relative min-h-[300px] md:min-h-0">
             {post.media_url ? (
