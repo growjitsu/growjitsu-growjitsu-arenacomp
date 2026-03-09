@@ -79,14 +79,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         }
       }
 
-      // 2. Fetch all posts with author info
+      // 2. Fetch all posts
       console.log('ArenaFeed: Fetching posts...');
       const { data: postsData, error: postsError } = await supabase
         .from('posts')
-        .select(`
-          *,
-          author:profiles(*)
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -94,7 +91,21 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         console.error('ArenaFeed: Error fetching posts:', postsError);
         throw postsError;
       }
-      console.log(`ArenaFeed: Fetched ${postsData?.length || 0} posts`);
+      
+      // 3. Fetch authors for these posts to avoid join issues
+      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
+      const { data: authorsData } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', authorIds);
+      
+      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
+      const postsWithAuthors = (postsData || []).map(p => ({
+        ...p,
+        author: authorsMap.get(p.author_id)
+      }));
+
+      console.log(`ArenaFeed: Fetched ${postsWithAuthors.length} posts`);
 
       // 3. Fetch user's likes to mark posts as liked
       let userLikes: Set<string> = new Set();
@@ -111,7 +122,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
       // 4. Calculate scores for the "Instagram-inspired" algorithm
       const now = new Date();
-      const scoredPosts = (postsData || []).map(post => {
+      const scoredPosts = postsWithAuthors.map(post => {
         let score = 0;
         const postDate = new Date(post.created_at);
         const diffHours = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60);
@@ -223,17 +234,27 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchTrendingPosts = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: postsData, error: postsError } = await supabase
         .from('posts')
-        .select(`
-          *,
-          author:profiles(*)
-        `)
+        .select('*')
         .order('likes_count', { ascending: false })
         .limit(3);
       
-      if (error) throw error;
-      setTrendingPosts(data || []);
+      if (postsError) throw postsError;
+      
+      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
+      const { data: authorsData } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', authorIds);
+      
+      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
+      const postsWithAuthors = (postsData || []).map(p => ({
+        ...p,
+        author: authorsMap.get(p.author_id)
+      }));
+
+      setTrendingPosts(postsWithAuthors);
     } catch (error) {
       console.error('Error fetching trending posts:', error);
     }
@@ -241,18 +262,25 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchSinglePost = async (postId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: postData, error: postError } = await supabase
         .from('posts')
-        .select(`
-          *,
-          author:profiles(*)
-        `)
+        .select('*')
         .eq('id', postId)
         .single();
       
-      if (error) throw error;
-      if (data) {
-        setSelectedPost(data);
+      if (postError) throw postError;
+      if (postData) {
+        const { data: authorData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', postData.author_id)
+          .single();
+        
+        const postWithAuthor = {
+          ...postData,
+          author: authorData
+        };
+        setSelectedPost(postWithAuthor);
         setIsPostModalOpen(true);
       }
     } catch (error) {
@@ -542,6 +570,87 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column - Feed Content */}
         <div className="lg:col-span-8 space-y-8">
+          {/* Create Post - Command Center Style */}
+          <div className="bg-[var(--surface)]/60 backdrop-blur-xl border border-[var(--border-ui)] rounded-[2.5rem] p-8 shadow-2xl shadow-black/40 relative overflow-hidden group/post">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover/post:bg-[var(--primary)]/10 transition-colors" />
+            <div className="flex space-x-6">
+              <div className="relative">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl relative z-10">
+                  {userProfile?.profile_photo || userProfile?.avatar_url ? (
+                    <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
+                      <User size={28} />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-lg border-4 border-[var(--surface)] flex items-center justify-center z-20">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                </div>
+              </div>
+              <div className="flex-1 space-y-6">
+                <textarea
+                  value={newPostContent}
+                  onChange={(e) => setNewPostContent(e.target.value)}
+                  placeholder="Relatório de performance..."
+                  className="w-full bg-transparent border-none focus:ring-0 text-base text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-16 font-semibold tracking-tight"
+                />
+                
+                {previewUrls.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    {previewUrls.map((url, index) => (
+                      <motion.div 
+                        key={index}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group/preview shadow-2xl"
+                      >
+                        {selectedFiles[index]?.type.startsWith('image/') ? (
+                          <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <video src={url} className="w-full h-full object-cover" />
+                        )}
+                        <button 
+                          onClick={() => {
+                            const newFiles = [...selectedFiles];
+                            const newUrls = [...previewUrls];
+                            newFiles.splice(index, 1);
+                            newUrls.splice(index, 1);
+                            setSelectedFiles(newFiles);
+                            setPreviewUrls(newUrls);
+                            window.URL.revokeObjectURL(url);
+                          }}
+                          className="absolute top-4 right-4 p-2.5 bg-black/80 text-white rounded-2xl hover:bg-rose-500 transition-all opacity-0 group-hover/preview:opacity-100 scale-90 group-hover/preview:scale-100 backdrop-blur-md"
+                        >
+                          <X size={18} />
+                        </button>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-6 border-t border-[var(--border-ui)]/20">
+                  <div className="flex space-x-3">
+                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+                      <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
+                      <ImageIcon size={20} />
+                    </label>
+                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+                      <input type="file" className="hidden" accept="video/mp4,video/quicktime" onChange={handleFileChange} />
+                      <Video size={20} />
+                    </label>
+                  </div>
+                  <button
+                    onClick={handleCreatePost}
+                    disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
+                    className="bg-[var(--primary)] text-white px-10 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30 active:scale-95"
+                  >
+                    {uploading ? 'Processando...' : 'Publicar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           
           {/* Top Athletes Rail - Immersive Style */}
           <div className="bg-[var(--surface)]/40 backdrop-blur-2xl border border-[var(--border-ui)] rounded-[2.5rem] p-6 overflow-hidden shadow-2xl shadow-black/20">
@@ -780,88 +889,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 <p className="text-[var(--text-muted)] font-bold italic">A Arena está silenciosa... Seja o primeiro a publicar!</p>
               </div>
             )}
-          </div>
-
-          {/* Create Post - Command Center Style */}
-          <div className="bg-[var(--surface)]/60 backdrop-blur-xl border border-[var(--border-ui)] rounded-[2.5rem] p-8 shadow-2xl shadow-black/40 relative overflow-hidden group/post">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 blur-[60px] rounded-full -mr-16 -mt-16 group-hover/post:bg-[var(--primary)]/10 transition-colors" />
-            <div className="flex space-x-6">
-              <div className="relative">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl relative z-10">
-                  {userProfile?.profile_photo || userProfile?.avatar_url ? (
-                    <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                      <User size={28} />
-                    </div>
-                  )}
-                </div>
-                <div className="absolute -bottom-2 -right-2 w-6 h-6 bg-emerald-500 rounded-lg border-4 border-[var(--surface)] flex items-center justify-center z-20">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                </div>
-              </div>
-              <div className="flex-1 space-y-6">
-                <textarea
-                  value={newPostContent}
-                  onChange={(e) => setNewPostContent(e.target.value)}
-                  placeholder="Relatório de performance..."
-                  className="w-full bg-transparent border-none focus:ring-0 text-base text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-16 font-semibold tracking-tight"
-                />
-                
-                {previewUrls.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    {previewUrls.map((url, index) => (
-                      <motion.div 
-                        key={index}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="relative rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group/preview shadow-2xl"
-                      >
-                        {selectedFiles[index]?.type.startsWith('image/') ? (
-                          <img src={url} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <video src={url} className="w-full h-full object-cover" />
-                        )}
-                        <button 
-                          onClick={() => {
-                            const newFiles = [...selectedFiles];
-                            const newUrls = [...previewUrls];
-                            newFiles.splice(index, 1);
-                            newUrls.splice(index, 1);
-                            setSelectedFiles(newFiles);
-                            setPreviewUrls(newUrls);
-                            window.URL.revokeObjectURL(url);
-                          }}
-                          className="absolute top-4 right-4 p-2.5 bg-black/80 text-white rounded-2xl hover:bg-rose-500 transition-all opacity-0 group-hover/preview:opacity-100 scale-90 group-hover/preview:scale-100 backdrop-blur-md"
-                        >
-                          <X size={18} />
-                        </button>
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-6 border-t border-[var(--border-ui)]/20">
-                  <div className="flex space-x-3">
-                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
-                      <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
-                      <ImageIcon size={20} />
-                    </label>
-                    <label className="p-3 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
-                      <input type="file" className="hidden" accept="video/mp4,video/quicktime" onChange={handleFileChange} />
-                      <Video size={20} />
-                    </label>
-                  </div>
-                  <button
-                    onClick={handleCreatePost}
-                    disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
-                    className="bg-[var(--primary)] text-white px-10 py-3.5 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30 active:scale-95"
-                  >
-                    {uploading ? 'Processando...' : 'Publicar'}
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
