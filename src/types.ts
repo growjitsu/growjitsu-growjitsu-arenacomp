@@ -35,8 +35,24 @@ export interface ArenaProfile {
   wins: number;
   losses: number;
   draws: number;
+  total_fights: number;
+  win_rate: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface ArenaFight {
+  id: string;
+  athlete_id: string;
+  opponent_name: string;
+  modalidade: string;
+  resultado: 'win' | 'loss';
+  tipo_vitoria: 'pontos' | 'finalização' | 'nocaute' | 'decisão' | 'outro';
+  evento: string;
+  cidade: string;
+  pais: string;
+  data_luta: string;
+  created_at: string;
 }
 
 export interface ArenaPost {

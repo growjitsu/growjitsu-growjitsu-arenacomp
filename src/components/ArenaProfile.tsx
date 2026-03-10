@@ -4,12 +4,14 @@ import {
   Award, Target, TrendingUp, Grid, History, MapPin, Calendar, 
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy,
-  Database
+  Database, Plus
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, ArenaResult, ArenaPost } from '../types';
 import { countries, modalities } from '../utils/data';
 import { PostModal } from './PostModal';
+import { RegisterFightModal } from './RegisterFightModal';
+import { getAthleteRankings } from '../services/arenaService';
 
 export const ArenaProfileView: React.FC<{ userId?: string; username?: string; forceEdit?: boolean }> = ({ userId, username, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
@@ -26,6 +28,8 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [uploading, setUploading] = useState(false);
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [isRegisterFightModalOpen, setIsRegisterFightModalOpen] = useState(false);
+  const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
 
   const [error, setError] = useState<string | null>(null);
 
@@ -144,6 +148,12 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
 
       setProfile(profileData);
       setEditData(profileData || {});
+
+      // Fetch Rankings
+      if (profileData) {
+        const rankData = await getAthleteRankings(profileData);
+        setRankings(rankData);
+      }
 
       // Fetch Results
       const { data: resultsData } = await supabase
@@ -692,6 +702,18 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
               </button>
             </div>
           )}
+
+          {isOwnProfile && !isEditing && (
+            <div className="pb-4">
+              <button
+                onClick={() => setIsRegisterFightModalOpen(true)}
+                className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+              >
+                <Plus size={14} />
+                <span>Registrar Luta</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -740,6 +762,28 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
             <p className="text-2xl font-black text-[var(--text-main)]">{stat.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Rankings Section */}
+      <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-4">
+        <div className="flex items-center space-x-3">
+          <Trophy size={20} className="text-[var(--primary)]" />
+          <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Rankings Oficiais</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
+            <p className="text-2xl font-black text-[var(--text-main)]">#{rankings.world}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
+            <p className="text-2xl font-black text-[var(--text-main)]">#{rankings.national}</p>
+          </div>
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
+            <p className="text-2xl font-black text-[var(--text-main)]">#{rankings.city}</p>
+          </div>
+        </div>
       </div>
 
       {/* Bio & Info */}
@@ -1025,11 +1069,22 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
         </div>
       </div>
 
-      <PostModal 
-        post={selectedPost} 
-        onClose={() => setIsPostModalOpen(false)} 
-        onLike={handleLike}
-      />
+      {isPostModalOpen && selectedPost && (
+        <PostModal 
+          post={selectedPost} 
+          onClose={() => setIsPostModalOpen(false)} 
+          onLike={handleLike}
+        />
+      )}
+
+      {isRegisterFightModalOpen && profile && (
+        <RegisterFightModal
+          isOpen={isRegisterFightModalOpen}
+          onClose={() => setIsRegisterFightModalOpen(false)}
+          athleteId={profile.id}
+          onFightRegistered={fetchProfileData}
+        />
+      )}
     </div>
   );
 };
