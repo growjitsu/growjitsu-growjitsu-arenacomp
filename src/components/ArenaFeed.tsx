@@ -59,12 +59,12 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       })
       .subscribe();
 
-    // Periodic refresh for general stats (every 15s for "faster" feel)
+    // Periodic refresh for general stats (every 5s for "faster" feel)
     const interval = setInterval(() => {
       fetchArenaStats();
       fetchTrendingPosts();
       fetchTopAthletes();
-    }, 15000);
+    }, 5000);
 
     return () => {
       supabase.removeChannel(channel);

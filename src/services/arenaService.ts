@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { ArenaFight, ArenaProfile } from '../types';
+import { ArenaFight, ArenaProfile, Team } from '../types';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
   // Fetch all fights for the athlete
@@ -104,4 +104,17 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
     national: athlete.country ? nationalHigher + 1 : 0,
     city: athlete.city ? cityHigher + 1 : 0
   };
+};
+
+export const searchTeams = async (query: string) => {
+  if (!query || query.length < 2) return [];
+  
+  const { data, error } = await supabase
+    .from('teams')
+    .select('*')
+    .ilike('name', `%${query}%`)
+    .limit(10);
+    
+  if (error) throw error;
+  return data as Team[];
 };

@@ -7,7 +7,9 @@ import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
 
 interface TeamRanking {
-  team: string;
+  team_id: string;
+  team_name: string;
+  logo_url?: string;
   total_score: number;
   athlete_count: number;
 }
@@ -231,7 +233,7 @@ export const ArenaRankings: React.FC = () => {
             ) : (
               teamRankings.map((team, index) => (
                 <div 
-                  key={team.team}
+                  key={team.team_id}
                   className="grid grid-cols-12 p-4 items-center hover:bg-[var(--primary)]/5 transition-colors"
                 >
                   <div className="col-span-1 text-center">
@@ -248,11 +250,15 @@ export const ArenaRankings: React.FC = () => {
                     )}
                   </div>
                   <div className="col-span-6 md:col-span-7 flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] flex-shrink-0">
-                      <Users size={20} />
+                    <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] flex-shrink-0 overflow-hidden">
+                      {team.logo_url ? (
+                        <img src={team.logo_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <Users size={20} />
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-[var(--text-main)]">{team.team}</h3>
+                      <h3 className="font-bold text-sm text-[var(--text-main)]">{team.team_name}</h3>
                       <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Equipe / Academia</p>
                     </div>
                   </div>

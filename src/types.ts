@@ -23,6 +23,7 @@ export interface ArenaProfile {
   avatar_url?: string;
   profile_photo?: string;
   team?: string;
+  team_id?: string;
   bio?: string;
   instagram_url?: string;
   youtube_url?: string;
@@ -39,6 +40,17 @@ export interface ArenaProfile {
   win_rate: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  professor?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  logo_url?: string;
+  created_at: string;
 }
 
 export interface ArenaFight {
