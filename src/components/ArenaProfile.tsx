@@ -7,18 +7,20 @@ import {
   Database, Plus
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { ArenaProfile, ArenaResult, ArenaPost } from '../types';
+import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult } from '../types';
 import { countries, modalities } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
+import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { getAthleteRankings } from '../services/arenaService';
 
 export const ArenaProfileView: React.FC<{ userId?: string; username?: string; forceEdit?: boolean }> = ({ userId, username, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
   const [results, setResults] = useState<ArenaResult[]>([]);
+  const [championships, setChampionships] = useState<ArenaChampionshipResult[]>([]);
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'history'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'history' | 'championships'>('posts');
   const [isEditing, setIsEditing] = useState(forceEdit || false);
   const [editData, setEditData] = useState<Partial<ArenaProfile>>({});
   const [saving, setSaving] = useState(false);
@@ -29,6 +31,7 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [isRegisterFightModalOpen, setIsRegisterFightModalOpen] = useState(false);
+  const [isRegisterChampionshipModalOpen, setIsRegisterChampionshipModalOpen] = useState(false);
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
 
   const [error, setError] = useState<string | null>(null);
@@ -166,6 +169,15 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
         .order('created_at', { ascending: false });
       
       setResults(resultsData || []);
+
+      // Fetch Championship Results
+      const { data: champData } = await supabase
+        .from('championship_results')
+        .select('*')
+        .eq('athlete_id', targetId)
+        .order('data_evento', { ascending: false });
+      
+      setChampionships(champData || []);
 
       // Fetch Posts
       const { data: postsData } = await supabase
@@ -523,10 +535,28 @@ CREATE TABLE IF NOT EXISTS competition_results (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS championship_results (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    athlete_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    championship_name TEXT NOT NULL,
+    modalidade TEXT NOT NULL,
+    categoria_idade TEXT NOT NULL,
+    faixa TEXT,
+    peso TEXT,
+    cidade TEXT NOT NULL,
+    pais TEXT NOT NULL,
+    data_evento DATE NOT NULL,
+    resultado TEXT CHECK (resultado IN ('Campeão', 'Vice-campeão', 'Terceiro lugar', 'Participação')),
+    foto_podio_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- RLS Policies
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE follows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fights ENABLE ROW LEVEL SECURITY;
+ALTER TABLE championship_results ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Public profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
@@ -536,16 +566,19 @@ CREATE POLICY "Posts are viewable by everyone" ON posts FOR SELECT USING (true);
 CREATE POLICY "Users can create posts" ON posts FOR INSERT WITH CHECK (auth.uid() = author_id);
 CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (auth.uid() = author_id);
 
--- Fights Policies
-ALTER TABLE fights ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Fights are viewable by everyone" ON fights FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own fights" ON fights FOR INSERT WITH CHECK (auth.uid() = athlete_id);
 CREATE POLICY "Users can update/delete their own fights" ON fights FOR ALL USING (auth.uid() = athlete_id);
 
+CREATE POLICY "Championship results are viewable by everyone" ON championship_results FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own championship results" ON championship_results FOR INSERT WITH CHECK (auth.uid() = athlete_id);
+CREATE POLICY "Users can update/delete their own championship results" ON championship_results FOR ALL USING (auth.uid() = athlete_id);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_profiles_arena_score ON profiles(arena_score DESC);
 CREATE INDEX IF NOT EXISTS idx_profiles_city ON profiles(city);
-CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
+CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);
+CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_results(athlete_id);`}
                   </pre>
                 </div>
               </details>
@@ -631,9 +664,8 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
     }
   };
 
-  const winRate = (profile && (profile.wins + profile.losses > 0))
-    ? Math.round((profile.wins / (profile.wins + profile.losses)) * 100) 
-    : 0;
+  const totalFights = profile ? (profile.total_fights || (profile.wins + profile.losses)) : 0;
+  const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
@@ -731,13 +763,20 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
           )}
 
           {isOwnProfile && !isEditing && (
-            <div className="pb-4">
+            <div className="pb-4 flex flex-wrap gap-2">
               <button
                 onClick={() => setIsRegisterFightModalOpen(true)}
-                className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+                className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
               >
                 <Plus size={14} />
                 <span>Registrar Luta</span>
+              </button>
+              <button
+                onClick={() => setIsRegisterChampionshipModalOpen(true)}
+                className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+              >
+                <Trophy size={14} />
+                <span>Registrar Campeonato</span>
               </button>
             </div>
           )}
@@ -778,7 +817,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
           { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
           { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
           { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
-          { label: 'Lutas Totais', value: profile.wins + profile.losses, icon: History, color: 'text-zinc-500' },
+          { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
           { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
         ].map((stat, i) => (
           <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl space-y-2 transition-colors duration-300">
@@ -1035,6 +1074,15 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
               Histórico
               {activeTab === 'history' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
+            <button
+              onClick={() => setActiveTab('championships')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+                activeTab === 'championships' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              Campeonatos
+              {activeTab === 'championships' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
+            </button>
           </div>
 
           {/* Tab Content */}
@@ -1062,7 +1110,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
                   <div className="col-span-2 py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhuma postagem ainda</div>
                 )}
               </div>
-            ) : (
+            ) : activeTab === 'history' ? (
               <div className="space-y-4">
                 {results.length > 0 ? results.map((result) => (
                   <div key={result.id} className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors duration-300">
@@ -1091,6 +1139,65 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
                   <div className="py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhum resultado registrado</div>
                 )}
               </div>
+            ) : (
+              <div className="space-y-6">
+                {championships.length > 0 ? championships.map((champ) => (
+                  <div key={champ.id} className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2rem] overflow-hidden transition-colors duration-300">
+                    <div className="flex flex-col md:flex-row">
+                      {champ.foto_podio_url && (
+                        <div className="w-full md:w-48 h-48 md:h-auto overflow-hidden flex-shrink-0">
+                          <img src={champ.foto_podio_url} alt="Pódio" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        </div>
+                      )}
+                      <div className="p-6 flex-1 space-y-4">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="space-y-1">
+                            <h4 className="text-lg font-black text-[var(--text-main)] uppercase italic tracking-tighter">{champ.championship_name}</h4>
+                            <div className="flex items-center space-x-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                              <Calendar size={12} />
+                              <span>{new Date(champ.data_evento).toLocaleDateString()}</span>
+                              <span>•</span>
+                              <MapPin size={12} />
+                              <span>{champ.cidade}, {champ.pais}</span>
+                            </div>
+                          </div>
+                          <div className={`px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                            champ.resultado === 'Campeão' ? 'bg-yellow-500 text-black' :
+                            champ.resultado === 'Vice-campeão' ? 'bg-zinc-300 text-black' :
+                            champ.resultado === 'Terceiro lugar' ? 'bg-amber-700 text-white' :
+                            'bg-[var(--bg)] text-[var(--text-muted)]'
+                          }`}>
+                            {champ.resultado}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Modalidade</p>
+                            <p className="text-xs font-bold text-[var(--text-main)]">{champ.modalidade}</p>
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Categoria</p>
+                            <p className="text-xs font-bold text-[var(--text-main)]">{champ.categoria_idade}</p>
+                          </div>
+                          {champ.faixa && (
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Faixa</p>
+                              <p className="text-xs font-bold text-[var(--text-main)]">{champ.faixa}</p>
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Peso</p>
+                            <p className="text-xs font-bold text-[var(--text-main)]">{champ.peso}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhum campeonato registrado</div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -1110,6 +1217,15 @@ CREATE INDEX IF NOT EXISTS idx_profiles_country ON profiles(country);`}
           onClose={() => setIsRegisterFightModalOpen(false)}
           athleteId={profile.id}
           onFightRegistered={fetchProfileData}
+        />
+      )}
+
+      {isRegisterChampionshipModalOpen && profile && (
+        <RegisterChampionshipModal
+          isOpen={isRegisterChampionshipModalOpen}
+          onClose={() => setIsRegisterChampionshipModalOpen(false)}
+          athleteId={profile.id}
+          onChampionshipRegistered={fetchProfileData}
         />
       )}
     </div>

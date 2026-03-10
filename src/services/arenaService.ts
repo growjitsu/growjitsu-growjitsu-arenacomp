@@ -10,18 +10,51 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   if (fightsError) throw fightsError;
 
-  const totalFights = fights.length;
-  const wins = fights.filter(f => f.resultado === 'win').length;
-  const losses = fights.filter(f => f.resultado === 'loss').length;
-  const winRate = totalFights > 0 ? (wins / totalFights) * 100 : 0;
+  // Fetch all championship results for the athlete
+  const { data: championships, error: champError } = await supabase
+    .from('championship_results')
+    .select('*')
+    .eq('athlete_id', athleteId);
 
-  // Arena Score = (wins * 10) - (losses * 3) + (submissions/knockouts * 5)
-  // submissions/knockouts are 'finalização' and 'nocaute'
+  if (champError) throw champError;
+
+  // Calculate Fight Stats
+  let wins = fights.filter(f => f.resultado === 'win').length;
+  let losses = fights.filter(f => f.resultado === 'loss').length;
+  
+  // Arena Score from Fights = (wins * 10) - (losses * 3) + (submissions/knockouts * 5)
   const bonusPoints = fights.filter(f => 
     f.resultado === 'win' && (f.tipo_vitoria === 'finalização' || f.tipo_vitoria === 'nocaute')
   ).length * 5;
 
-  const arenaScore = (wins * 10) - (losses * 3) + bonusPoints;
+  let arenaScore = (wins * 10) - (losses * 3) + bonusPoints;
+
+  // Add Championship Stats
+  championships?.forEach(champ => {
+    switch (champ.resultado) {
+      case 'Campeão':
+        wins += 3;
+        arenaScore += 100;
+        break;
+      case 'Vice-campeão':
+        wins += 2;
+        losses += 1;
+        arenaScore += 60;
+        break;
+      case 'Terceiro lugar':
+        wins += 1;
+        losses += 1;
+        arenaScore += 40;
+        break;
+      case 'Participação':
+        losses += 1;
+        arenaScore += 10;
+        break;
+    }
+  });
+
+  const totalFights = wins + losses;
+  const winRate = totalFights > 0 ? (wins / totalFights) * 100 : 0;
 
   // Update profile
   const { error: updateError } = await supabase

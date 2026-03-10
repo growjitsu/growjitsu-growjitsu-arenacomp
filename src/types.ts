@@ -55,6 +55,24 @@ export interface ArenaFight {
   created_at: string;
 }
 
+export type ChampionshipPlacement = 'Campeão' | 'Vice-campeão' | 'Terceiro lugar' | 'Participação';
+
+export interface ArenaChampionshipResult {
+  id: string;
+  athlete_id: string;
+  championship_name: string;
+  modalidade: string;
+  categoria_idade: string;
+  faixa?: string;
+  peso?: string;
+  cidade: string;
+  pais: string;
+  data_evento: string;
+  resultado: ChampionshipPlacement;
+  foto_podio_url?: string;
+  created_at: string;
+}
+
 export interface ArenaPost {
   id: string;
   author_id: string;
