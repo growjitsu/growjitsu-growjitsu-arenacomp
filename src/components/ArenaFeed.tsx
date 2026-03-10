@@ -38,16 +38,37 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       fetchSinglePost(postId);
     }
 
-    // Real-time subscription
+    // Real-time subscription for everything that affects the feed and stats
     const channel = supabase
-      .channel('public:posts')
+      .channel('arena-live-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
         fetchPosts();
+        fetchArenaStats();
+        fetchTrendingPosts();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'likes' }, () => {
+        fetchArenaStats();
+        fetchTrendingPosts();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, () => {
+        fetchArenaStats();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        fetchTopAthletes();
+        fetchArenaStats();
       })
       .subscribe();
 
+    // Periodic refresh for general stats (every 15s for "faster" feel)
+    const interval = setInterval(() => {
+      fetchArenaStats();
+      fetchTrendingPosts();
+      fetchTopAthletes();
+    }, 15000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, []);
 
@@ -851,7 +872,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, (arenaStats.totalInteractions / 1000) * 100)}%` }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
                       className="h-full bg-gradient-to-r from-[var(--primary)] via-cyan-400 to-[var(--primary)] rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" 
                     />
                   </div>
