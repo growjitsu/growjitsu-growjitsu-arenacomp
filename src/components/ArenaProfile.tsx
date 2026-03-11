@@ -12,7 +12,7 @@ import { countries, modalities } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
-import { getAthleteRankings, searchTeams } from '../services/arenaService';
+import { getAthleteRankings, searchTeams, getTeams } from '../services/arenaService';
 
 export const ArenaProfileView: React.FC<{ userId?: string; username?: string; forceEdit?: boolean }> = ({ userId, username, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
@@ -42,9 +42,7 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
   
-  const [teamSearch, setTeamSearch] = useState('');
-  const [teamResults, setTeamResults] = useState<Team[]>([]);
-  const [isSearchingTeam, setIsSearchingTeam] = useState(false);
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -243,6 +241,15 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   useEffect(() => {
     setIsEditing(forceEdit || false);
     fetchProfileData();
+    const fetchAllTeams = async () => {
+      try {
+        const data = await getTeams();
+        setAllTeams(data);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+      }
+    };
+    fetchAllTeams();
   }, [userId, forceEdit]);
 
   const handleArchive = async (postId: string, archive: boolean = true) => {
@@ -1130,57 +1137,33 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   </div>
                   {isEditing ? (
                     info.key === 'team' ? (
-                      <div className="relative">
-                        <input 
-                          value={teamSearch || editData.team || ''} 
-                          onChange={async (e) => {
-                            const val = e.target.value;
-                            setTeamSearch(val);
-                            setEditData({...editData, team: val});
-                            
-                            if (val.length >= 2) {
-                              setIsSearchingTeam(true);
-                              try {
-                                const results = await searchTeams(val);
-                                setTeamResults(results);
-                              } catch (err) {
-                                console.error('Error searching teams:', err);
-                              } finally {
-                                setIsSearchingTeam(false);
-                              }
-                            } else {
-                              setTeamResults([]);
-                            }
-                          }}
-                          placeholder="Buscar equipe..."
-                          className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
-                        />
-                        {teamResults.length > 0 && (
-                          <div className="absolute z-50 left-0 right-0 mt-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-2xl overflow-hidden max-h-48 overflow-y-auto">
-                            {teamResults.map(team => (
-                              <button
-                                key={team.id}
-                                onClick={() => {
-                                  setEditData({
-                                    ...editData, 
-                                    team: team.name,
-                                    team_id: team.id
-                                  });
-                                  setTeamSearch(team.name);
-                                  setTeamResults([]);
-                                }}
-                                className="w-full text-left px-4 py-2 text-xs hover:bg-[var(--primary)]/10 transition-colors flex items-center justify-between"
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-bold text-[var(--text-main)]">{team.name}</span>
-                                  <span className="text-[9px] text-[var(--text-muted)] uppercase">{team.professor}</span>
-                                </div>
-                                <span className="text-[9px] text-[var(--text-muted)] uppercase">{team.city}, {team.state}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <select
+                        value={editData.team_id || ''}
+                        onChange={(e) => {
+                          const selectedTeam = allTeams.find(t => t.id === e.target.value);
+                          if (selectedTeam) {
+                            setEditData({
+                              ...editData,
+                              team: selectedTeam.name,
+                              team_id: selectedTeam.id
+                            });
+                          } else {
+                            setEditData({
+                              ...editData,
+                              team: '',
+                              team_id: undefined
+                            });
+                          }
+                        }}
+                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      >
+                        <option value="">Selecionar Equipe</option>
+                        {allTeams.map(team => (
+                          <option key={team.id} value={team.id}>
+                            {team.name} ({team.city})
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input 
                         value={(editData[info.key as keyof ArenaProfile] as string) || ''} 

@@ -118,3 +118,13 @@ export const searchTeams = async (query: string) => {
   if (error) throw error;
   return data as Team[];
 };
+
+export const getTeams = async () => {
+  const { data, error } = await supabase
+    .from('teams')
+    .select('*')
+    .order('name', { ascending: true });
+    
+  if (error) throw error;
+  return data as Team[];
+};
