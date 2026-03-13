@@ -92,17 +92,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const handleUpdatePost = async (postId: string, content: string, hashtags: string) => {
     try {
+      const upperContent = content.toUpperCase();
+      const upperHashtags = hashtags.toUpperCase();
       const { error } = await supabase
         .from('posts')
         .update({ 
-          content: content,
-          hashtags: hashtags
+          content: upperContent,
+          hashtags: upperHashtags
         })
         .eq('id', postId);
       
       if (error) throw error;
       
-      const updateFn = (p: ArenaPost) => p.id === postId ? { ...p, content: content, hashtags: hashtags } : p;
+      const updateFn = (p: ArenaPost) => p.id === postId ? { ...p, content: upperContent, hashtags: upperHashtags } : p;
       setPosts(prev => prev.map(updateFn));
       setTrendingPosts(prev => prev.map(updateFn));
       setIsEditingPost(null);
@@ -185,6 +187,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         const { data: authorsData, error: authorsError } = await supabase
           .from('profiles')
           .select('*')
+          .neq('role', 'admin') // Exclude admins from authors
           .in('id', authorIds);
         
         if (authorsError) {
@@ -198,7 +201,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         ...p,
         author: authorsMap.get(p.author_id)
       }))
-      .filter(p => p.is_archived !== true); // Client-side filter as fallback
+      .filter(p => p.is_archived !== true && p.author); // Filter out posts without authors (which includes admins now)
 
       console.log(`ArenaFeed: Fetched ${postsWithAuthors.length} posts`);
 
@@ -285,6 +288,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
+        .neq('role', 'admin') // Exclude admins
         .order('arena_score', { ascending: false })
         .limit(10);
       
@@ -302,10 +306,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         .from('posts')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch active users (total profiles for now)
+      // Fetch active users (total profiles for now) - Exclude admins
       const { count: usersCount } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .neq('role', 'admin');
 
       // Fetch total likes for interactions
       const { count: likesCount } = await supabase
@@ -354,13 +359,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       const { data: authorsData } = await supabase
         .from('profiles')
         .select('*')
+        .neq('role', 'admin') // Exclude admins
         .in('id', authorIds);
       
       const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
       const postsWithAuthors = (postsData || []).map(p => ({
         ...p,
         author: authorsMap.get(p.author_id)
-      }));
+      })).filter(p => p.author); // Only include posts with valid (non-admin) authors
 
       setTrendingPosts(postsWithAuthors);
     } catch (error) {
@@ -597,7 +603,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         .from('posts')
         .insert({
           author_id: user.id,
-          content: newPostContent,
+          content: newPostContent.toUpperCase(),
           type: mediaType,
           media_url: mediaUrls.length > 1 ? JSON.stringify(mediaUrls) : (mediaUrls[0] || null)
         })

@@ -228,7 +228,8 @@ export const ArenaClips: React.FC = () => {
       const { data: authorsData } = await supabase
         .from('profiles')
         .select('*')
-        .in('id', authorIds);
+        .in('id', authorIds)
+        .neq('role', 'admin');
       
       const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
       
@@ -239,11 +240,13 @@ export const ArenaClips: React.FC = () => {
         if (likesData) userLikes = new Set(likesData.map(l => l.post_id));
       }
 
-      const clipsWithAuthors = (postsData || []).map(p => ({
-        ...p,
-        author: authorsMap.get(p.author_id),
-        is_liked: userLikes.has(p.id)
-      }));
+      const clipsWithAuthors = (postsData || [])
+        .map(p => ({
+          ...p,
+          author: authorsMap.get(p.author_id),
+          is_liked: userLikes.has(p.id)
+        }))
+        .filter(p => p.author); // Only keep clips where author is not an admin (since we filtered authorsData)
 
       setClips(clipsWithAuthors);
     } catch (err) {

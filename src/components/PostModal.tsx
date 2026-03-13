@@ -124,7 +124,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
         .insert({
           post_id: post.id,
           user_id: currentUser.id,
-          content: newComment.trim()
+          content: newComment.trim().toUpperCase()
         })
         .select(`
           *,

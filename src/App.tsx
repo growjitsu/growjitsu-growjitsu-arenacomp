@@ -386,7 +386,7 @@ export default function App() {
         path="/admin/*" 
         element={
           !isLoggedIn ? (
-            <ArenaAuth />
+            <ArenaAuth isAdminLogin={true} />
           ) : profile?.role === 'admin' ? (
             <AdminLayout userProfile={profile}>
               <Routes>

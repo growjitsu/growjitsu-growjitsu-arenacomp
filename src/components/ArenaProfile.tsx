@@ -337,25 +337,25 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
     setSaving(true);
     try {
       // Create a clean object with only the fields we want to update
-      // This prevents errors if editData contains extra fields or missing columns
+      // Standardize text to uppercase
       const updatePayload: any = {
-        full_name: editData.full_name,
-        nickname: editData.nickname,
-        bio: editData.bio,
-        state: editData.state,
-        country: editData.country,
-        modality: editData.modality,
-        category: editData.category,
+        full_name: editData.full_name?.toUpperCase(),
+        nickname: editData.nickname?.toUpperCase(),
+        bio: editData.bio?.toUpperCase(),
+        state: editData.state?.toUpperCase(),
+        country: editData.country?.toUpperCase(),
+        modality: editData.modality?.toUpperCase(),
+        category: editData.category?.toUpperCase(),
         weight: editData.weight ? parseFloat(String(editData.weight).replace(',', '.')) : null,
         height: editData.height ? parseFloat(String(editData.height).replace(',', '.')) : null,
-        graduation: editData.graduation,
-        gym_name: editData.gym_name,
-        professor: editData.professor,
+        graduation: editData.graduation?.toUpperCase(),
+        gym_name: editData.gym_name?.toUpperCase(),
+        professor: editData.professor?.toUpperCase(),
         instagram_url: editData.instagram_url,
         youtube_url: editData.youtube_url,
         tiktok_url: editData.tiktok_url,
-        titles: editData.titles,
-        team: editData.team,
+        titles: editData.titles?.toUpperCase(),
+        team: editData.team?.toUpperCase(),
         team_id: editData.team_id,
         updated_at: new Date().toISOString()
       };

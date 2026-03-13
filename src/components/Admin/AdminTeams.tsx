@@ -90,14 +90,17 @@ export const AdminTeams: React.FC = () => {
     if (!file) return;
 
     const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `team-logos/${fileName}`;
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `uploads/teams/${fileName}`;
 
     setUploading(true);
     try {
       const { error: uploadError } = await supabase.storage
         .from('arena-assets')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -136,17 +139,26 @@ export const AdminTeams: React.FC = () => {
 
   const handleSaveTeam = async () => {
     try {
+      // Standardize text to uppercase
+      const standardizedData = {
+        ...formData,
+        name: formData.name?.toUpperCase(),
+        location: formData.location?.toUpperCase(),
+        description: formData.description?.toUpperCase(),
+        professor: formData.professor?.toUpperCase()
+      };
+
       if (selectedTeam) {
         const { error } = await supabase
           .from('teams')
-          .update(formData)
+          .update(standardizedData)
           .eq('id', selectedTeam.id);
         if (error) throw error;
-        setTeams(prev => prev.map(t => t.id === selectedTeam.id ? { ...t, ...formData } : t));
+        setTeams(prev => prev.map(t => t.id === selectedTeam.id ? { ...t, ...standardizedData } : t));
       } else {
         const { error } = await supabase
           .from('teams')
-          .insert([formData]);
+          .insert([standardizedData]);
         if (error) throw error;
         fetchTeams();
       }

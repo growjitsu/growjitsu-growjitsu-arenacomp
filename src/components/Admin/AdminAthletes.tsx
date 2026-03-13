@@ -97,14 +97,31 @@ export const AdminAthletes: React.FC = () => {
 
   const handleSaveEdit = async () => {
     try {
+      // Standardize text to uppercase
+      const standardizedData = {
+        ...editData,
+        full_name: editData.full_name?.toUpperCase(),
+        nickname: editData.nickname?.toUpperCase(),
+        modality: editData.modality?.toUpperCase(),
+        category: editData.category?.toUpperCase(),
+        graduation: editData.graduation?.toUpperCase(),
+        gym_name: editData.gym_name?.toUpperCase(),
+        professor: editData.professor?.toUpperCase(),
+        city: editData.city?.toUpperCase(),
+        state: editData.state?.toUpperCase(),
+        country: editData.country?.toUpperCase(),
+        team: editData.team?.toUpperCase(),
+        titles: editData.titles?.toUpperCase(),
+      };
+
       const { error } = await supabase
         .from('profiles')
-        .update(editData)
+        .update(standardizedData)
         .eq('id', selectedAthlete?.id);
       
       if (error) throw error;
       
-      setAthletes(prev => prev.map(a => a.id === selectedAthlete?.id ? { ...a, ...editData } : a));
+      setAthletes(prev => prev.map(a => a.id === selectedAthlete?.id ? { ...a, ...standardizedData } : a));
       setIsEditModalOpen(false);
       alert('Perfil atualizado com sucesso.');
     } catch (error) {

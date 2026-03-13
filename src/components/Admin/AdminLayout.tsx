@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from '../../services/supabase';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -89,11 +90,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, userProfile 
             </div>
           </div>
           <button 
-            onClick={() => navigate('/')}
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate('/login');
+            }}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-rose-500 hover:bg-rose-500/10 transition-all"
           >
             <LogOut size={18} />
-            <span className="text-xs font-bold uppercase tracking-wider">Voltar ao App</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Logout</span>
           </button>
         </div>
       </aside>
@@ -140,11 +144,15 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, userProfile 
                 </Link>
               ))}
               <button 
-                onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate('/login');
+                  setIsMobileMenuOpen(false);
+                }}
                 className="w-full flex items-center space-x-4 p-4 rounded-2xl bg-rose-500/10 text-rose-500"
               >
                 <LogOut size={20} />
-                <span className="font-bold uppercase tracking-widest text-sm">Voltar ao App</span>
+                <span className="font-bold uppercase tracking-widest text-sm">Logout</span>
               </button>
             </nav>
           </motion.div>

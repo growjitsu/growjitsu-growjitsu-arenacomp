@@ -3,7 +3,11 @@ import { motion } from 'motion/react';
 import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
-export const ArenaAuth: React.FC = () => {
+interface ArenaAuthProps {
+  isAdminLogin?: boolean;
+}
+
+export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,7 +57,7 @@ export const ArenaAuth: React.FC = () => {
               .insert({
                 id: user.id,
                 username: username.toLowerCase(),
-                full_name: fullName,
+                full_name: fullName.toUpperCase(),
                 role: 'athlete',
                 team_leader: isTeamLeader,
                 team_id: selectedTeamId,
@@ -219,14 +223,16 @@ export const ArenaAuth: React.FC = () => {
             </button>
           </form>
 
-          <div className="text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-[10px] font-black uppercase tracking-widest transition-colors"
-            >
-              {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Entre'}
-            </button>
-          </div>
+          {!isAdminLogin && (
+            <div className="text-center">
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-[10px] font-black uppercase tracking-widest transition-colors"
+              >
+                {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Entre'}
+              </button>
+            </div>
+          )}
         </motion.div>
       </div>
     </div>

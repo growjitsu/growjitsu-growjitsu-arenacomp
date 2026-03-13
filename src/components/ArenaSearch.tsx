@@ -21,6 +21,7 @@ export const ArenaSearch: React.FC = () => {
       const { data: athletes } = await supabase
         .from('profiles')
         .select('*')
+        .neq('role', 'admin')
         .or(`username.ilike.%${cleanQuery}%,full_name.ilike.%${cleanQuery}%,modality.ilike.%${cleanQuery}%`)
         .limit(20);
 

@@ -116,3 +116,16 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Global Uppercase Standardization */
+input[type="text"], 
+input[type="search"], 
+textarea,
+select {
+  text-transform: uppercase;
+}
+
+input::placeholder,
+textarea::placeholder {
+  text-transform: none;
+}

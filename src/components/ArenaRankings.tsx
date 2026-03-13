@@ -41,6 +41,7 @@ export const ArenaRankings: React.FC = () => {
       let query = supabase
         .from('profiles')
         .select('*')
+        .neq('role', 'admin') // Exclude admins
         .order('arena_score', { ascending: false })
         .limit(50);
 
@@ -49,11 +50,14 @@ export const ArenaRankings: React.FC = () => {
         query = query.ilike('modality', `%${searchPattern}%`);
       }
       
-      if (filter.scope === 'Cidade' && filter.city !== 'Todas') {
-        query = query.ilike('city', filter.city);
-      } else if (filter.scope === 'Nacional' && filter.country !== 'Todas') {
-        query = query.eq('country', filter.country);
-      }
+        if (filter.scope === 'Cidade' && filter.city !== 'Todas') {
+          // Normalize city search: partial, case-insensitive
+          // Note: Accent-insensitivity is harder without Postgres extensions, 
+          // but ilike handles case-insensitivity and partial matches.
+          query = query.ilike('city', `%${filter.city}%`);
+        } else if (filter.scope === 'Nacional' && filter.country !== 'Todas') {
+          query = query.eq('country', filter.country);
+        }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -293,10 +297,200 @@ export const ArenaRankings: React.FC = () => {
               onChange={(e) => setFilter({...filter, country: e.target.value})}
               className="appearance-none bg-[var(--surface)] border border-[var(--border-ui)] rounded-full px-6 py-2 text-xs font-bold uppercase tracking-widest text-[var(--text-main)] focus:border-[var(--primary)] outline-none cursor-pointer pr-10 transition-colors duration-300"
             >
-              <option>Brasil</option>
-              <option>EUA</option>
-              <option>Japão</option>
-              <option>Tailândia</option>
+              <option value="Todas">Todas</option>
+              <option value="AFEGANISTÃO">AFEGANISTÃO</option>
+              <option value="ÁFRICA DO SUL">ÁFRICA DO SUL</option>
+              <option value="ALBÂNIA">ALBÂNIA</option>
+              <option value="ALEMANHA">ALEMANHA</option>
+              <option value="ANDORRA">ANDORRA</option>
+              <option value="ANGOLA">ANGOLA</option>
+              <option value="ANTÍGUA E BARBUDA">ANTÍGUA E BARBUDA</option>
+              <option value="ARÁBIA SAUDITA">ARÁBIA SAUDITA</option>
+              <option value="ARGÉLIA">ARGÉLIA</option>
+              <option value="ARGENTINA">ARGENTINA</option>
+              <option value="ARMÊNIA">ARMÊNIA</option>
+              <option value="AUSTRÁLIA">AUSTRÁLIA</option>
+              <option value="ÁUSTRIA">ÁUSTRIA</option>
+              <option value="AZERBAIJÃO">AZERBAIJÃO</option>
+              <option value="BAHAMAS">BAHAMAS</option>
+              <option value="BANGLADECHE">BANGLADECHE</option>
+              <option value="BARBADOS">BARBADOS</option>
+              <option value="BARÉM">BARÉM</option>
+              <option value="BÉLGICA">BÉLGICA</option>
+              <option value="BELIZE">BELIZE</option>
+              <option value="BENIM">BENIM</option>
+              <option value="BIELORRÚSSIA">BIELORRÚSSIA</option>
+              <option value="BOLÍVIA">BOLÍVIA</option>
+              <option value="BÓSNIA E HERZEGOVINA">BÓSNIA E HERZEGOVINA</option>
+              <option value="BOTSUANA">BOTSUANA</option>
+              <option value="BRASIL">BRASIL</option>
+              <option value="BRUNEI">BRUNEI</option>
+              <option value="BULGÁRIA">BULGÁRIA</option>
+              <option value="BURQUINA FASO">BURQUINA FASO</option>
+              <option value="BURUNDI">BURUNDI</option>
+              <option value="BUTÃO">BUTÃO</option>
+              <option value="CABO VERDE">CABO VERDE</option>
+              <option value="CAMARÕES">CAMARÕES</option>
+              <option value="CAMBOJA">CAMBOJA</option>
+              <option value="CANADÁ">CANADÁ</option>
+              <option value="CATAR">CATAR</option>
+              <option value="CAZAQUISTÃO">CAZAQUISTÃO</option>
+              <option value="CHADE">CHADE</option>
+              <option value="CHILE">CHILE</option>
+              <option value="CHINA">CHINA</option>
+              <option value="CHIPRE">CHIPRE</option>
+              <option value="COLÔMBIA">COLÔMBIA</option>
+              <option value="COMORES">COMORES</option>
+              <option value="CONGO-BRAZZAVILLE">CONGO-BRAZZAVILLE</option>
+              <option value="CONGO-KINSHASA">CONGO-KINSHASA</option>
+              <option value="COREIA DO NORTE">COREIA DO NORTE</option>
+              <option value="COREIA DO SUL">COREIA DO SUL</option>
+              <option value="COSTA DO MARFIM">COSTA DO MARFIM</option>
+              <option value="COSTA RICA">COSTA RICA</option>
+              <option value="CROÁCIA">CROÁCIA</option>
+              <option value="CUBA">CUBA</option>
+              <option value="DINAMARCA">DINAMARCA</option>
+              <option value="DOMÍNICA">DOMÍNICA</option>
+              <option value="EGITO">EGITO</option>
+              <option value="EMIRADOS ÁRABES UNIDOS">EMIRADOS ÁRABES UNIDOS</option>
+              <option value="EQUADOR">EQUADOR</option>
+              <option value="ERITREIA">ERITREIA</option>
+              <option value="ESLOVÁQUIA">ESLOVÁQUIA</option>
+              <option value="ESLOVÉNIA">ESLOVÉNIA</option>
+              <option value="ESPANHA">ESPANHA</option>
+              <option value="ESTADOS UNIDOS">ESTADOS UNIDOS</option>
+              <option value="ESTÓNIA">ESTÓNIA</option>
+              <option value="ETIÓPIA">ETIÓPIA</option>
+              <option value="FIJI">FIJI</option>
+              <option value="FILIPINAS">FILIPINAS</option>
+              <option value="FINLÂNDIA">FINLÂNDIA</option>
+              <option value="FRANÇA">FRANÇA</option>
+              <option value="GABÃO">GABÃO</option>
+              <option value="GÂMBIA">GÂMBIA</option>
+              <option value="GANA">GANA</option>
+              <option value="GEÓRGIA">GEÓRGIA</option>
+              <option value="GRANADA">GRANADA</option>
+              <option value="GRÉCIA">GRÉCIA</option>
+              <option value="GUATEMALA">GUATEMALA</option>
+              <option value="GUIANA">GUIANA</option>
+              <option value="GUINÉ">GUINÉ</option>
+              <option value="GUINÉ EQUATORIAL">GUINÉ EQUATORIAL</option>
+              <option value="GUINÉ-BISSAU">GUINÉ-BISSAU</option>
+              <option value="HAITI">HAITI</option>
+              <option value="HONDURAS">HONDURAS</option>
+              <option value="HUNGRIA">HUNGRIA</option>
+              <option value="IÉMEN">IÉMEN</option>
+              <option value="ILHAS MARECHAL">ILHAS MARECHAL</option>
+              <option value="ILHAS SALOMÃO">ILHAS SALOMÃO</option>
+              <option value="ÍNDIA">ÍNDIA</option>
+              <option value="INDONÉSIA">INDONÉSIA</option>
+              <option value="IRÃO">IRÃO</option>
+              <option value="IRAQUE">IRAQUE</option>
+              <option value="IRLANDA">IRLANDA</option>
+              <option value="ISLÂNDIA">ISLÂNDIA</option>
+              <option value="ISRAEL">ISRAEL</option>
+              <option value="ITÁLIA">ITÁLIA</option>
+              <option value="JAMAICA">JAMAICA</option>
+              <option value="JAPÃO">JAPÃO</option>
+              <option value="JIBUTI">JIBUTI</option>
+              <option value="JORDÂNIA">JORDÂNIA</option>
+              <option value="LAOS">LAOS</option>
+              <option value="LESOTO">LESOTO</option>
+              <option value="LETÓNIA">LETÓNIA</option>
+              <option value="LÍBANO">LÍBANO</option>
+              <option value="LIBÉRIA">LIBÉRIA</option>
+              <option value="LÍBIA">LÍBIA</option>
+              <option value="LISTENSTAINE">LISTENSTAINE</option>
+              <option value="LITUÂNIA">LITUÂNIA</option>
+              <option value="LUXEMBURGO">LUXEMBURGO</option>
+              <option value="MACEDÓNIA DO NORTE">MACEDÓNIA DO NORTE</option>
+              <option value="MADAGASCAR">MADAGASCAR</option>
+              <option value="MALÁSIA">MALÁSIA</option>
+              <option value="MALÁUI">MALÁUI</option>
+              <option value="MALDIVAS">MALDIVAS</option>
+              <option value="MALI">MALI</option>
+              <option value="MALTA">MALTA</option>
+              <option value="MARROCOS">MARROCOS</option>
+              <option value="MAURÍCIA">MAURÍCIA</option>
+              <option value="MAURITÂNIA">MAURITÂNIA</option>
+              <option value="MÉXICO">MÉXICO</option>
+              <option value="MICRONÉSIA">MICRONÉSIA</option>
+              <option value="MOÇAMBIQUE">MOÇAMBIQUE</option>
+              <option value="MOLDÁVIA">MOLDÁVIA</option>
+              <option value="MÓNACO">MÓNACO</option>
+              <option value="MONGÓLIA">MONGÓLIA</option>
+              <option value="MONTENEGRO">MONTENEGRO</option>
+              <option value="NAMÍBIA">NAMÍBIA</option>
+              <option value="NAURU">NAURU</option>
+              <option value="NEPAL">NEPAL</option>
+              <option value="NICARÁGUA">NICARÁGUA</option>
+              <option value="NÍGER">NÍGER</option>
+              <option value="NIGÉRIA">NIGÉRIA</option>
+              <option value="NORUEGA">NORUEGA</option>
+              <option value="NOVA ZELÂNDIA">NOVA ZELÂNDIA</option>
+              <option value="OMÃ">OMÃ</option>
+              <option value="PAÍSES BAIXOS">PAÍSES BAIXOS</option>
+              <option value="PALAU">PALAU</option>
+              <option value="PANAMÁ">PANAMÁ</option>
+              <option value="PAPUA NOVA GUINÉ">PAPUA NOVA GUINÉ</option>
+              <option value="PAQUISTÃO">PAQUISTÃO</option>
+              <option value="PARAGUAI">PARAGUAI</option>
+              <option value="PERU">PERU</option>
+              <option value="POLÓNIA">POLÓNIA</option>
+              <option value="PORTUGAL">PORTUGAL</option>
+              <option value="QUÉNIA">QUÉNIA</option>
+              <option value="QUIRGUISTÃO">QUIRGUISTÃO</option>
+              <option value="QUIRIBATI">QUIRIBATI</option>
+              <option value="REINO UNIDO">REINO UNIDO</option>
+              <option value="REPÚBLICA CENTRO-AFRICANA">REPÚBLICA CENTRO-AFRICANA</option>
+              <option value="REPÚBLICA CHECA">REPÚBLICA CHECA</option>
+              <option value="REPÚBLICA DOMINICANA">REPÚBLICA DOMINICANA</option>
+              <option value="ROMÉNIA">ROMÉNIA</option>
+              <option value="RUANDA">RUANDA</option>
+              <option value="RÚSSIA">RÚSSIA</option>
+              <option value="SALVADOR">SALVADOR</option>
+              <option value="SAMOA">SAMOA</option>
+              <option value="SANTA LÚCIA">SANTA LÚCIA</option>
+              <option value="SÃO CRISTÓVÃO E NEVES">SÃO CRISTÓVÃO E NEVES</option>
+              <option value="SÃO MARINO">SÃO MARINO</option>
+              <option value="SÃO TOMÉ E PRÍNCIPE">SÃO TOMÉ E PRÍNCIPE</option>
+              <option value="SÃO VICENTE E GRANADINAS">SÃO VICENTE E GRANADINAS</option>
+              <option value="SEICHELES">SEICHELES</option>
+              <option value="SENEGAL">SENEGAL</option>
+              <option value="SERRA LEOA">SERRA LEOA</option>
+              <option value="SÉRVIA">SÉRVIA</option>
+              <option value="SINGAPURA">SINGAPURA</option>
+              <option value="SÍRIA">SÍRIA</option>
+              <option value="SOMÁLIA">SOMÁLIA</option>
+              <option value="SRI LANCA">SRI LANCA</option>
+              <option value="ESSUATÍNI">ESSUATÍNI</option>
+              <option value="SUDÃO">SUDÃO</option>
+              <option value="SUDÃO DO SUL">SUDÃO DO SUL</option>
+              <option value="SUÉCIA">SUÉCIA</option>
+              <option value="SUÍÇA">SUÍÇA</option>
+              <option value="SURINAME">SURINAME</option>
+              <option value="TAILÂNDIA">TAILÂNDIA</option>
+              <option value="TAIWAN">TAIWAN</option>
+              <option value="TAJIQUISTÃO">TAJIQUISTÃO</option>
+              <option value="TANZÂNIA">TANZÂNIA</option>
+              <option value="TIMOR-LESTE">TIMOR-LESTE</option>
+              <option value="TOGO">TOGO</option>
+              <option value="TONGA">TONGA</option>
+              <option value="TRINDADE E TOBAGO">TRINDADE E TOBAGO</option>
+              <option value="TUNÍSIA">TUNÍSIA</option>
+              <option value="TURQUEMENISTÃO">TURQUEMENISTÃO</option>
+              <option value="TURQUIA">TURQUIA</option>
+              <option value="TUVALU">TUVALU</option>
+              <option value="UCRÂNIA">UCRÂNIA</option>
+              <option value="UGANDA">UGANDA</option>
+              <option value="URUGUAI">URUGUAI</option>
+              <option value="USBEQUISTÃO">USBEQUISTÃO</option>
+              <option value="VANUATU">VANUATU</option>
+              <option value="VATICANO">VATICANO</option>
+              <option value="VENEZUELA">VENEZUELA</option>
+              <option value="VIETNAME">VIETNAME</option>
+              <option value="ZÂMBIA">ZÂMBIA</option>
+              <option value="ZIMBÁBUE">ZIMBÁBUE</option>
             </select>
             <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
           </div>
