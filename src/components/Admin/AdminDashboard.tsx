@@ -320,7 +320,8 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 -- 2. Habilitar RLS
 ALTER TABLE admin_logs ENABLE ROW LEVEL SECURITY;
 
--- 3. Política: Apenas admins podem ver logs
+-- 3. Política: Apenas admins podem ver logs (Usa DROP para evitar erro de duplicidade)
+DROP POLICY IF EXISTS "Admins can view logs" ON admin_logs;
 CREATE POLICY "Admins can view logs" ON admin_logs
   FOR SELECT USING (
     EXISTS (
