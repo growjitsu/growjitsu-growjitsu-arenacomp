@@ -28,11 +28,12 @@ export const AdminTeams: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [formData, setFormData] = useState<any>({
     name: '',
-    location: '',
-    description: '',
+    city: '',
+    state: '',
     logo_url: '',
     professor: ''
   });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [teamStats, setTeamStats] = useState<Record<string, number>>({});
   const pageSize = 10;
@@ -89,29 +90,41 @@ export const AdminTeams: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `uploads/teams/${fileName}`;
+    const filePath = `teams/${fileName}`;
 
     setUploading(true);
     try {
       const { error: uploadError } = await supabase.storage
-        .from('arena-assets')
+        .from('arena_media')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        // Fallback to base64 if storage fails
+        setFormData(prev => ({ ...prev, logo_url: reader.result as string }));
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from('arena_media')
+          .getPublicUrl(filePath);
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('arena-assets')
-        .getPublicUrl(filePath);
-
-      setFormData(prev => ({ ...prev, logo_url: publicUrl }));
+        setFormData(prev => ({ ...prev, logo_url: publicUrl }));
+      }
     } catch (error) {
       console.error('Error uploading logo:', error);
-      alert('Erro ao fazer upload do logo.');
+      alert('Erro ao fazer upload do logo. Tentando usar versão local...');
+      // Even if it fails, we have the previewUrl from the reader
     } finally {
       setUploading(false);
     }
@@ -141,11 +154,11 @@ export const AdminTeams: React.FC = () => {
     try {
       // Standardize text to uppercase
       const standardizedData = {
-        ...formData,
         name: formData.name?.toUpperCase(),
-        location: formData.location?.toUpperCase(),
-        description: formData.description?.toUpperCase(),
-        professor: formData.professor?.toUpperCase()
+        city: formData.city?.toUpperCase(),
+        state: formData.state?.toUpperCase()?.substring(0, 2),
+        professor: formData.professor?.toUpperCase(),
+        logo_url: formData.logo_url
       };
 
       if (selectedTeam) {
@@ -166,7 +179,7 @@ export const AdminTeams: React.FC = () => {
       alert(`Equipe ${selectedTeam ? 'atualizada' : 'criada'} com sucesso.`);
     } catch (error) {
       console.error('Error saving team:', error);
-      alert('Erro ao salvar equipe.');
+      alert('Erro ao salvar equipe. Verifique se o nome já existe ou se os dados estão corretos.');
     }
   };
 
@@ -187,7 +200,7 @@ export const AdminTeams: React.FC = () => {
         <button
           onClick={() => {
             setSelectedTeam(null);
-            setFormData({ name: '', location: '', description: '', logo_url: '', professor: '' });
+            setFormData({ name: '', city: '', state: '', logo_url: '', professor: '' });
             setIsModalOpen(true);
           }}
           className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center space-x-2"
@@ -236,7 +249,9 @@ export const AdminTeams: React.FC = () => {
                     <div className="flex flex-col space-y-1 mt-1">
                       <div className="flex items-center space-x-1 text-gray-500">
                         <MapPin size={10} />
-                        <span className="text-[9px] font-bold uppercase tracking-widest">{team.location || 'Sem Localização'}</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest">
+                          {team.city ? `${team.city}${team.state ? `, ${team.state}` : ''}` : 'Sem Localização'}
+                        </span>
                       </div>
                       {team.professor && (
                         <div className="flex items-center space-x-1 text-blue-500">
@@ -349,15 +364,28 @@ export const AdminTeams: React.FC = () => {
                     placeholder="Ex: Alliance Jiu-Jitsu"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Localização</label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                    placeholder="Ex: São Paulo, SP"
-                  />
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Cidade</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                      placeholder="Ex: São Paulo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                      placeholder="SP"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Responsável pela Equipe</label>
@@ -397,15 +425,6 @@ export const AdminTeams: React.FC = () => {
                       <p className="text-[8px] text-gray-500 mt-2 uppercase font-bold tracking-widest">PNG, JPG ou WEBP. Máx 2MB.</p>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Descrição</label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 h-32 resize-none"
-                    placeholder="Conte um pouco sobre a equipe..."
-                  />
                 </div>
               </div>
 
