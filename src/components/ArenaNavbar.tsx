@@ -18,11 +18,8 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
   const tabs = [
     { id: 'feed', icon: Home, label: 'Feed' },
     { id: 'clips', icon: PlaySquare, label: 'Clips' },
+    { id: 'post', icon: PlusSquare, label: 'Post' },
     { id: 'rankings', icon: Trophy, label: 'Rankings' },
-    { id: 'search', icon: Search, label: 'Pesquisa' },
-    { id: 'notifications', icon: Bell, label: 'Avisos' },
-    { id: 'profile', icon: User, label: 'Perfil' },
-    { id: 'settings', icon: Settings, label: 'Ajustes' },
   ];
 
   return (

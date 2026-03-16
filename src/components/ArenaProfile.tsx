@@ -929,7 +929,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       </AnimatePresence>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 pt-12">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 pt-12">
         {[
           { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
           { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
@@ -937,12 +937,12 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
           { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
         ].map((stat, i) => (
-          <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 sm:p-4 rounded-2xl flex flex-col justify-between min-h-[90px] transition-all duration-300 hover:border-[var(--primary)]/30">
-            <div className="flex items-center justify-between mb-2">
-              <stat.icon size={14} className={stat.color} />
-              <span className="text-[9px] sm:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider text-right leading-tight">{stat.label}</span>
+          <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl space-y-2 transition-colors duration-300">
+            <div className="flex items-center justify-between">
+              <stat.icon size={16} className={stat.color} />
+              <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{stat.label}</span>
             </div>
-            <p className="text-xl sm:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
+            <p className="text-2xl font-extrabold text-[var(--text-main)]">{stat.value}</p>
           </div>
         ))}
       </div>

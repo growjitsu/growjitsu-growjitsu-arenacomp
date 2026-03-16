@@ -87,17 +87,6 @@ export interface ArenaChampionshipResult {
   created_at: string;
 }
 
-export interface ArenaAd {
-  id: string;
-  title: string;
-  content: string;
-  media_url?: string;
-  link_url?: string;
-  placement: 'feed_top' | 'feed_between' | 'sidebar' | 'profile';
-  active: boolean;
-  created_at: string;
-}
-
 export interface ArenaPost {
   id: string;
   author_id: string;
