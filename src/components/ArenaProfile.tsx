@@ -779,10 +779,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
   const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+    <div className="w-full max-w-4xl mx-auto py-4 md:py-8 px-4 space-y-12 md:space-y-16 overflow-x-hidden">
       {/* Profile Header */}
       <div className="relative">
-        <div className="h-48 md:h-64 bg-[var(--surface)] rounded-3xl overflow-hidden border border-[var(--border-ui)] transition-colors duration-300 relative">
+        <div className="h-40 md:h-64 bg-[var(--surface)] rounded-3xl overflow-hidden border border-[var(--border-ui)] transition-colors duration-300 relative">
           <div className="w-full h-full flex items-center justify-center bg-[var(--bg)] overflow-hidden">
             {/* Clean background */}
           </div>
@@ -790,14 +790,14 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           {isOwnProfile && !isEditing && (
             <button 
               onClick={() => setIsEditing(true)}
-              className="absolute top-4 right-4 bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all z-10"
+              className="absolute top-4 right-4 bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all z-20"
             >
               <Edit2 size={18} />
             </button>
           )}
         </div>
         
-        <div className="absolute -bottom-12 left-0 right-0 px-4 md:px-0 md:left-8 flex flex-col md:flex-row items-center md:items-end space-y-4 md:space-y-0 md:space-x-6">
+        <div className="relative -mt-16 md:-mt-20 px-4 md:px-8 flex flex-col md:flex-row items-center md:items-end space-y-4 md:space-y-0 md:space-x-6 z-10">
           <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-[var(--surface)] border-4 border-[var(--bg)] overflow-hidden shadow-2xl transition-colors duration-300 relative group shrink-0">
             {profile.profile_photo || profile.avatar_url ? (
               <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -813,9 +813,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </label>
             )}
           </div>
-          <div className="pb-4 text-center md:text-left flex-1 w-full">
+          <div className="pb-2 text-center md:text-left flex-1 w-full min-w-0">
             {isEditing ? (
-              <div className="space-y-2 max-w-xs mx-auto md:mx-0">
+              <div className="space-y-2 w-full max-w-xs mx-auto md:mx-0">
                 <input 
                   value={editData.full_name} 
                   onChange={e => setEditData({...editData, full_name: e.target.value})}
@@ -830,19 +830,19 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 />
               </div>
             ) : (
-              <div className="space-y-1">
-                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic break-words">
-                  {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg">({profile.nickname})</span>}
+              <div className="space-y-1 w-full">
+                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic break-words leading-tight">
+                  {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">({profile.nickname})</span>}
                 </h1>
-                <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-1 md:space-y-0">
-                  <p className="text-[var(--primary)] font-bold text-xs uppercase tracking-widest">@{profile.username} • {profile.modality}</p>
+                <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
+                  <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest truncate max-w-full">@{profile.username} • {profile.modality}</p>
                   {profile.wallet_address && (
                     <div className="flex items-center space-x-1 bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20">
                       <Wallet size={10} />
                       <span className="text-[8px] font-black uppercase tracking-widest">Web3 Verified</span>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                     <span>{followerCount} Seguidores</span>
                     {profile.team && (
                       <>
@@ -929,7 +929,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       </AnimatePresence>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 pt-12">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
         {[
           { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
           { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
@@ -937,12 +937,12 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
           { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
         ].map((stat, i) => (
-          <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl space-y-2 transition-colors duration-300">
-            <div className="flex items-center justify-between">
-              <stat.icon size={16} className={stat.color} />
-              <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">{stat.label}</span>
+          <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 transition-colors duration-300 overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between gap-2">
+              <stat.icon size={14} className={`${stat.color} shrink-0`} />
+              <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
             </div>
-            <p className="text-2xl font-extrabold text-[var(--text-main)]">{stat.value}</p>
+            <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
           </div>
         ))}
       </div>

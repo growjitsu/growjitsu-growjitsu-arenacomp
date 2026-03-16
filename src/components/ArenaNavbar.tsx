@@ -38,16 +38,6 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
           </div>
         </div>
 
-        {/* Create Post Button (Fixed Left - Desktop Only) */}
-        <button
-          onClick={onCreatePost}
-          className="hidden md:flex flex-col items-center justify-center mb-8 group transition-all"
-        >
-          <div className="p-4 rounded-2xl bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 group-hover:scale-110 group-hover:bg-[var(--primary-highlight)] transition-all">
-            <PlusSquare size={24} strokeWidth={2.5} />
-          </div>
-        </button>
-        
         <div className="flex flex-1 justify-around items-center w-full md:flex-col md:justify-center md:space-y-8">
           {tabs.map((tab) => (
             <button
@@ -65,7 +55,7 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
             >
               <div className={`p-3 rounded-2xl transition-all duration-500 ${
                 activeTab === tab.id ? 'bg-[var(--primary)]/10 shadow-[0_0_20px_rgba(37,99,235,0.2)]' : 'group-hover:bg-[var(--bg)]'
-              } ${tab.id === 'post' ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 md:hidden' : ''}`}>
+              } ${tab.id === 'post' ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20' : ''}`}>
                 <tab.icon size={24} strokeWidth={activeTab === tab.id ? 2.5 : 2} className={activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110 transition-transform'} />
               </div>
               <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-2 md:hidden">{tab.label}</span>
