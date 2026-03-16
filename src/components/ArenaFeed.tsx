@@ -10,6 +10,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [topAthletes, setTopAthletes] = useState<ArenaProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const POSTS_PER_PAGE = 10;
   const [followingIds, setFollowingIds] = useState<Set<string>>(new Set());
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -32,7 +36,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
 
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(0, true);
     fetchTopAthletes();
     fetchArenaStats();
     fetchTrendingPosts();
@@ -118,8 +122,13 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     }
   };
 
-  const fetchPosts = async () => {
-    setLoading(true);
+  const fetchPosts = async (pageToFetch: number = 0, isInitial: boolean = false) => {
+    if (isInitial) {
+      setLoading(true);
+    } else {
+      setLoadingMore(true);
+    }
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -146,57 +155,57 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         }
       }
 
-      // 2. Fetch all posts
-      console.log('ArenaFeed: Fetching posts...');
+      // 2. Fetch posts with pagination
+      const from = pageToFetch * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
       
-      // Try to filter by is_archived if the column exists
-      let { data: postsData, error: postsError } = await supabase
+      console.log(`ArenaFeed: Fetching posts from ${from} to ${to}...`);
+      
+      let query = supabase
         .from('posts')
         .select('*')
         .eq('is_archived', false)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .range(from, to);
 
-      // If we got an error and it likely was "column does not exist", we need to fetch without the filter
+      let { data: postsData, error: postsError } = await query;
+
+      // Fallback for missing column
       if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
-        console.log('ArenaFeed: is_archived column might be missing, falling back to client-side filtering. Error:', postsError.message);
         const { data: retryData, error: retryError } = await supabase
           .from('posts')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(100);
+          .range(from, to);
         
-        if (retryError) {
-          console.error('ArenaFeed: Retry fetch failed:', retryError);
-          throw retryError;
-        }
+        if (retryError) throw retryError;
         postsData = retryData;
         postsError = null;
       } else if (postsError) {
-        console.error('ArenaFeed: Error fetching posts:', postsError);
         throw postsError;
       }
 
-      if (!postsData) {
-        console.warn('ArenaFeed: No posts data returned from Supabase');
-        postsData = [];
+      if (!postsData || postsData.length === 0) {
+        setHasMore(false);
+        if (isInitial) setPosts([]);
+        return;
+      }
+
+      if (postsData.length < POSTS_PER_PAGE) {
+        setHasMore(false);
       }
       
-      // 3. Fetch authors for these posts to avoid join issues
+      // 3. Fetch authors
       const authorIds = Array.from(new Set(postsData.map(p => p.author_id)));
-      console.log(`ArenaFeed: Fetching profiles for ${authorIds.length} authors`);
-      
       let authorsMap = new Map();
       if (authorIds.length > 0) {
-        const { data: authorsData, error: authorsError } = await supabase
+        const { data: authorsData } = await supabase
           .from('profiles')
           .select('*')
-          .neq('role', 'admin') // Exclude admins from authors
+          .neq('role', 'admin')
           .in('id', authorIds);
         
-        if (authorsError) {
-          console.error('ArenaFeed: Error fetching authors:', authorsError);
-        } else if (authorsData) {
+        if (authorsData) {
           authorsMap = new Map(authorsData.map(a => [a.id, a]));
         }
       }
@@ -205,11 +214,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         ...p,
         author: authorsMap.get(p.author_id)
       }))
-      .filter(p => p.is_archived !== true && p.author); // Filter out posts without authors (which includes admins now)
+      .filter(p => p.is_archived !== true && p.author);
 
-      console.log(`ArenaFeed: Fetched ${postsWithAuthors.length} posts`);
-
-      // 3. Fetch user's likes to mark posts as liked
+      // 4. Fetch user's likes
       let userLikes: Set<string> = new Set();
       if (user) {
         const { data: likesData } = await supabase
@@ -222,44 +229,31 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         }
       }
 
-      // 4. Calculate scores for the "Instagram-inspired" algorithm
+      // 5. Calculate scores
       const now = new Date();
       const scoredPosts = postsWithAuthors.map(post => {
         let score = 0;
         const postDate = new Date(post.created_at);
         const diffHours = (now.getTime() - postDate.getTime()) / (1000 * 60 * 60);
 
-        // 1) Seguindo
         if (followingSet.has(post.author_id)) score += 50;
-
-        // 2) Modalidade
         const normalizeModality = (m?: string) => m?.toLowerCase().replace(/[-\s]/g, '') || '';
         if (currentUserProfile && normalizeModality(post.author?.modality) === normalizeModality(currentUserProfile.modality)) score += 40;
-
-        // 3) Engajamento
         score += (post.likes_count || 0) * 2;
         score += (post.comments_count || 0) * 4;
         score += (post.shares_count || 0) * 6;
-
-        // 4) Tempo da postagem
         if (diffHours <= 1) score += 30;
         else if (diffHours <= 6) score += 20;
         else if (diffHours <= 24) score += 10;
-
-        // 5) Proximidade geográfica
         if (currentUserProfile && post.author) {
           if (post.author.city === currentUserProfile.city) score += 30;
           else if (post.author.state === currentUserProfile.state) score += 20;
           else if (post.author.country === currentUserProfile.country) score += 10;
         }
-
-        // 6) Ranking do atleta
         const authorScore = post.author?.arena_score || 0;
         if (authorScore > 1000) score += 50;
         else if (authorScore > 500) score += 30;
         else if (authorScore > 100) score += 20;
-
-        // 7) Tipo de conteúdo
         if (post.type === 'video') score += 15;
         else if (post.type === 'image') score += 10;
         else if (post.type === 'text') score += 5;
@@ -271,19 +265,27 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         };
       });
 
-      // 5. Final Sorting
-      const sortedPosts = scoredPosts.sort((a, b) => {
+      // 6. Final Sorting (only sort the new batch or re-sort all if needed)
+      // For infinite scroll, we usually append. Sorting might mess up the order if we append.
+      // But since we order by created_at in SQL, we just need to maintain that.
+      const sortedNewPosts = scoredPosts.sort((a, b) => {
         const dateA = new Date(a.created_at).getTime();
         const dateB = new Date(b.created_at).getTime();
         if (dateB !== dateA) return dateB - dateA;
         return (b.feed_score || 0) - (a.feed_score || 0);
       });
 
-      setPosts(sortedPosts);
+      if (isInitial) {
+        setPosts(sortedNewPosts);
+      } else {
+        setPosts(prev => [...prev, ...sortedNewPosts]);
+      }
+      setPage(pageToFetch);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -851,298 +853,322 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 )}
                      {/* Posts List with Interstitial Ads */}
                 {posts.length > 0 ? (
-                  posts.map((post, index) => (
-                    <React.Fragment key={post.id}>
-                      <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, margin: "-100px" }}
-                        onClick={() => {
-                          setSelectedPost(post);
-                          setIsPostModalOpen(true);
-                        }}
-                        className="group bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-ui)] rounded-[3rem] overflow-hidden transition-all duration-700 hover:border-[var(--primary)]/40 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] cursor-pointer relative"
-                      >
-                        {/* Post Header - Cinematic Style */}
-                        <div className="p-8 flex items-center justify-between relative z-10">
-                          <div className="flex items-center space-x-5">
-                            <Link 
-                              to={`/user/@${post.author?.username}`} 
-                              className="relative group/avatar"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <div className="absolute inset-0 bg-[var(--primary)] rounded-[1.5rem] blur-lg opacity-0 group-hover/avatar:opacity-30 transition-opacity" />
-                              <div className="w-14 h-14 rounded-[1.5rem] bg-[var(--bg)] overflow-hidden relative z-10 border border-[var(--border-ui)] group-hover/avatar:border-[var(--primary)]/50 transition-all duration-500">
-                                {(post.author?.profile_photo || post.author?.avatar_url) && (
-                                  <img src={post.author.profile_photo || post.author.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                )}
-                              </div>
-                            </Link>
-                            <div>
-                              <div className="flex items-center space-x-3">
-                                <Link 
-                                  to={`/user/@${post.author?.username}`} 
-                                  className="font-black text-sm uppercase tracking-wider text-[var(--text-main)] hover:text-[var(--primary)] transition-colors"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {post.author?.full_name || 'Atleta'}
-                                </Link>
-                                <div className="px-2 py-0.5 rounded-md bg-[var(--bg)] border border-[var(--border-ui)] text-[9px] font-mono font-bold text-[var(--primary)]">
-                                  LVL {Math.floor((post.author?.arena_score || 0) / 100) + 1}
+                  <>
+                    {posts.map((post, index) => (
+                      <React.Fragment key={post.id}>
+                        <motion.div
+                          initial={{ opacity: 0, y: 30 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true, margin: "-100px" }}
+                          onClick={() => {
+                            setSelectedPost(post);
+                            setIsPostModalOpen(true);
+                          }}
+                          className="group bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-ui)] rounded-[3rem] overflow-hidden transition-all duration-700 hover:border-[var(--primary)]/40 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] cursor-pointer relative"
+                        >
+                          {/* Post Header - Cinematic Style */}
+                          <div className="p-8 flex items-center justify-between relative z-10">
+                            <div className="flex items-center space-x-5">
+                              <Link 
+                                to={`/user/@${post.author?.username}`} 
+                                className="relative group/avatar"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="absolute inset-0 bg-[var(--primary)] rounded-[1.5rem] blur-lg opacity-0 group-hover/avatar:opacity-30 transition-opacity" />
+                                <div className="w-14 h-14 rounded-[1.5rem] bg-[var(--bg)] overflow-hidden relative z-10 border border-[var(--border-ui)] group-hover/avatar:border-[var(--primary)]/50 transition-all duration-500">
+                                  {(post.author?.profile_photo || post.author?.avatar_url) && (
+                                    <img src={post.author.profile_photo || post.author.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" />
+                                  )}
+                                </div>
+                              </Link>
+                              <div>
+                                <div className="flex items-center space-x-3">
+                                  <Link 
+                                    to={`/user/@${post.author?.username}`} 
+                                    className="font-black text-sm uppercase tracking-wider text-[var(--text-main)] hover:text-[var(--primary)] transition-colors"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {post.author?.full_name || 'Atleta'}
+                                  </Link>
+                                  <div className="px-2 py-0.5 rounded-md bg-[var(--bg)] border border-[var(--border-ui)] text-[9px] font-mono font-bold text-[var(--primary)]">
+                                    LVL {Math.floor((post.author?.arena_score || 0) / 100) + 1}
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-3 mt-1.5">
+                                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">@{post.author?.username}</span>
+                                  <span className="w-1 h-1 rounded-full bg-[var(--primary)]/40" />
+                                  <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.2em]">{post.author?.modality || 'Geral'}</span>
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-3 mt-1.5">
-                                <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">@{post.author?.username}</span>
-                                <span className="w-1 h-1 rounded-full bg-[var(--primary)]/40" />
-                                <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.2em]">{post.author?.modality || 'Geral'}</span>
-                              </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center space-x-4">
-                            {userProfile?.id === post.author_id && (
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setActiveMenuId(activeMenuId === post.id ? null : post.id);
-                                  }}
-                                  className="p-1.5 rounded-full hover:bg-[var(--bg)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                                >
-                                  <MoreVertical size={16} />
-                                </button>
-                                
-                                <AnimatePresence>
-                                  {activeMenuId === post.id && (
-                                    <motion.div
-                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                      className="absolute right-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl shadow-2xl z-50 overflow-hidden"
-                                    >
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setIsEditingPost(post.id);
-                                          setEditContent(post.content || '');
-                                          setEditHashtags(post.hashtags || '');
-                                          setActiveMenuId(null);
-                                        }}
-                                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
+                            <div className="flex items-center space-x-4">
+                              {userProfile?.id === post.author_id && (
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuId(activeMenuId === post.id ? null : post.id);
+                                    }}
+                                    className="p-1.5 rounded-full hover:bg-[var(--bg)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                                  >
+                                    <MoreVertical size={16} />
+                                  </button>
+                                  
+                                  <AnimatePresence>
+                                    {activeMenuId === post.id && (
+                                      <motion.div
+                                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                        className="absolute right-0 mt-2 w-48 bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl shadow-2xl z-50 overflow-hidden"
                                       >
-                                        <Edit2 size={14} className="text-[var(--primary)]" />
-                                        <span>Editar Postagem</span>
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleArchivePost(post.id);
-                                        }}
-                                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
-                                      >
-                                        <Archive size={14} className="text-amber-500" />
-                                        <span>Arquivar Postagem</span>
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          let urls: string[] = [];
-                                          try {
-                                            if (post.media_url?.startsWith('[')) urls = JSON.parse(post.media_url);
-                                            else if (post.media_url) urls = [post.media_url];
-                                          } catch (e) {}
-                                          handleDeletePost(post.id, urls);
-                                        }}
-                                        className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors"
-                                      >
-                                        <Trash2 size={14} />
-                                        <span>Excluir Permanentemente</span>
-                                      </button>
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-                            )}
-                            {post.type === 'result' && (
-                              <div className="bg-gradient-to-r from-amber-400 to-orange-600 text-white px-4 py-1.5 rounded-xl flex items-center space-x-2 shadow-2xl shadow-orange-500/30 border border-white/10">
-                                <Award size={12} className="fill-current" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Pódio</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Post Content */}
-                        <div className="px-8 pb-4">
-                          {isEditingPost === post.id ? (
-                            <div className="space-y-4 mb-6" onClick={(e) => e.stopPropagation()}>
-                              <textarea
-                                value={editContent}
-                                onChange={(e) => setEditContent(e.target.value)}
-                                className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] min-h-[100px]"
-                                placeholder="O que está acontecendo na Arena?"
-                              />
-                              <input
-                                type="text"
-                                value={editHashtags}
-                                onChange={(e) => setEditHashtags(e.target.value)}
-                                className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl p-3 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
-                                placeholder="#jiujitsu #mma #ranking"
-                              />
-                              <div className="flex items-center justify-end space-x-3">
-                                <button
-                                  onClick={() => setIsEditingPost(null)}
-                                  className="px-4 py-2 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] uppercase tracking-widest"
-                                >
-                                  Cancelar
-                                </button>
-                                <button
-                                  onClick={() => handleUpdatePost(post.id, editContent, editHashtags)}
-                                  className="px-6 py-2 bg-[var(--primary)] text-white text-xs font-black rounded-xl uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all"
-                                >
-                                  Salvar Alterações
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <>
-                              <p className="text-[var(--text-main)]/90 text-base leading-relaxed font-medium mb-2 tracking-tight">{post.content}</p>
-                              {post.hashtags && (
-                                <p className="text-xs font-bold text-[var(--primary)] mb-6 tracking-widest uppercase">{post.hashtags}</p>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setIsEditingPost(post.id);
+                                            setEditContent(post.content || '');
+                                            setEditHashtags(post.hashtags || '');
+                                            setActiveMenuId(null);
+                                          }}
+                                          className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
+                                        >
+                                          <Edit2 size={14} className="text-[var(--primary)]" />
+                                          <span>Editar Postagem</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleArchivePost(post.id);
+                                          }}
+                                          className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
+                                        >
+                                          <Archive size={14} className="text-amber-500" />
+                                          <span>Arquivar Postagem</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            let urls: string[] = [];
+                                            try {
+                                              if (post.media_url?.startsWith('[')) urls = JSON.parse(post.media_url);
+                                              else if (post.media_url) urls = [post.media_url];
+                                            } catch (e) {}
+                                            handleDeletePost(post.id, urls);
+                                          }}
+                                          className="w-full flex items-center space-x-3 px-4 py-3 text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                        >
+                                          <Trash2 size={14} />
+                                          <span>Excluir Permanentemente</span>
+                                        </button>
+                                      </motion.div>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
                               )}
-                            </>
-                          )}
-                          
-                          {post.media_url && (
-                            <div className="relative rounded-[2.5rem] overflow-hidden border border-[var(--border-ui)] bg-black group/media shadow-2xl">
-                              {(() => {
-                                let urls: string[] = [];
-                                try {
-                                  if (post.media_url.startsWith('[')) {
-                                    urls = JSON.parse(post.media_url);
-                                  } else {
+                              {post.type === 'result' && (
+                                <div className="bg-gradient-to-r from-amber-400 to-orange-600 text-white px-4 py-1.5 rounded-xl flex items-center space-x-2 shadow-2xl shadow-orange-500/30 border border-white/10">
+                                  <Award size={12} className="fill-current" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Pódio</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Post Content */}
+                          <div className="px-8 pb-4">
+                            {isEditingPost === post.id ? (
+                              <div className="space-y-4 mb-6" onClick={(e) => e.stopPropagation()}>
+                                <textarea
+                                  value={editContent}
+                                  onChange={(e) => setEditContent(e.target.value)}
+                                  className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl p-4 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] min-h-[100px]"
+                                  placeholder="O que está acontecendo na Arena?"
+                                />
+                                <input
+                                  type="text"
+                                  value={editHashtags}
+                                  onChange={(e) => setEditHashtags(e.target.value)}
+                                  className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl p-3 text-xs text-[var(--primary)] outline-none focus:border-[var(--primary)]"
+                                  placeholder="#jiujitsu #mma #ranking"
+                                />
+                                <div className="flex items-center justify-end space-x-3">
+                                  <button
+                                    onClick={() => setIsEditingPost(null)}
+                                    className="px-4 py-2 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] uppercase tracking-widest"
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    onClick={() => handleUpdatePost(post.id, editContent, editHashtags)}
+                                    className="px-6 py-2 bg-[var(--primary)] text-white text-xs font-black rounded-xl uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all"
+                                  >
+                                    Salvar Alterações
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-[var(--text-main)]/90 text-base leading-relaxed font-medium mb-2 tracking-tight">{post.content}</p>
+                                {post.hashtags && (
+                                  <p className="text-xs font-bold text-[var(--primary)] mb-6 tracking-widest uppercase">{post.hashtags}</p>
+                                )}
+                              </>
+                            )}
+                            
+                            {post.media_url && (
+                              <div className="relative rounded-[2.5rem] overflow-hidden border border-[var(--border-ui)] bg-black group/media shadow-2xl">
+                                {(() => {
+                                  let urls: string[] = [];
+                                  try {
+                                    if (post.media_url.startsWith('[')) {
+                                      urls = JSON.parse(post.media_url);
+                                    } else {
+                                      urls = [post.media_url];
+                                    }
+                                  } catch (e) {
                                     urls = [post.media_url];
                                   }
-                                } catch (e) {
-                                  urls = [post.media_url];
-                                }
 
-                                if (urls.length > 1) {
-                                  return (
-                                    <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full">
-                                      {urls.map((url, i) => (
-                                        <div key={i} className="flex-shrink-0 w-full snap-center relative flex items-center justify-center bg-black/20">
-                                          <img 
-                                            src={url} 
-                                            alt="" 
-                                            className="w-full h-auto block max-h-[70vh] object-contain" 
-                                            referrerPolicy="no-referrer"
-                                          />
-                                          <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white">
-                                            {i + 1} / {urls.length}
+                                  if (urls.length > 1) {
+                                    return (
+                                      <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full">
+                                        {urls.map((url, i) => (
+                                          <div key={i} className="flex-shrink-0 w-full snap-center relative flex items-center justify-center bg-black/20">
+                                            <img 
+                                              src={url} 
+                                              alt="" 
+                                              className="w-full h-auto block max-h-[70vh] object-contain" 
+                                              referrerPolicy="no-referrer"
+                                              loading="lazy"
+                                            />
+                                            <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white">
+                                              {i + 1} / {urls.length}
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                }
+                                        ))}
+                                      </div>
+                                    );
+                                  }
 
-                                const url = urls[0];
-                                const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('video');
-                                
-                                if (isVideo) {
+                                  const url = urls[0];
+                                  const isVideo = url.match(/\.(mp4|webm|ogg|mov)$/i) || url.includes('video');
+                                  
+                                  if (isVideo) {
+                                    return (
+                                      <video 
+                                        src={url} 
+                                        className="w-full h-auto block max-h-[70vh] object-contain" 
+                                        controls 
+                                        playsInline
+                                        preload="metadata"
+                                      />
+                                    );
+                                  }
+
                                   return (
-                                    <video 
+                                    <img 
                                       src={url} 
+                                      alt="" 
                                       className="w-full h-auto block max-h-[70vh] object-contain" 
-                                      controls 
-                                      playsInline
+                                      referrerPolicy="no-referrer"
+                                      loading="lazy"
                                     />
                                   );
-                                }
+                                })()}
+                              </div>
+                            )}
+                          </div>
 
-                                return (
-                                  <img 
-                                    src={url} 
-                                    alt="" 
-                                    className="w-full h-auto block max-h-[70vh] object-contain" 
-                                    referrerPolicy="no-referrer"
-                                  />
-                                );
-                              })()}
+                          {/* Post Actions */}
+                          <div className="p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
+                            <div className="flex items-center space-x-8">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLike(post.id, post.author_id);
+                                }}
+                                className={`flex items-center space-x-4 group/btn transition-all ${
+                                  post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
+                                }`}
+                              >
+                                <div className={`p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
+                                  <Heart size={22} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
+                                  <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Curtidas</span>
+                                </div>
+                              </button>
+
+                              <button className="flex items-center space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
+                                <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
+                                  <MessageCircle size={22} className="group-hover/btn:scale-110 transition-transform" />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
+                                  <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Comentários</span>
+                                </div>
+                              </button>
                             </div>
-                          )}
-                        </div>
 
-                        {/* Post Actions */}
-                        <div className="p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
-                          <div className="flex items-center space-x-8">
                             <button 
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleLike(post.id, post.author_id);
+                                handleShare(post);
                               }}
-                              className={`flex items-center space-x-4 group/btn transition-all ${
-                                post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
-                              }`}
+                              className="p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500"
                             >
-                              <div className={`p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
-                                <Heart size={22} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
-                                <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Curtidas</span>
-                              </div>
-                            </button>
-
-                            <button className="flex items-center space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
-                              <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
-                                <MessageCircle size={22} className="group-hover/btn:scale-110 transition-transform" />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
-                                <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Comentários</span>
-                              </div>
+                              <Share2 size={22} />
                             </button>
                           </div>
+                        </motion.div>
 
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleShare(post);
-                            }}
-                            className="p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500"
-                          >
-                            <Share2 size={22} />
-                          </button>
-                        </div>
-                      </motion.div>
+                        {/* Interstitial Ad */}
+                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement === 'feed_between').length > 0 && (
+                          <div className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center relative overflow-hidden group/ad">
+                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
+                            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
+                            <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
+                              {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].title}
+                            </h4>
+                            <p className="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto leading-relaxed">
+                              {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].content}
+                            </p>
+                            {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url && (
+                              <a 
+                                href={ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url!} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-block px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
+                              >
+                                Conhecer Agora
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </React.Fragment>
+                    ))}
 
-                      {/* Interstitial Ad */}
-                      {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement === 'feed_between').length > 0 && (
-                        <div className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center relative overflow-hidden group/ad">
-                          <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
-                          <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
-                          <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
-                            {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].title}
-                          </h4>
-                          <p className="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto leading-relaxed">
-                            {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].content}
-                          </p>
-                          {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url && (
-                            <a 
-                              href={ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url!} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="inline-block px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
-                            >
-                              Conhecer Agora
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </React.Fragment>
-                  ))
+                    {/* Infinite Scroll Trigger */}
+                    {hasMore && (
+                      <div 
+                        className="flex justify-center py-12"
+                        ref={(el) => {
+                          if (el) {
+                            const observer = new IntersectionObserver((entries) => {
+                              if (entries[0].isIntersecting && !loadingMore && !loading) {
+                                fetchPosts(page + 1);
+                              }
+                            }, { threshold: 0.1 });
+                            observer.observe(el);
+                          }
+                        }}
+                      >
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]" />
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <div className="bg-[var(--surface)]/20 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center">
                     <p className="text-[var(--text-muted)] font-bold italic">A Arena está silenciosa... Seja o primeiro a publicar!</p>
