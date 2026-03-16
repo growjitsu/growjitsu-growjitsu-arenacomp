@@ -20,7 +20,8 @@ import { AdminPosts } from './components/Admin/AdminPosts';
 import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { ArenaProfile } from './types';
-import { Bell, Plus, Shield, Lock, ArrowLeft } from 'lucide-react';
+import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon } from 'lucide-react';
+import { useTheme } from './context/ThemeContext';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
   const { userId, username } = useParams();
@@ -37,6 +38,7 @@ export default function App() {
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     // Close profile menu on navigation
@@ -165,6 +167,12 @@ export default function App() {
           </div>
           <div className="flex items-center space-x-4">
             <button 
+              onClick={() => navigate('/search')}
+              className="p-2.5 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
+            >
+              <Search size={20} />
+            </button>
+            <button 
               onClick={() => navigate('/notifications')}
               className="relative p-2.5 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
             >
@@ -223,6 +231,13 @@ export default function App() {
                     >
                       <span>Configurações</span>
                     </button>
+                    <button 
+                      onClick={() => { toggleTheme(); setShowProfileMenu(false); }}
+                      className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-colors flex items-center justify-between"
+                    >
+                      <span>Modo {theme === 'light' ? 'Escuro' : 'Claro'}</span>
+                      {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
+                    </button>
                     <div className="h-px bg-[var(--border-ui)] my-1" />
                     <button 
                       onClick={() => { supabase.auth.signOut(); navigate('/login'); }}
@@ -252,14 +267,6 @@ export default function App() {
           </AnimatePresence>
         </main>
 
-        {/* Mobile Floating Create Button */}
-        <button
-          onClick={() => setIsCreatePostModalOpen(true)}
-          className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-[var(--primary)] text-white rounded-full shadow-2xl shadow-[var(--primary)]/40 flex items-center justify-center z-40 active:scale-90 transition-transform"
-        >
-          <Plus size={28} />
-        </button>
-
         <CreatePostModal 
           isOpen={isCreatePostModalOpen}
           onClose={() => setIsCreatePostModalOpen(false)}
@@ -279,6 +286,13 @@ export default function App() {
           </div>
           
           <div className="flex items-center space-x-8 relative">
+            <button 
+              onClick={() => navigate('/search')}
+              className="p-3 text-[var(--text-muted)] hover:text-[var(--primary)] bg-[var(--surface)]/50 rounded-2xl border border-[var(--border-ui)] transition-all hover:scale-105 active:scale-95"
+            >
+              <Search size={20} />
+            </button>
+            
             <div className="flex items-center space-x-4 bg-[var(--surface)]/50 px-6 py-2.5 rounded-2xl border border-[var(--border-ui)] shadow-inner">
               <div className="text-right">
                 <p className="text-[11px] font-black text-[var(--text-main)] uppercase tracking-tight">{profile?.full_name}</p>
@@ -350,6 +364,13 @@ export default function App() {
                     className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-colors flex items-center space-x-2"
                   >
                     <span>Configurações</span>
+                  </button>
+                  <button 
+                    onClick={() => { toggleTheme(); setShowProfileMenu(false); }}
+                    className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-colors flex items-center justify-between"
+                  >
+                    <span>Modo {theme === 'light' ? 'Escuro' : 'Claro'}</span>
+                    {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
                   </button>
                   <div className="h-px bg-[var(--border-ui)] my-1" />
                   <button 

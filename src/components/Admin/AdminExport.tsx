@@ -33,19 +33,52 @@ export const AdminExport: React.FC = () => {
 
       if (type === 'athletes') {
         const result = await supabase.from('profiles').select('*');
-        data = result.data || [];
+        data = (result.data || []).map(p => ({
+          ID: p.id,
+          Nome: p.full_name,
+          Username: p.username,
+          Email: p.email,
+          Função: p.role,
+          Modalidade: p.modality,
+          Equipe: p.team,
+          Cidade: p.city,
+          Estado: p.state,
+          País: p.country,
+          Vitórias: p.wins,
+          Derrotas: p.losses,
+          Empates: p.draws,
+          'Total de Lutas': p.total_fights,
+          'Pontuação Arena': p.arena_score,
+          'Data de Cadastro': p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : ''
+        }));
         error = result.error;
       } else if (type === 'teams') {
         const result = await supabase.from('teams').select('*');
-        data = result.data || [];
+        data = (result.data || []).map(t => ({
+          ID: t.id,
+          Nome: t.name,
+          Professor: t.professor,
+          Cidade: t.city,
+          Estado: t.state,
+          País: t.country,
+          'Data de Registro': t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR') : ''
+        }));
         error = result.error;
       } else if (type === 'posts') {
-        const result = await supabase.from('posts').select('*, profiles(username)');
-        data = (result.data || []).map(p => ({
-          ...p,
-          username: p.profiles?.username,
-          profiles: undefined
-        }));
+        const result = await supabase.from('posts').select('*, profiles(username, full_name)');
+        data = (result.data || []).map(p => {
+          const profile = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+          return {
+            ID: p.id,
+            Autor: profile?.full_name || 'Desconhecido',
+            Username: profile?.username || 'desconhecido',
+            Conteúdo: p.content,
+            Tipo: p.type,
+            Curtidas: p.likes_count,
+            Comentários: p.comments_count,
+            'Data de Publicação': p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : ''
+          };
+        });
         error = result.error;
       }
 

@@ -748,7 +748,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         <div className="max-w-7xl mx-auto py-6 px-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column - Feed Content */}
-            <div className="lg:col-span-8 space-y-8">
+            <div className="lg:col-span-12 space-y-8 max-w-4xl mx-auto w-full">
               {/* Feed List - Immersive Cards */}
               <div className="space-y-8">
             {loading ? (
@@ -1040,101 +1040,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 <p className="text-[var(--text-muted)] font-bold italic">A Arena está silenciosa... Seja o primeiro a publicar!</p>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Right Column - Arena Intelligence - Premium Sidebar */}
-        <div className="lg:col-span-4 space-y-8 order-last lg:order-none">
-          <div className="bg-[var(--surface)]/40 backdrop-blur-2xl border border-[var(--border-ui)] rounded-[3rem] p-8 lg:sticky lg:top-24 shadow-2xl shadow-black/40 overflow-hidden group/sidebar">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[var(--primary)] to-transparent opacity-50" />
-            
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-3">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[var(--text-muted)]">Arena Intelligence</h3>
-              </div>
-              <Award size={16} className="text-[var(--primary)] opacity-50" />
-            </div>
-
-            <div className="space-y-10">
-              {/* Score Visualization */}
-              <div className="relative p-6 rounded-[2rem] bg-gradient-to-br from-[var(--bg)] to-[var(--surface)] border border-[var(--border-ui)] shadow-inner group/score">
-                <div className="absolute top-4 right-4 text-[8px] font-black text-[var(--primary)] uppercase tracking-widest">Global Rank</div>
-                <div className="flex flex-col items-center justify-center space-y-2 py-4">
-                  <span className="text-5xl font-black text-[var(--text-main)] tracking-tighter group-hover/score:scale-110 transition-transform duration-500">{Math.round(userProfile?.arena_score || 0)}</span>
-                  <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.3em]">Arena Points</span>
-                </div>
-                <div className="space-y-3 mt-4">
-                  <div className="flex justify-between items-center px-1">
-                    <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Atividade Total</span>
-                    <span className="text-[9px] font-black text-emerald-500">+{arenaStats.growth}%</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)]">
-                      <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Posts</p>
-                      <p className="text-sm font-black text-[var(--text-main)]">{arenaStats.totalPosts}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)]">
-                      <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Atletas</p>
-                      <p className="text-sm font-black text-[var(--text-main)]">{arenaStats.activeUsers}</p>
-                    </div>
-                  </div>
-                  <div className="w-full h-2 bg-[var(--surface)] rounded-full overflow-hidden p-0.5 border border-[var(--border-ui)] mt-4">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (arenaStats.totalInteractions / 1000) * 100)}%` }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-[var(--primary)] via-cyan-400 to-[var(--primary)] rounded-full shadow-[0_0_15px_rgba(37,99,235,0.5)]" 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Trending Arena */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between px-1">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-main)]">Trending Arena</h4>
-                  <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Live Updates</span>
-                </div>
-                <div className="space-y-3">
-                  {trendingPosts.length > 0 ? (
-                    trendingPosts.map((post, idx) => (
-                      <motion.div 
-                        key={post.id}
-                        whileHover={{ x: 5 }}
-                        onClick={() => {
-                          setSelectedPost(post);
-                          setIsPostModalOpen(true);
-                        }}
-                        className="flex items-center justify-between p-4 rounded-2xl bg-[var(--bg)]/30 border border-[var(--border-ui)] hover:border-[var(--primary)]/30 hover:bg-[var(--bg)]/50 transition-all cursor-pointer group/item"
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${idx === 0 ? 'from-amber-400 to-orange-600' : idx === 1 ? 'from-slate-300 to-slate-500' : 'from-orange-700 to-orange-900'} flex items-center justify-center text-white text-[10px] font-black shadow-lg shadow-black/20`}>
-                            #{idx + 1}
-                          </div>
-                          <div>
-                            <p className="text-xs font-black text-[var(--text-main)] group-hover/item:text-[var(--primary)] transition-colors truncate w-32">
-                              {post.author?.full_name || 'Atleta'}
-                            </p>
-                            <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">{post.likes_count} curtidas</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[10px] font-black text-emerald-500">POPULAR</p>
-                        </div>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <p className="text-[10px] text-[var(--text-muted)] italic text-center py-4">Nenhuma tendência ainda...</p>
-                  )}
-                </div>
-              </div>
-
-              <button className="group relative w-full py-5 rounded-[2rem] bg-[var(--primary)] overflow-hidden shadow-2xl shadow-[var(--primary)]/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                <span className="relative z-10 text-white text-[11px] font-black uppercase tracking-[0.4em]">Explorar Competições</span>
-              </button>
-            </div>
           </div>
         </div>
       </div>

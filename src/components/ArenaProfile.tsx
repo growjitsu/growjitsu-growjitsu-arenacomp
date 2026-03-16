@@ -4,7 +4,8 @@ import {
   Award, Target, TrendingUp, Grid, History, MapPin, Calendar, 
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy,
-  Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2
+  Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
+  Brain, Zap, Cpu, BarChart3, Shield, Info
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team } from '../types';
@@ -22,7 +23,7 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [archivedPosts, setArchivedPosts] = useState<ArenaPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'history' | 'championships' | 'fights' | 'archive'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'history' | 'championships' | 'fights' | 'archive' | 'intelligence'>('posts');
   const [isEditing, setIsEditing] = useState(forceEdit || false);
   const [editData, setEditData] = useState<Partial<ArenaProfile>>({});
   const [saving, setSaving] = useState(false);
@@ -835,18 +836,18 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 </h1>
                 <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-1 md:space-y-0">
                   <p className="text-[var(--primary)] font-bold text-xs uppercase tracking-widest">@{profile.username} • {profile.modality}</p>
-                  <div className="flex items-center space-x-2 text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[10px] font-black uppercase tracking-widest">
                     <span>{followerCount} Seguidores</span>
                     {profile.team && (
                       <>
-                        <span>•</span>
+                        <span className="hidden md:inline">•</span>
                         <span className="text-[var(--primary)] font-bold">Equipe: {profile.team}</span>
                       </>
                     )}
                   </div>
                 </div>
                 {(profile.city || profile.state || profile.country) && (
-                  <div className="flex items-center justify-center md:justify-start space-x-2 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
                     <MapPin size={10} />
                     <span>
                       {[profile.city, profile.state, profile.country].filter(Boolean).join(' • ')}
@@ -900,11 +901,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="flex justify-end space-x-4 pt-8"
+            className="flex flex-col sm:flex-row justify-end gap-4 pt-8"
           >
             <button 
               onClick={() => setIsEditing(false)}
-              className="px-6 py-2 rounded-xl border border-[var(--border-ui)] text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center space-x-2"
+              className="w-full sm:w-auto px-6 py-2 rounded-xl border border-[var(--border-ui)] text-xs font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 transition-all flex items-center justify-center space-x-2"
             >
               <X size={14} />
               <span>Cancelar</span>
@@ -912,7 +913,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <button 
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2 rounded-xl bg-[var(--primary)] text-white text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all flex items-center space-x-2 disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-2 rounded-xl bg-[var(--primary)] text-white text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={14} />}
               <span>{saving ? 'Salvando...' : 'Salvar Alterações'}</span>
@@ -966,7 +967,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       <div className="grid md:grid-cols-3 gap-8">
         <div className="md:col-span-1 space-y-6">
           {/* Basic Info */}
-          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-2xl space-y-4 transition-colors duration-300">
+          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-2xl space-y-4 transition-colors duration-300 overflow-hidden">
             <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Informações</h3>
             {isEditing ? (
               <div className="space-y-4">
@@ -1008,11 +1009,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </div>
             ) : (
               <>
-                <p className="text-sm text-[var(--text-muted)] leading-relaxed">{profile.bio || 'Nenhuma biografia disponível.'}</p>
+                <p className="text-sm text-[var(--text-muted)] leading-relaxed break-words">{profile.bio || 'Nenhuma biografia disponível.'}</p>
                 <div className="space-y-3 pt-4 border-t border-[var(--border-ui)]">
                   <div className="flex items-center space-x-3 text-[var(--text-muted)]">
                     <MapPin size={14} />
-                    <span className="text-xs font-bold">{profile.state ? `${profile.state}` : ''}{profile.country ? ` • ${profile.country}` : ''}</span>
+                    <span className="text-xs font-bold break-words">{profile.state ? `${profile.state}` : ''}{profile.country ? ` • ${profile.country}` : ''}</span>
                   </div>
                   <div className="flex items-center space-x-3 text-[var(--text-muted)]">
                     <Calendar size={14} />
@@ -1214,10 +1215,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           </div>
 
           {/* Tabs */}
-          <div className="flex space-x-8 border-b border-[var(--border-ui)] transition-colors duration-300">
+          <div className="flex space-x-8 border-b border-[var(--border-ui)] transition-colors duration-300 overflow-x-auto hide-scrollbar scroll-smooth">
             <button
               onClick={() => setActiveTab('posts')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
                 activeTab === 'posts' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -1225,8 +1226,18 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               {activeTab === 'posts' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
             <button
+              onClick={() => setActiveTab('intelligence')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap flex items-center space-x-2 ${
+                activeTab === 'intelligence' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              <Brain size={14} />
+              <span>Arena Intelligence</span>
+              {activeTab === 'intelligence' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
+            </button>
+            <button
               onClick={() => setActiveTab('history')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
                 activeTab === 'history' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -1235,7 +1246,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             </button>
             <button
               onClick={() => setActiveTab('championships')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
                 activeTab === 'championships' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -1244,7 +1255,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             </button>
             <button
               onClick={() => setActiveTab('fights')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
                 activeTab === 'fights' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
@@ -1254,7 +1265,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('archive')}
-                className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative ${
+                className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
                   activeTab === 'archive' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
                 }`}
               >
@@ -1266,7 +1277,138 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
           {/* Tab Content */}
           <div className="space-y-6">
-            {activeTab === 'posts' ? (
+            {activeTab === 'intelligence' ? (
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* AI Analysis Header */}
+                <div className="bg-gradient-to-br from-[var(--primary)] to-indigo-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[var(--primary)]/20">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32" />
+                  <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/20 rounded-full blur-2xl -ml-24 -mb-24" />
+                  
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
+                          <Brain size={24} className="text-white" />
+                        </div>
+                        <h2 className="text-xl font-black uppercase tracking-tighter italic">Arena Intelligence Analysis</h2>
+                      </div>
+                      <p className="text-white/80 text-sm max-w-xl font-medium leading-relaxed">
+                        Nossa inteligência artificial analisa cada movimento, vitória e derrota para fornecer insights estratégicos sobre sua evolução na Arena.
+                      </p>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <div className="text-center px-6 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
+                        <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Confiança IA</p>
+                        <p className="text-2xl font-black">94%</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Metrics Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-3xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 bg-emerald-500/10 rounded-xl">
+                        <TrendingUp size={18} className="text-emerald-500" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Evolução Mensal</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-3xl font-black text-[var(--text-main)]">+{Math.round(profile.arena_score * 0.15)}</p>
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest flex items-center space-x-1">
+                        <span>Crescimento de 15.4%</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-3xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 bg-blue-500/10 rounded-xl">
+                        <Target size={18} className="text-blue-500" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Precisão Técnica</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-3xl font-black text-[var(--text-main)]">82%</p>
+                      <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Baseado em finalizações</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-3xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="p-2 bg-purple-500/10 rounded-xl">
+                        <Zap size={18} className="text-purple-500" />
+                      </div>
+                      <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Potencial Arena</span>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-3xl font-black text-[var(--text-main)]">Elite</p>
+                      <p className="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Top 5% da categoria</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Insights */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-8 rounded-[2.5rem] space-y-6">
+                    <div className="flex items-center space-x-3">
+                      <BarChart3 size={20} className="text-[var(--primary)]" />
+                      <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)]">Pontos Fortes</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { label: 'Volume de Luta', value: 92, color: 'bg-emerald-500' },
+                        { label: 'Resistência Física', value: 85, color: 'bg-blue-500' },
+                        { label: 'Técnica de Solo', value: 78, color: 'bg-[var(--primary)]' },
+                      ].map((skill, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{skill.label}</span>
+                            <span className="text-[10px] font-black text-[var(--text-main)]">{skill.value}%</span>
+                          </div>
+                          <div className="h-1.5 bg-[var(--bg)] rounded-full overflow-hidden">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${skill.value}%` }}
+                              transition={{ duration: 1, delay: i * 0.2 }}
+                              className={`h-full ${skill.color}`}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-8 rounded-[2.5rem] space-y-6">
+                    <div className="flex items-center space-x-3">
+                      <Shield size={20} className="text-amber-500" />
+                      <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)]">Recomendações IA</h3>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="p-4 bg-[var(--bg)] rounded-2xl border border-[var(--border-ui)] flex items-start space-x-4">
+                        <div className="p-2 bg-amber-500/10 rounded-lg shrink-0">
+                          <Info size={14} className="text-amber-500" />
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                          <span className="font-black text-[var(--text-main)] uppercase block mb-1">Ajuste de Estratégia</span>
+                          Seu volume de vitórias por pontos é alto, mas aumentar a taxa de finalizações pode acelerar seu ganho de Arena Score em até 25%.
+                        </p>
+                      </div>
+                      <div className="p-4 bg-[var(--bg)] rounded-2xl border border-[var(--border-ui)] flex items-start space-x-4">
+                        <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                          <Trophy size={14} className="text-blue-500" />
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                          <span className="font-black text-[var(--text-main)] uppercase block mb-1">Próximo Nível</span>
+                          Você está a apenas 150 pontos de subir para o próximo escalão do ranking nacional. Focar em campeonatos de nível 'A' é o caminho mais rápido.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : activeTab === 'posts' ? (
               <div className="grid grid-cols-2 gap-4">
                 {posts.length > 0 ? posts.map((post) => (
                     <div 

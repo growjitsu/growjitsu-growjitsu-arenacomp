@@ -38,6 +38,15 @@ export const AdminDashboard: React.FC = () => {
     likes: 0,
     comments: 0
   });
+  const [trends, setTrends] = useState({
+    athletes: 0,
+    teams: 0,
+    posts: 0,
+    championships: 0,
+    likes: 0,
+    comments: 0
+  });
+
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [modalityData, setModalityData] = useState<any[]>([]);
   const [teamData, setTeamData] = useState<any[]>([]);
@@ -86,6 +95,10 @@ export const AdminDashboard: React.FC = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
+
       const [
         { count: athletesCount },
         { count: teamsCount },
@@ -94,7 +107,17 @@ export const AdminDashboard: React.FC = () => {
         { count: likesCount },
         { count: commentsCount },
         { data: profilesData },
-        { data: teamsList }
+        { data: teamsList },
+        // Trend data (last 30 days)
+        { count: athletesRecent },
+        { count: teamsRecent },
+        { count: postsRecent },
+        { count: likesRecent },
+        // Previous period (30-60 days ago)
+        { count: athletesPrevious },
+        { count: teamsPrevious },
+        { count: postsPrevious },
+        { count: likesPrevious }
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('teams').select('*', { count: 'exact', head: true }),
@@ -103,7 +126,19 @@ export const AdminDashboard: React.FC = () => {
         supabase.from('likes').select('*', { count: 'exact', head: true }),
         supabase.from('comments').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('created_at, modality, team_id').limit(1000),
-        supabase.from('teams').select('id, name').limit(100)
+        supabase.from('teams').select('id, name').limit(100),
+        
+        // Recent
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+
+        // Previous
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo)
       ]);
 
       setStats({
@@ -113,6 +148,22 @@ export const AdminDashboard: React.FC = () => {
         championships: eventosCount || 0,
         likes: likesCount || 0,
         comments: commentsCount || 0
+      });
+
+      const calculateTrend = (recent: number | null, previous: number | null) => {
+        const r = recent || 0;
+        const p = previous || 0;
+        if (p === 0) return r > 0 ? 100 : 0;
+        return Math.round(((r - p) / p) * 100);
+      };
+
+      setTrends({
+        athletes: calculateTrend(athletesRecent, athletesPrevious),
+        teams: calculateTrend(teamsRecent, teamsPrevious),
+        posts: calculateTrend(postsRecent, postsPrevious),
+        championships: 0,
+        likes: calculateTrend(likesRecent, likesPrevious),
+        comments: 0
       });
 
       // Process Growth Data (Cumulative)
@@ -222,12 +273,12 @@ export const AdminDashboard: React.FC = () => {
     <div className="space-y-8">
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <StatCard icon={Users} label="Atletas Cadastrados" value={stats.athletes} trend={0} color="blue" />
-        <StatCard icon={Shield} label="Equipes Registradas" value={stats.teams} trend={0} color="cyan" />
-        <StatCard icon={FileText} label="Posts Publicados" value={stats.posts} trend={0} color="emerald" />
-        <StatCard icon={Award} label="Campeonatos" value={stats.championships} trend={0} color="amber" />
-        <StatCard icon={Heart} label="Total de Curtidas" value={stats.likes} trend={0} color="rose" />
-        <StatCard icon={MessageCircle} label="Comentários" value={stats.comments} trend={0} color="indigo" />
+        <StatCard icon={Users} label="Atletas Cadastrados" value={stats.athletes} trend={trends.athletes} color="blue" />
+        <StatCard icon={Shield} label="Equipes Registradas" value={stats.teams} trend={trends.teams} color="cyan" />
+        <StatCard icon={FileText} label="Posts Publicados" value={stats.posts} trend={trends.posts} color="emerald" />
+        <StatCard icon={Award} label="Campeonatos" value={stats.championships} trend={trends.championships} color="amber" />
+        <StatCard icon={Heart} label="Total de Curtidas" value={stats.likes} trend={trends.likes} color="rose" />
+        <StatCard icon={MessageCircle} label="Comentários" value={stats.comments} trend={trends.comments} color="indigo" />
       </div>
 
       {/* Charts Section */}

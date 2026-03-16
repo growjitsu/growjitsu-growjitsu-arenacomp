@@ -18,10 +18,8 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
   const tabs = [
     { id: 'feed', icon: Home, label: 'Feed' },
     { id: 'clips', icon: PlaySquare, label: 'Clips' },
+    { id: 'post', icon: PlusSquare, label: 'Post' },
     { id: 'rankings', icon: Trophy, label: 'Rankings' },
-    { id: 'search', icon: Search, label: 'Busca' },
-    { id: 'notifications', icon: Bell, label: 'Notificações' },
-    { id: 'profile', icon: User, label: 'Meu Perfil' },
   ];
 
   return (
@@ -40,7 +38,7 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
           </div>
         </div>
 
-        {/* Create Post Button (Fixed Left) */}
+        {/* Create Post Button (Fixed Left - Desktop Only) */}
         <button
           onClick={onCreatePost}
           className="hidden md:flex flex-col items-center justify-center mb-8 group transition-all"
@@ -54,14 +52,20 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (tab.id === 'post') {
+                  onCreatePost?.();
+                } else {
+                  setActiveTab(tab.id);
+                }
+              }}
               className={`flex flex-col items-center justify-center transition-all relative group ${
                 activeTab === tab.id ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
               <div className={`p-3 rounded-2xl transition-all duration-500 ${
                 activeTab === tab.id ? 'bg-[var(--primary)]/10 shadow-[0_0_20px_rgba(37,99,235,0.2)]' : 'group-hover:bg-[var(--bg)]'
-              }`}>
+              } ${tab.id === 'post' ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 md:hidden' : ''}`}>
                 <tab.icon size={24} strokeWidth={activeTab === tab.id ? 2.5 : 2} className={activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110 transition-transform'} />
               </div>
               <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-2 md:hidden">{tab.label}</span>
@@ -72,28 +76,9 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({ activeTab, setActiveTa
                   className="absolute -bottom-2 md:bottom-auto md:-right-4 w-1 h-1 md:w-1 md:h-8 bg-[var(--primary)] rounded-full shadow-[0_0_10px_var(--primary)]"
                 />
               )}
-
-              {tab.id === 'notifications' && unreadNotifications > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-[var(--surface)] shadow-lg">
-                  {unreadNotifications}
-                </span>
-              )}
             </button>
           ))}
         </div>
-
-        <button 
-          onClick={toggleTheme}
-          className="flex flex-col items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all md:mt-auto group"
-          title={theme === 'light' ? 'Ativar Modo Escuro' : 'Ativar Modo Claro'}
-        >
-          <div className="p-3 rounded-2xl group-hover:bg-[var(--bg)] transition-all">
-            {theme === 'light' ? <Moon size={24} /> : <Sun size={24} />}
-          </div>
-          <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-2 md:hidden">
-            {theme === 'light' ? 'Escuro' : 'Claro'}
-          </span>
-        </button>
       </div>
     </nav>
   );
