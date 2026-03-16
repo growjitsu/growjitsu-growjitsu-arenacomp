@@ -158,6 +158,16 @@ export interface ArenaResult {
   competition?: ArenaCompetition;
 }
 
+export interface ArenaCertificate {
+  id: string;
+  athlete_id: string;
+  name: string;
+  media_url: string;
+  media_type: 'image' | 'pdf';
+  issue_date?: string;
+  created_at: string;
+}
+
 export type UserType = 'atleta' | 'coordenador' | 'responsavel';
 
 export type Belt = 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';

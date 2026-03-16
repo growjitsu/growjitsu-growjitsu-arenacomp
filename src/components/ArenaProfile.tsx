@@ -5,10 +5,10 @@ import {
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy,
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
-  Brain, Zap, Cpu, BarChart3, Shield, Info, Wallet
+  Brain, Zap, Cpu, BarChart3, Shield, Info, Wallet, FileText, Eye
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team } from '../types';
+import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate } from '../types';
 import { countries, modalities } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
@@ -22,8 +22,9 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [fights, setFights] = useState<ArenaFight[]>([]);
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [archivedPosts, setArchivedPosts] = useState<ArenaPost[]>([]);
+  const [certificates, setCertificates] = useState<ArenaCertificate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'history' | 'championships' | 'fights' | 'archive' | 'intelligence'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'certificates' | 'championships' | 'fights' | 'archive' | 'intelligence'>('posts');
   const [isEditing, setIsEditing] = useState(forceEdit || false);
   const [editData, setEditData] = useState<Partial<ArenaProfile>>({});
   const [saving, setSaving] = useState(false);
@@ -227,6 +228,15 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
       
       setPosts(postsWithLikes.filter(p => !p.is_archived));
       setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
+
+      // Fetch Certificates
+      const { data: certData } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('athlete_id', targetId)
+        .order('created_at', { ascending: false });
+      
+      setCertificates(certData || []);
 
     } catch (error: any) {
       console.error('Error fetching profile data:', error);
@@ -736,6 +746,89 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
     );
   }
 
+  const handleCertificateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('O arquivo deve ter no máximo 5MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}/${Math.random()}.${fileExt}`;
+      const filePath = `certificates/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      const mediaType = file.type.includes('pdf') ? 'pdf' : 'image';
+
+      const { error: dbError } = await supabase
+        .from('certificates')
+        .insert([{
+          athlete_id: profile.id,
+          name: file.name.split('.')[0].toUpperCase(),
+          media_url: publicUrl,
+          media_type: mediaType,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (dbError) throw dbError;
+
+      // Refresh certificates
+      const { data: certData } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('athlete_id', profile.id)
+        .order('created_at', { ascending: false });
+      
+      setCertificates(certData || []);
+    } catch (err: any) {
+      console.error('Error uploading certificate:', err);
+      alert('Erro ao enviar certificado: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteCertificate = async (id: string, url: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este certificado?')) return;
+
+    try {
+      // Delete from DB
+      const { error: dbError } = await supabase
+        .from('certificates')
+        .delete()
+        .eq('id', id);
+
+      if (dbError) throw dbError;
+
+      // Delete from Storage
+      // Extract path from URL
+      const urlParts = url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const userId = urlParts[urlParts.length - 2];
+      
+      await supabase.storage.from('posts').remove([`certificates/${userId}/${fileName}`]);
+
+      setCertificates(prev => prev.filter(c => c.id !== id));
+    } catch (err: any) {
+      console.error('Error deleting certificate:', err);
+      alert('Erro ao excluir certificado: ' + err.message);
+    }
+  };
+
   const handleFollow = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -1244,13 +1337,13 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               {activeTab === 'intelligence' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
             <button
-              onClick={() => setActiveTab('history')}
+              onClick={() => setActiveTab('certificates')}
               className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
-                activeTab === 'history' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+                activeTab === 'certificates' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
-              Histórico
-              {activeTab === 'history' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
+              Certificados
+              {activeTab === 'certificates' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
             <button
               onClick={() => setActiveTab('championships')}
@@ -1520,33 +1613,84 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   <div className="col-span-2 py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhuma postagem ainda</div>
                 )}
               </div>
-            ) : activeTab === 'history' ? (
-              <div className="space-y-4">
-                {results.length > 0 ? results.map((result) => (
-                  <div key={result.id} className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors duration-300">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-xs ${
-                        result.placement === 1 ? 'bg-yellow-500 text-black' :
-                        result.placement === 2 ? 'bg-zinc-300 text-black' :
-                        result.placement === 3 ? 'bg-amber-700 text-white' :
-                        'bg-[var(--bg)] text-[var(--text-muted)]'
-                      }`}>
-                        {result.placement === 0 ? 'P' : `${result.placement}º`}
+            ) : activeTab === 'certificates' ? (
+              <div className="space-y-6">
+                {isOwnProfile && (
+                  <div className="flex justify-end">
+                    <label className="cursor-pointer bg-[var(--primary)] hover:bg-[var(--primary-dark)] text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center space-x-2 transition-all shadow-lg shadow-[var(--primary)]/20 active:scale-95">
+                      <Plus size={16} />
+                      <span>Adicionar Certificado</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*,.pdf"
+                        onChange={handleCertificateUpload}
+                        disabled={uploading}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {certificates.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {certificates.map((cert) => (
+                      <div key={cert.id} className="group relative bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl overflow-hidden aspect-[4/3] flex flex-col">
+                        <div className="flex-1 relative overflow-hidden bg-[var(--bg)] flex items-center justify-center">
+                          {cert.media_type === 'image' ? (
+                            <img 
+                              src={cert.media_url} 
+                              alt={cert.name} 
+                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center space-y-2 text-[var(--text-muted)]">
+                              <FileText size={48} />
+                              <span className="text-[10px] font-bold uppercase tracking-widest">PDF</span>
+                            </div>
+                          )}
+                          
+                          {/* Overlay on hover */}
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-3">
+                            <button 
+                              onClick={() => window.open(cert.media_url, '_blank')}
+                              className="p-3 bg-white/20 backdrop-blur-md rounded-xl text-white hover:bg-white/30 transition-colors"
+                              title="Visualizar"
+                            >
+                              <Eye size={20} />
+                            </button>
+                            {isOwnProfile && (
+                              <button 
+                                onClick={() => handleDeleteCertificate(cert.id, cert.media_url)}
+                                className="p-3 bg-rose-500/20 backdrop-blur-md rounded-xl text-rose-500 hover:bg-rose-500/30 transition-colors"
+                                title="Excluir"
+                              >
+                                <Trash2 size={20} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="p-4 bg-[var(--surface)] border-t border-[var(--border-ui)]">
+                          <h4 className="text-xs font-black text-[var(--text-main)] uppercase tracking-tight truncate">{cert.name}</h4>
+                          <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mt-1">
+                            {new Date(cert.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-[var(--text-main)]">{result.competition?.name}</h4>
-                        <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
-                          {new Date(result.competition?.date || '').toLocaleDateString()} • {result.competition?.level}
-                        </p>
-                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-24 text-center space-y-4 bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem]">
+                    <div className="w-16 h-16 bg-[var(--bg)] rounded-2xl flex items-center justify-center mx-auto text-[var(--text-muted)]">
+                      <Award size={32} />
                     </div>
-                    <div className="text-right">
-                      <p className="text-[var(--primary)] font-black text-sm">+{Math.round(result.points_earned)}</p>
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold">Arena Score</p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-black text-[var(--text-main)] uppercase tracking-widest">Nenhum certificado</p>
+                      <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">
+                        {isOwnProfile ? 'Adicione seus certificados profissionais para destacar seu perfil.' : 'Este atleta ainda não adicionou certificados.'}
+                      </p>
                     </div>
                   </div>
-                )) : (
-                  <div className="py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhum resultado registrado</div>
                 )}
               </div>
             ) : activeTab === 'fights' ? (
