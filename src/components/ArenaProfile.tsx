@@ -813,7 +813,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </label>
             )}
           </div>
-          <div className="pb-2 md:pb-6 text-center md:text-left flex-1 w-full min-w-0">
+          <div className="pb-2 text-center md:text-left flex-1 w-full min-w-0">
             {isEditing ? (
               <div className="space-y-2 w-full max-w-xs mx-auto md:mx-0">
                 <input 
@@ -830,19 +830,19 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 />
               </div>
             ) : (
-              <div className="space-y-1 md:space-y-2 w-full">
-                <h1 className="text-2xl md:text-5xl font-black text-[var(--text-main)] uppercase tracking-tighter italic break-words leading-[0.9] md:leading-none">
-                  {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg md:text-2xl block md:inline-block md:ml-2">({profile.nickname})</span>}
+              <div className="space-y-1 w-full">
+                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic break-words leading-tight">
+                  {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">({profile.nickname})</span>}
                 </h1>
-                <div className="flex flex-col md:flex-row items-center md:items-center md:space-x-4 space-y-2 md:space-y-0">
-                  <p className="text-[var(--primary)] font-bold text-[10px] md:text-sm uppercase tracking-widest truncate max-w-full">@{profile.username} • {profile.modality}</p>
+                <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
+                  <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest truncate max-w-full">@{profile.username} • {profile.modality}</p>
                   {profile.wallet_address && (
-                    <div className="flex items-center space-x-1 bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20 shrink-0">
+                    <div className="flex items-center space-x-1 bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20">
                       <Wallet size={10} />
                       <span className="text-[8px] font-black uppercase tracking-widest">Web3 Verified</span>
                     </div>
                   )}
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[9px] md:text-[11px] font-black uppercase tracking-widest">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[9px] md:text-[10px] font-black uppercase tracking-widest">
                     <span>{followerCount} Seguidores</span>
                     {profile.team && (
                       <>
