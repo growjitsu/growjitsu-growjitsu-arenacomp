@@ -7,7 +7,6 @@ import {
 import { supabase } from '../services/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { ArenaProfile } from '../types';
-import { BrowserProvider } from 'ethers';
 
 export const ArenaSettings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -48,15 +47,21 @@ export const ArenaSettings: React.FC = () => {
   const handleConnectWallet = async () => {
     if (!profile) return;
     
-    if (typeof (window as any).ethereum === 'undefined') {
+    const ethereum = (window as any).ethereum;
+    if (!ethereum) {
       setMessage({ type: 'error', text: 'MetaMask não detectado. Por favor, instale a extensão.' });
       return;
     }
 
     setConnectingWallet(true);
     try {
-      const provider = new BrowserProvider((window as any).ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
+      // Request accounts using the EIP-1193 provider directly for better error handling
+      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error('Nenhuma conta encontrada.');
+      }
+
       const address = accounts[0];
 
       const { error } = await supabase
@@ -70,7 +75,22 @@ export const ArenaSettings: React.FC = () => {
       setMessage({ type: 'success', text: 'Carteira conectada com sucesso!' });
     } catch (error: any) {
       console.error('Wallet connection error:', error);
-      setMessage({ type: 'error', text: error.message || 'Falha ao conectar com MetaMask.' });
+      
+      let errorMsg = 'Falha ao conectar com MetaMask.';
+      
+      // Handle specific EIP-1193 error codes
+      if (error.code === 4001) {
+        errorMsg = 'Conexão rejeitada pelo usuário.';
+      } else if (error.code === -32002) {
+        errorMsg = 'Solicitação de conexão já pendente no MetaMask. Verifique a extensão.';
+      } else if (window.self !== window.top) {
+        // If in iframe, suggest opening in new tab
+        errorMsg = 'O MetaMask pode estar bloqueado pelo navegador dentro do iframe. Tente abrir o aplicativo em uma nova aba para conectar.';
+      } else {
+        errorMsg = error.message || errorMsg;
+      }
+      
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setConnectingWallet(false);
     }
