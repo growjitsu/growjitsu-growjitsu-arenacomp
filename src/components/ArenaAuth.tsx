@@ -15,6 +15,8 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const [fullName, setFullName] = useState('');
   const [isTeamLeader, setIsTeamLeader] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [isCreatingNewTeam, setIsCreatingNewTeam] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamResults, setTeamResults] = useState<any[]>([]);
   const [showTeamConflictModal, setShowTeamConflictModal] = useState(false);
@@ -43,26 +45,12 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const handleSelectTeam = async (team: any) => {
     setLoading(true);
     setError(null);
+    setIsCreatingNewTeam(false);
     try {
-      console.log(`[LOG] Selecionando equipe: ${team.name} (ID: ${team.id})`);
+      console.log(`[LOG] Verificando equipe: ${team.name} (ID: ${team.id})`);
       
-      // Fetch fresh team data to be sure about the professor field
-      const { data: freshTeam, error: teamError } = await supabase
-        .from('teams')
-        .select('*')
-        .eq('id', team.id)
-        .single();
-      
-      if (teamError) {
-        console.error('[ERROR] Erro ao buscar dados da equipe:', teamError);
-        throw teamError;
-      }
-
-      // 1. Check if team already has a professor/leader defined in the teams table
-      const hasProfessor = freshTeam.professor && freshTeam.professor.trim() !== '';
-      console.log(`[LOG] Professor definido na tabela teams: ${hasProfessor ? freshTeam.professor : 'NÃO'}`);
-
-      // 2. Check if there's already a user with team_leader = 'true' for this team
+      // 1. Check if there's already a user with team_leader = 'true' for this team
+      // This is the EXACT query requested by the user (adapted to our schema)
       const { count, error: checkError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
@@ -71,17 +59,18 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
 
       if (checkError) {
         console.error('[ERROR] Erro ao verificar representantes:', checkError);
+        throw checkError;
       }
 
-      console.log(`[LOG] Usuários representantes encontrados: ${count || 0}`);
+      console.log(`[LOG] Representantes encontrados: ${count || 0}`);
 
-      if (hasProfessor || (count && count > 0)) {
-        console.log(`[LOG] Conflito detectado para a equipe ${team.name}`);
+      if (count && count > 0) {
+        console.log(`[LOG] Bloqueado: Equipe já possui representante.`);
         setConflictingTeamName(team.name);
         setSelectedTeamId(team.id); 
         setShowTeamConflictModal(true);
       } else {
-        console.log(`[LOG] Equipe disponível para representação.`);
+        console.log(`[LOG] Permitido: Equipe disponível.`);
         setSelectedTeamId(team.id);
         setTeamSearch(team.name);
         setTeamResults([]);
@@ -92,6 +81,15 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateNewTeam = () => {
+    if (!teamSearch.trim()) return;
+    setIsCreatingNewTeam(true);
+    setSelectedTeamId(null);
+    setNewTeamName(teamSearch.toUpperCase());
+    setTeamResults([]);
+    console.log(`[LOG] Usuário optou por criar nova equipe: ${teamSearch.toUpperCase()}`);
   };
 
   const handleContinueWithoutTeam = () => {
@@ -117,47 +115,54 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        // VALIDATION: If registering as team leader, MUST select a team
-        if (isTeamLeader && !selectedTeamId) {
-          setError('Para se cadastrar como representante, você deve selecionar uma equipe da lista.');
-          setLoading(false);
-          return;
-        }
-
         // FINAL BACKEND-LIKE CHECK BEFORE SIGNUP
-        if (isTeamLeader && selectedTeamId) {
-          console.log(`[LOG] Verificação final de representantes da equipe ${selectedTeamId}`);
-          
-          // 1. Check teams table for professor
-          const { data: teamData, error: teamError } = await supabase
-            .from('teams')
-            .select('professor, name')
-            .eq('id', selectedTeamId)
-            .single();
-          
-          if (teamError) throw teamError;
-          const hasProfessor = teamData.professor && teamData.professor.trim() !== '';
-          
-          // 2. Check profiles table for existing representative user
-          const { count, error: checkError } = await supabase
-            .from('profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('team_id', selectedTeamId)
-            .or('team_leader.eq.true,team_leader.eq.TRUE');
-          
-          if (checkError) throw checkError;
-          
-          console.log(`[LOG] Resultado final: Professor=${hasProfessor}, Representantes=${count}`);
-          
-          if (hasProfessor || (count && count > 0)) {
-            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder ou professor`);
-            setError(`A equipe ${teamData.name} já possui um representante oficial.`);
-            setConflictingTeamName(teamData.name || teamSearch);
-            setShowTeamConflictModal(true);
+        let finalTeamId = selectedTeamId;
+
+        if (isTeamLeader) {
+          if (isCreatingNewTeam && newTeamName) {
+            console.log(`[LOG] Criando nova equipe: ${newTeamName}`);
+            const { data: teamData, error: teamError } = await supabase
+              .from('teams')
+              .insert({ name: newTeamName })
+              .select()
+              .single();
+            
+            if (teamError) {
+              if (teamError.message.includes('unique')) {
+                setError('Uma equipe com este nome já existe. Por favor, selecione-a na lista.');
+              } else {
+                throw teamError;
+              }
+              setLoading(false);
+              return;
+            }
+            finalTeamId = teamData.id;
+            console.log(`[LOG] Equipe criada com sucesso: ${finalTeamId}`);
+          } else if (selectedTeamId) {
+            console.log(`[LOG] Verificação final de representantes da equipe ${selectedTeamId}`);
+            
+            const { count, error: checkError } = await supabase
+              .from('profiles')
+              .select('*', { count: 'exact', head: true })
+              .eq('team_id', selectedTeamId)
+              .or('team_leader.eq.true,team_leader.eq.TRUE');
+            
+            if (checkError) throw checkError;
+            
+            console.log(`[LOG] Resultado final: Representantes=${count}`);
+            
+            if (count && count > 0) {
+              console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder`);
+              setError(`Esta equipe já possui um representante oficial.`);
+              setShowTeamConflictModal(true);
+              setLoading(false);
+              return;
+            }
+          } else {
+            setError('Para se cadastrar como representante, você deve selecionar ou criar uma equipe.');
             setLoading(false);
             return;
           }
-          console.log(`[LOG] Permitindo inserção - Vaga disponível`);
         }
 
         const { data: { user }, error: signUpError } = await supabase.auth.signUp({ email, password });
@@ -171,7 +176,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               full_name: fullName.toUpperCase(),
               role: 'athlete',
               team_leader: isTeamLeader ? 'true' : 'false',
-              team_id: selectedTeamId,
+              team_id: finalTeamId,
               perfil_publico: true,
               permitir_seguidores: true
             });
@@ -287,11 +292,28 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                             ))}
                           </div>
                         )}
+                        {teamSearch.length >= 2 && teamResults.length === 0 && !selectedTeamId && !isCreatingNewTeam && (
+                          <div className="absolute z-10 w-full mt-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-xl p-2">
+                            <button
+                              type="button"
+                              onClick={handleCreateNewTeam}
+                              className="w-full px-4 py-2 text-left text-xs bg-[var(--primary)]/10 text-[var(--primary)] rounded-lg font-bold hover:bg-[var(--primary)] hover:text-white transition-all"
+                            >
+                              + Criar nova equipe: "{teamSearch.toUpperCase()}"
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {selectedTeamId && (
                         <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase">
                           <CheckCircle2 size={12} />
                           Equipe selecionada com sucesso
+                        </div>
+                      )}
+                      {isCreatingNewTeam && (
+                        <div className="flex items-center gap-2 text-[10px] text-blue-500 font-bold uppercase">
+                          <CheckCircle2 size={12} />
+                          Nova equipe será criada: {newTeamName}
                         </div>
                       )}
                     </div>
