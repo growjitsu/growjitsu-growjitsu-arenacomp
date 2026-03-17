@@ -43,7 +43,10 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const handleSelectTeam = async (team: any) => {
     setLoading(true);
     try {
-      // Check if team already has a representative
+      // 1. Check if team already has a professor/leader defined in the teams table
+      const hasProfessor = team.professor && team.professor.trim() !== '';
+
+      // 2. Check if team already has a representative user in the profiles table
       const { count, error } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
@@ -52,9 +55,9 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
 
       if (error) throw error;
 
-      if (count && count > 0) {
+      if (hasProfessor || (count && count > 0)) {
         setConflictingTeamName(team.name);
-        setSelectedTeamId(team.id); // Keep it temporarily to know which team was selected
+        setSelectedTeamId(team.id); 
         setShowTeamConflictModal(true);
       } else {
         setSelectedTeamId(team.id);
@@ -95,6 +98,18 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         // FINAL BACKEND-LIKE CHECK BEFORE SIGNUP
         if (isTeamLeader && selectedTeamId) {
           console.log(`[LOG] Verificando representantes da equipe ${selectedTeamId}`);
+          
+          // 1. Check teams table for professor
+          const { data: teamData, error: teamError } = await supabase
+            .from('teams')
+            .select('professor, name')
+            .eq('id', selectedTeamId)
+            .single();
+          
+          if (teamError) throw teamError;
+          const hasProfessor = teamData.professor && teamData.professor.trim() !== '';
+
+          // 2. Check profiles table for existing representative user
           const { count, error: checkError } = await supabase
             .from('profiles')
             .select('*', { count: 'exact', head: true })
@@ -103,10 +118,11 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           
           if (checkError) throw checkError;
           
-          console.log(`[LOG] Quantidade encontrada: ${count}`);
-          if (count && count > 0) {
-            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder`);
-            setConflictingTeamName(teamSearch);
+          console.log(`[LOG] Professor definido: ${hasProfessor}, Usuários representantes: ${count}`);
+          
+          if (hasProfessor || (count && count > 0)) {
+            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder ou professor`);
+            setConflictingTeamName(teamData.name || teamSearch);
             setShowTeamConflictModal(true);
             setLoading(false);
             return;
