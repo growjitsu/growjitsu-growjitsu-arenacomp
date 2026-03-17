@@ -47,34 +47,28 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     setError(null);
     setIsCreatingNewTeam(false);
     try {
-      console.log(`[LOG] Verificando equipe: ${team.name} (ID: ${team.id})`);
+      console.log(`[LOG] Verificando equipe via backend: ${team.name} (ID: ${team.id})`);
       
-      // 1. Check if there's already a user with team_leader = 'true' for this team
-      // This is the EXACT query requested by the user (adapted to our schema)
-      const { count, error: checkError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', team.id)
-        .or('team_leader.eq.true,team_leader.eq.TRUE');
+      // Call the backend validation endpoint
+      const response = await fetch('/api/auth/validate-representative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamId: team.id })
+      });
 
-      if (checkError) {
-        console.error('[ERROR] Erro ao verificar representantes:', checkError);
-        throw checkError;
-      }
-
-      console.log(`[LOG] Representantes encontrados: ${count || 0}`);
-
-      if (count && count > 0) {
-        console.log(`[LOG] Bloqueado: Equipe já possui representante.`);
+      if (!response.ok) {
+        const data = await response.json();
+        console.log(`[LOG] Bloqueado pelo backend: ${data.message || 'Equipe já representada'}`);
         setConflictingTeamName(team.name);
         setSelectedTeamId(team.id); 
         setShowTeamConflictModal(true);
-      } else {
-        console.log(`[LOG] Permitido: Equipe disponível.`);
-        setSelectedTeamId(team.id);
-        setTeamSearch(team.name);
-        setTeamResults([]);
+        return;
       }
+
+      console.log(`[LOG] Permitido pelo backend: Equipe disponível.`);
+      setSelectedTeamId(team.id);
+      setTeamSearch(team.name);
+      setTeamResults([]);
     } catch (err: any) {
       console.error('[ERROR] Erro ao selecionar equipe:', err);
       setError('Erro ao validar equipe. Tente novamente.');
@@ -139,25 +133,24 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             finalTeamId = teamData.id;
             console.log(`[LOG] Equipe criada com sucesso: ${finalTeamId}`);
           } else if (selectedTeamId) {
-            console.log(`[LOG] Verificação final de representantes da equipe ${selectedTeamId}`);
+            console.log(`[LOG] Verificação final via backend para equipe ${selectedTeamId}`);
             
-            const { count, error: checkError } = await supabase
-              .from('profiles')
-              .select('*', { count: 'exact', head: true })
-              .eq('team_id', selectedTeamId)
-              .or('team_leader.eq.true,team_leader.eq.TRUE');
+            const response = await fetch('/api/auth/validate-representative', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ teamId: selectedTeamId })
+            });
             
-            if (checkError) throw checkError;
-            
-            console.log(`[LOG] Resultado final: Representantes=${count}`);
-            
-            if (count && count > 0) {
-              console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder`);
-              setError(`Esta equipe já possui um representante oficial.`);
+            if (!response.ok) {
+              const data = await response.json();
+              console.log(`[LOG] Bloqueio final pelo backend: ${data.message}`);
+              setError(data.message || 'Esta equipe já possui um representante oficial.');
               setShowTeamConflictModal(true);
               setLoading(false);
               return;
             }
+            
+            console.log(`[LOG] Resultado final: Equipe disponível`);
           } else {
             setError('Para se cadastrar como representante, você deve selecionar ou criar uma equipe.');
             setLoading(false);

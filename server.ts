@@ -2,7 +2,13 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
+import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
+
+// Supabase Configuration (Backend)
+const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://vfefztzaiqhpsfnvpkba.supabase.co';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const db = new Database("arenacomp.db");
 
@@ -62,6 +68,44 @@ async function startServer() {
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "ArenaComp API is running" });
+  });
+
+  // Team Representative Validation Endpoint
+  app.post("/api/auth/validate-representative", async (req, res) => {
+    const { teamId } = req.body;
+    console.log(`[BACKEND] Validando representante para equipe: ${teamId}`);
+
+    if (!teamId) {
+      return res.status(400).json({ error: "Team ID is required" });
+    }
+
+    try {
+      // SELECT COUNT(*) FROM profiles WHERE team_id = ? AND team_leader = 'true'
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .or('team_leader.eq.true,team_leader.eq.TRUE');
+
+      if (error) {
+        console.error("[BACKEND] Erro ao consultar Supabase:", error);
+        throw error;
+      }
+
+      console.log(`[BACKEND] Resultado para equipe ${teamId}: ${count} representantes`);
+
+      if (count && count > 0) {
+        return res.status(400).json({ 
+          error: "Equipe já representada", 
+          message: "Esta equipe já possui um representante oficial cadastrado." 
+        });
+      }
+
+      res.json({ status: "ok", message: "Equipe disponível" });
+    } catch (error: any) {
+      console.error("[BACKEND] Erro na validação de representante:", error);
+      res.status(500).json({ error: "Internal server error during validation" });
+    }
   });
 
   // Card Generation Endpoint
