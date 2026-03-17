@@ -758,8 +758,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
     setUploading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
       const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.id}/${Math.random()}.${fileExt}`;
+      const fileName = `${user.id}/${Math.random()}.${fileExt}`;
       const filePath = `certificates/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -777,11 +780,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       const { error: dbError } = await supabase
         .from('certificates')
         .insert([{
-          athlete_id: profile.id,
+          athlete_id: user.id,
           name: file.name.split('.')[0].toUpperCase(),
           media_url: publicUrl,
-          media_type: mediaType,
-          created_at: new Date().toISOString()
+          media_type: mediaType
         }]);
 
       if (dbError) throw dbError;
