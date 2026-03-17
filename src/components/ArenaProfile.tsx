@@ -14,6 +14,7 @@ import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { getAthleteRankings, searchTeams, getTeams } from '../services/arenaService';
+import { AchievementCard } from './AchievementCard';
 
 export const ArenaProfileView: React.FC<{ userId?: string; username?: string; forceEdit?: boolean }> = ({ userId, username, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
@@ -44,6 +45,15 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [editingChampionship, setEditingChampionship] = useState<ArenaChampionshipResult | null>(null);
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
+  
+  const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [achievementData, setAchievementData] = useState({
+    title: '',
+    athleteName: '',
+    achievement: '',
+    modality: '',
+    profileUrl: ''
+  });
   
   const [allTeams, setAllTeams] = useState<Team[]>([]);
 
@@ -816,6 +826,17 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
         .order('created_at', { ascending: false });
       
       setCertificates(certData || []);
+
+      // Trigger achievement card for new certificate
+      setAchievementData({
+        title: '🏆 NOVO CERTIFICADO',
+        athleteName: profile.full_name,
+        achievement: `Recebeu o certificado: ${file.name.split('.')[0].toUpperCase()}`,
+        modality: profile.modality || 'ATLETA ARENACOMP',
+        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+      });
+      setIsAchievementCardOpen(true);
+
     } catch (err: any) {
       console.error('Error uploading certificate:', err);
       alert('Erro ao enviar certificado: ' + err.message);
@@ -1681,6 +1702,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             >
                               <Eye size={20} />
                             </button>
+                            <button 
+                              onClick={() => {
+                                setAchievementData({
+                                  title: '🏆 CERTIFICADO',
+                                  athleteName: profile.full_name,
+                                  achievement: `Certificado: ${cert.name}`,
+                                  modality: profile.modality || 'ATLETA ARENACOMP',
+                                  profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                });
+                                setIsAchievementCardOpen(true);
+                              }}
+                              className="p-3 bg-amber-500/20 backdrop-blur-md rounded-xl text-amber-500 hover:bg-amber-500/30 transition-colors"
+                              title="Compartilhar"
+                            >
+                              <Share2 size={20} />
+                            </button>
                             {isOwnProfile && (
                               <button 
                                 onClick={() => handleDeleteCertificate(cert.id, cert.media_url)}
@@ -1737,6 +1774,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         }`}>
                           {fight.resultado === 'win' ? 'Vitória' : 'Derrota'}
                         </div>
+                        <button
+                          onClick={() => {
+                            setAchievementData({
+                              title: fight.resultado === 'win' ? '🏆 VITÓRIA' : '🥊 LUTA',
+                              athleteName: profile.full_name,
+                              achievement: `${fight.resultado === 'win' ? 'Venceu' : 'Lutou com'} ${fight.opponent_name} no ${fight.evento}`,
+                              modality: fight.modalidade,
+                              profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                            });
+                            setIsAchievementCardOpen(true);
+                          }}
+                          className="p-2 text-[var(--text-muted)] hover:text-amber-500 transition-colors"
+                          title="Compartilhar"
+                        >
+                          <Share2 size={14} />
+                        </button>
                         {isOwnProfile && (
                           <div className="flex items-center space-x-1">
                             <button
@@ -1913,6 +1966,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                           }`}>
                             {champ.resultado}
                           </div>
+                          <button
+                            onClick={() => {
+                              setAchievementData({
+                                title: '🏆 CAMPEONATO',
+                                athleteName: profile.full_name,
+                                achievement: `${champ.resultado} no ${champ.championship_name}`,
+                                modality: champ.modalidade,
+                                profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                              });
+                              setIsAchievementCardOpen(true);
+                            }}
+                            className="p-2 text-[var(--text-muted)] hover:text-amber-500 transition-colors"
+                            title="Compartilhar"
+                          >
+                            <Share2 size={14} />
+                          </button>
                           {isOwnProfile && (
                             <div className="flex items-center space-x-1">
                               <button
@@ -1987,6 +2056,12 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           initialEditMode={modalInitialEditMode}
         />
       )}
+
+      <AchievementCard 
+        isOpen={isAchievementCardOpen}
+        onClose={() => setIsAchievementCardOpen(false)}
+        data={achievementData}
+      />
 
       {isRegisterFightModalOpen && profile && (
         <RegisterFightModal

@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
+import { CardGenerator, CardData } from "./src/services/cardGenerator";
 
 const db = new Database("arenacomp.db");
 
@@ -56,11 +57,38 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   // API Routes
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "ArenaComp API is running" });
+  });
+
+  // Card Generation Endpoint
+  app.post("/api/cards/generate", async (req, res) => {
+    try {
+      const cardData: CardData = req.body;
+      
+      if (!cardData.athleteName || !cardData.achievement) {
+        return res.status(400).json({ error: "Missing required card data" });
+      }
+
+      console.log(`Generating card for ${cardData.athleteName}: ${cardData.achievement}`);
+      
+      const buffer = await CardGenerator.generateAchievementCard({
+        ...cardData,
+        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
+        title: cardData.title || "🏆 NOVA CONQUISTA",
+        modality: cardData.modality || "ATLETA ARENACOMP",
+        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
+      });
+
+      res.set('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error generating card:", error);
+      res.status(500).json({ error: "Failed to generate card" });
+    }
   });
 
   // Mock Championship Data

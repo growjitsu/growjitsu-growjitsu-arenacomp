@@ -128,3 +128,20 @@ export const getTeams = async () => {
   if (error) throw error;
   return data as Team[];
 };
+
+export const generateCard = async (data: any) => {
+  const response = await fetch('/api/cards/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to generate card');
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+};
