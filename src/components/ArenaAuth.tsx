@@ -92,27 +92,52 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        // FINAL BACKEND-LIKE CHECK BEFORE SIGNUP
+        if (isTeamLeader && selectedTeamId) {
+          console.log(`[LOG] Verificando representantes da equipe ${selectedTeamId}`);
+          const { count, error: checkError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('team_id', selectedTeamId)
+            .eq('team_leader', true);
+          
+          if (checkError) throw checkError;
+          
+          console.log(`[LOG] Quantidade encontrada: ${count}`);
+          if (count && count > 0) {
+            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder`);
+            setConflictingTeamName(teamSearch);
+            setShowTeamConflictModal(true);
+            setLoading(false);
+            return;
+          }
+          console.log(`[LOG] Permitindo inserção - Vaga disponível`);
+        }
+
         const { data: { user }, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
         if (user) {
-          try {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .insert({
-                id: user.id,
-                username: username.toLowerCase(),
-                full_name: fullName.toUpperCase(),
-                role: 'athlete',
-                team_leader: isTeamLeader,
-                team_id: selectedTeamId,
-                perfil_publico: true,
-                permitir_seguidores: true
-              });
-            if (profileError) {
-              console.error('Error creating profile during signup:', profileError);
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: user.id,
+              username: username.toLowerCase(),
+              full_name: fullName.toUpperCase(),
+              role: 'athlete',
+              team_leader: isTeamLeader,
+              team_id: selectedTeamId,
+              perfil_publico: true,
+              permitir_seguidores: true
+            });
+
+          if (profileError) {
+            // Handle the specific Trigger error
+            if (profileError.message.includes('TEAM_HAS_REPRESENTATIVE')) {
+              setError('Esta equipe já possui um representante. Por favor, revise sua seleção.');
+              setShowTeamConflictModal(true);
+            } else {
+              throw profileError;
             }
-          } catch (pErr) {
-            console.error('Exception creating profile during signup:', pErr);
           }
         }
       }
