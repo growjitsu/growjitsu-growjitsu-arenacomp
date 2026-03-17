@@ -91,9 +91,16 @@ export const AdminDashboard: React.FC = () => {
 
       // Check MetaMask
       const hasMetaMask = typeof window !== 'undefined' && !!(window as any).ethereum;
-      setHealthChecks(prev => prev.map(c => 
-        c.name.includes('Web3') ? { ...c, status: hasMetaMask ? 'online' : 'offline', latency: '1ms' } : c
-      ));
+      const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+      
+      setHealthChecks(prev => prev.map(c => {
+        if (c.name.includes('Web3')) {
+          let status: any = hasMetaMask ? 'online' : 'offline';
+          if (!hasMetaMask && isInIframe) status = 'checking'; // Show as checking/warning in iframe
+          return { ...c, status, latency: hasMetaMask ? '1ms' : '0ms' };
+        }
+        return c;
+      }));
     } catch (error) {
       console.error('Health check error:', error);
     }
