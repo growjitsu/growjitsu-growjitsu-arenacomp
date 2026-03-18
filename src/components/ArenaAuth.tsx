@@ -15,72 +15,12 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const [fullName, setFullName] = useState('');
   const [isTeamLeader, setIsTeamLeader] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [newTeamName, setNewTeamName] = useState('');
-  const [newTeamCityId, setNewTeamCityId] = useState<number | null>(null);
-  const [newTeamStateId, setNewTeamStateId] = useState<number | null>(null);
-  const [states, setStates] = useState<any[]>([]);
-  const [cities, setCities] = useState<any[]>([]);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [isCreatingNewTeam, setIsCreatingNewTeam] = useState(false);
   const [teamSearch, setTeamSearch] = useState('');
   const [teamResults, setTeamResults] = useState<any[]>([]);
   const [showTeamConflictModal, setShowTeamConflictModal] = useState(false);
   const [conflictingTeamName, setConflictingTeamName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  React.useEffect(() => {
-    fetchStates();
-  }, []);
-
-  const fetchStates = async () => {
-    try {
-      const response = await fetch('/api/locations/states');
-      const data = await response.json();
-      if (data.success) setStates(data.data);
-    } catch (err) {
-      console.error("Erro ao carregar estados", err);
-    }
-  };
-
-  const fetchCities = async (stateId: number) => {
-    try {
-      const response = await fetch(`/api/locations/cities/${stateId}`);
-      const data = await response.json();
-      if (data.success) setCities(data.data);
-    } catch (err) {
-      console.error("Erro ao carregar cidades", err);
-    }
-  };
-
-  const handleStateChange = (stateId: number) => {
-    setNewTeamStateId(stateId);
-    setNewTeamCityId(null);
-    fetchCities(stateId);
-  };
-
-  const handleFileUpload = async (file: File): Promise<string | null> => {
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('team-logos')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage
-        .from('team-logos')
-        .getPublicUrl(filePath);
-
-      return data.publicUrl;
-    } catch (err) {
-      console.error("Erro no upload:", err);
-      return null;
-    }
-  };
 
   const searchTeams = async (query: string) => {
     setTeamSearch(query);
@@ -103,74 +43,110 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const handleSelectTeam = async (team: any) => {
     setLoading(true);
     setError(null);
-    setIsCreatingNewTeam(false);
     try {
-      console.log(`[LOG] Validando equipe ID: ${team.id}`);
+      console.log(`[LOG] Selecionando equipe: ${team.name} (ID: ${team.id})`);
       
-      // Call the backend validation endpoint
-      const response = await fetch('/api/auth/validate-representative', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ teamId: team.id })
-      });
-
-      if (!response || response.status === 204) {
-        console.error("[LOG] Erro de JSON detectado: Resposta vazia");
-        throw new Error("Resposta vazia do servidor");
-      }
-
-      let data;
-      const responseText = await response.text();
-      try {
-        data = JSON.parse(responseText);
-      } catch (jsonErr) {
-        console.error("[LOG] Erro de JSON detectado ao validar equipe. Resposta bruta:", responseText);
-        if (responseText.includes('<!DOCTYPE html>') || responseText.includes('<html>')) {
-          throw new Error("Resposta do servidor não é JSON (HTML detectado). Provável erro 404 ou 500.");
+      // If the user wants to be a leader, we MUST validate
+      if (isTeamLeader) {
+        // Fetch fresh team data to be sure about the professor field
+        const { data: freshTeam, error: teamError } = await supabase
+          .from('teams')
+          .select('*')
+          .eq('id', team.id)
+          .single();
+        
+        if (teamError) {
+          console.error('[ERROR] Erro ao buscar dados da equipe:', teamError);
+          throw teamError;
         }
-        throw new Error("Erro ao validar equipe. Resposta inválida do servidor.");
+
+        // 1. Check if team already has a professor/leader defined in the teams table
+        const hasProfessor = freshTeam.professor && freshTeam.professor.trim() !== '';
+        console.log(`[LOG] Professor definido na tabela teams: ${hasProfessor ? freshTeam.professor : 'NÃO'}`);
+
+        // 2. Check if there's already a user with team_leader = 'true' for this team
+        const { count, error: checkError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_id', team.id)
+          .or('team_leader.eq.true,team_leader.eq.TRUE');
+
+        if (checkError) {
+          console.error('[ERROR] Erro ao verificar representantes:', checkError);
+        }
+
+        console.log(`[LOG] Usuários representantes encontrados: ${count || 0}`);
+
+        if (hasProfessor || (count && count > 0)) {
+          console.log(`[LOG] Conflito detectado para a equipe ${team.name}`);
+          setConflictingTeamName(team.name);
+          setSelectedTeamId(team.id); 
+          setShowTeamConflictModal(true);
+          return; // Stop here, modal will handle the rest
+        }
       }
 
-      if (!response.ok) {
-        console.log(`[LOG] Representantes encontrados: ${data.count || 'Bloqueado'}`);
-        setConflictingTeamName(team.name);
-        setSelectedTeamId(team.id); 
-        setShowTeamConflictModal(true);
-        return;
-      }
-
-      console.log(`[LOG] Validando equipe ID: ${team.id} - Sucesso`);
+      // If not a leader OR no conflict found
+      console.log(`[LOG] Equipe selecionada com sucesso.`);
       setSelectedTeamId(team.id);
       setTeamSearch(team.name);
       setTeamResults([]);
+      
     } catch (err: any) {
       console.error('[ERROR] Erro ao selecionar equipe:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
-      setError(`Erro ao validar equipe: ${errorMessage}. Tente novamente.`);
+      setError('Erro ao validar equipe. Tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateNewTeam = () => {
-    if (!teamSearch.trim()) return;
-    setIsCreatingNewTeam(true);
-    setSelectedTeamId(null);
-    setNewTeamName(teamSearch.toUpperCase());
-    setTeamResults([]);
-    console.log(`[LOG] Usuário optou por criar nova equipe: ${teamSearch.toUpperCase()}`);
+  const handleToggleTeamLeader = async (checked: boolean) => {
+    if (checked && selectedTeamId) {
+      // If user is trying to become a leader for an already selected team, validate now
+      setLoading(true);
+      try {
+        const { data: teamData, error: teamError } = await supabase
+          .from('teams')
+          .select('professor, name')
+          .eq('id', selectedTeamId)
+          .single();
+        
+        if (teamError) throw teamError;
+        const hasProfessor = teamData.professor && teamData.professor.trim() !== '';
+
+        const { count, error: checkError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_id', selectedTeamId)
+          .or('team_leader.eq.true,team_leader.eq.TRUE');
+        
+        if (checkError) throw checkError;
+
+        if (hasProfessor || (count && count > 0)) {
+          setConflictingTeamName(teamData.name);
+          setShowTeamConflictModal(true);
+          // We don't set isTeamLeader to true yet, the modal will handle it
+          return;
+        }
+      } catch (err) {
+        console.error('Erro ao validar liderança:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    setIsTeamLeader(checked);
   };
 
   const handleContinueWithoutTeam = () => {
     setIsTeamLeader(false);
-    setSelectedTeamId(null);
-    setTeamSearch('');
+    // Keep the selectedTeamId so they can still join as an athlete
     setShowTeamConflictModal(false);
   };
 
   const handleCancelTeamSelection = () => {
     setSelectedTeamId(null);
     setTeamSearch('');
+    setIsTeamLeader(false);
     setShowTeamConflictModal(false);
   };
 
@@ -184,73 +160,52 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
+        // VALIDATION: If registering as team leader, MUST select a team
+        if (isTeamLeader && !selectedTeamId) {
+          setError('Para se cadastrar como representante, você deve selecionar uma equipe da lista.');
+          setLoading(false);
+          return;
+        }
+
+        // FINAL BACKEND-LIKE CHECK BEFORE SIGNUP
+        if (isTeamLeader && selectedTeamId) {
+          console.log(`[LOG] Verificação final de representantes da equipe ${selectedTeamId}`);
+          
+          // 1. Check teams table for professor
+          const { data: teamData, error: teamError } = await supabase
+            .from('teams')
+            .select('professor, name')
+            .eq('id', selectedTeamId)
+            .single();
+          
+          if (teamError) throw teamError;
+          const hasProfessor = teamData.professor && teamData.professor.trim() !== '';
+          
+          // 2. Check profiles table for existing representative user
+          const { count, error: checkError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('team_id', selectedTeamId)
+            .or('team_leader.eq.true,team_leader.eq.TRUE');
+          
+          if (checkError) throw checkError;
+          
+          console.log(`[LOG] Resultado final: Professor=${hasProfessor}, Representantes=${count}`);
+          
+          if (hasProfessor || (count && count > 0)) {
+            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem líder ou professor`);
+            setError(`A equipe ${teamData.name} já possui um representante oficial.`);
+            setConflictingTeamName(teamData.name || teamSearch);
+            setShowTeamConflictModal(true);
+            setLoading(false);
+            return;
+          }
+          console.log(`[LOG] Permitindo inserção - Vaga disponível`);
+        }
+
         const { data: { user }, error: signUpError } = await supabase.auth.signUp({ email, password });
         if (signUpError) throw signUpError;
-        
         if (user) {
-          let finalTeamId = selectedTeamId;
-
-          if (isTeamLeader) {
-            if (isCreatingNewTeam && newTeamName) {
-              console.log(`[LOG] Criando equipe: ${newTeamName}`);
-              
-              let uploadedImageUrl = null;
-              if (logoFile) {
-                uploadedImageUrl = await handleFileUpload(logoFile);
-                console.log(`[LOG] Upload realizado: ${uploadedImageUrl}`);
-              }
-
-              const createResponse = await fetch('/api/teams/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  name: newTeamName,
-                  userId: user.id,
-                  cityId: newTeamCityId, 
-                  stateId: newTeamStateId,
-                  imageUrl: uploadedImageUrl
-                })
-              });
-
-              if (!createResponse || createResponse.status === 204) {
-                throw new Error("Erro ao criar equipe: Resposta vazia");
-              }
-
-              let createData;
-              const createResponseText = await createResponse.text();
-              try {
-                createData = JSON.parse(createResponseText);
-              } catch (jsonErr) {
-                console.error("[LOG] Erro de JSON detectado ao criar equipe. Resposta bruta:", createResponseText);
-                throw new Error("Erro ao criar equipe. Resposta inválida.");
-              }
-
-              if (!createResponse.ok) {
-                throw new Error(createData.message || 'Falha ao criar equipe');
-              }
-
-              finalTeamId = createData.teamId;
-              console.log(`[LOG] Criando equipe - Sucesso. ID: ${finalTeamId}`);
-              console.log(`[LOG] Vinculando usuário como representante - Sucesso`);
-            } else if (selectedTeamId) {
-              console.log(`[LOG] Validando equipe ID: ${selectedTeamId} (Final)`);
-              
-              const response = await fetch('/api/auth/validate-representative', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ teamId: selectedTeamId })
-              });
-              
-              if (!response.ok) {
-                const data = await response.json();
-                setError(data.message || 'Esta equipe já possui um representante oficial.');
-                setShowTeamConflictModal(true);
-                setLoading(false);
-                return;
-              }
-            }
-          }
-
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
@@ -259,7 +214,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               full_name: fullName.toUpperCase(),
               role: 'athlete',
               team_leader: isTeamLeader ? 'true' : 'false',
-              team_id: finalTeamId,
+              team_id: selectedTeamId,
               perfil_publico: true,
               permitir_seguidores: true
             });
@@ -336,114 +291,54 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                   />
                 </div>
                 
-                <div className="space-y-3 p-4 bg-[var(--bg)]/30 rounded-2xl border border-[var(--border-ui)]">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isTeamLeader ? 'bg-[var(--primary)] border-[var(--primary)]' : 'border-[var(--border-ui)] group-hover:border-[var(--primary)]'}`}>
-                      {isTeamLeader && <CheckCircle2 size={14} className="text-white" />}
-                    </div>
+                <div className="space-y-4 p-4 bg-[var(--bg)]/30 rounded-2xl border border-[var(--border-ui)]">
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-[var(--primary)] tracking-widest">Selecione sua Equipe</p>
+                    <div className="relative">
                       <input
-                        type="checkbox"
-                        className="hidden"
-                        checked={isTeamLeader}
-                        onChange={(e) => setIsTeamLeader(e.target.checked)}
+                        type="text"
+                        placeholder="Buscar equipe..."
+                        value={teamSearch}
+                        onChange={(e) => searchTeams(e.target.value)}
+                        className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
                       />
-                    <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-tight">Sou líder ou responsável por equipe</span>
-                  </label>
-
-                  {isTeamLeader && (
-                    <div className="space-y-2 pt-2 border-t border-[var(--border-ui)]">
-                      <p className="text-[10px] font-black uppercase text-[var(--primary)] tracking-widest">Selecione sua Equipe</p>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          placeholder="Buscar equipe..."
-                          value={teamSearch}
-                          onChange={(e) => searchTeams(e.target.value)}
-                          className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
-                        />
-                        {teamResults.length > 0 && (
-                          <div className="absolute z-10 w-full mt-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-xl overflow-hidden">
-                            {teamResults.map(team => (
-                              <button
-                                key={team.id}
-                                type="button"
-                                onClick={() => handleSelectTeam(team)}
-                                className="w-full px-4 py-2 text-left text-xs hover:bg-[var(--primary)] hover:text-white transition-colors border-b border-[var(--border-ui)] last:border-0"
-                              >
-                                {team.name}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        {teamSearch.length >= 2 && teamResults.length === 0 && !selectedTeamId && !isCreatingNewTeam && (
-                          <div className="absolute z-10 w-full mt-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-xl p-2">
+                      {teamResults.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-xl overflow-hidden">
+                          {teamResults.map(team => (
                             <button
+                              key={team.id}
                               type="button"
-                              onClick={handleCreateNewTeam}
-                              className="w-full px-4 py-2 text-left text-xs bg-[var(--primary)]/10 text-[var(--primary)] rounded-lg font-bold hover:bg-[var(--primary)] hover:text-white transition-all"
+                              onClick={() => handleSelectTeam(team)}
+                              className="w-full px-4 py-2 text-left text-xs hover:bg-[var(--primary)] hover:text-white transition-colors border-b border-[var(--border-ui)] last:border-0"
                             >
-                              + Criar nova equipe: "{teamSearch.toUpperCase()}"
+                              {team.name}
                             </button>
-                          </div>
-                        )}
-                      </div>
-                      {selectedTeamId && (
-                        <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase">
-                          <CheckCircle2 size={12} />
-                          Equipe selecionada com sucesso
-                        </div>
-                      )}
-                      {isCreatingNewTeam && (
-                        <div className="space-y-3 pt-2 border-t border-white/5">
-                          <div className="flex items-center gap-2 text-[10px] text-blue-500 font-bold uppercase">
-                            <CheckCircle2 size={12} />
-                            Nova equipe será criada: {newTeamName}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <select
-                              value={newTeamStateId || ''}
-                              onChange={(e) => handleStateChange(Number(e.target.value))}
-                              className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-[10px] text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
-                              required={isCreatingNewTeam}
-                            >
-                              <option value="">Estado</option>
-                              {states.map(s => (
-                                <option key={s.id} value={s.id}>{s.uf}</option>
-                              ))}
-                            </select>
-                            <select
-                              value={newTeamCityId || ''}
-                              onChange={(e) => setNewTeamCityId(Number(e.target.value))}
-                              className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-[10px] text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
-                              required={isCreatingNewTeam}
-                              disabled={!newTeamStateId}
-                            >
-                              <option value="">Cidade</option>
-                              {cities.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="relative">
-                            <label className="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-[var(--border-ui)] rounded-xl cursor-pointer hover:border-[var(--primary)] transition-all bg-[var(--bg)]/30">
-                              <div className="flex flex-col items-center justify-center pt-2 pb-2">
-                                <Trophy size={20} className="text-[var(--text-muted)] mb-1" />
-                                <p className="text-[8px] text-[var(--text-muted)] font-bold uppercase">
-                                  {logoFile ? logoFile.name : 'Upload Logo da Equipe'}
-                                </p>
-                              </div>
-                              <input 
-                                type="file" 
-                                className="hidden" 
-                                accept="image/*"
-                                onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                              />
-                            </label>
-                          </div>
+                          ))}
                         </div>
                       )}
                     </div>
-                  )}
+                    {selectedTeamId && (
+                      <div className="flex items-center gap-2 text-[10px] text-emerald-500 font-bold uppercase">
+                        <CheckCircle2 size={12} />
+                        Equipe selecionada com sucesso
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-[var(--border-ui)]">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isTeamLeader ? 'bg-[var(--primary)] border-[var(--primary)]' : 'border-[var(--border-ui)] group-hover:border-[var(--primary)]'}`}>
+                        {isTeamLeader && <CheckCircle2 size={14} className="text-white" />}
+                      </div>
+                        <input
+                          type="checkbox"
+                          className="hidden"
+                          checked={isTeamLeader}
+                          onChange={(e) => handleToggleTeamLeader(e.target.checked)}
+                        />
+                      <span className="text-xs font-bold text-[var(--text-main)] uppercase tracking-tight">Sou líder ou responsável por equipe</span>
+                    </label>
+                  </div>
                 </div>
               </>
             )}

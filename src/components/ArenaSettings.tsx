@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Lock, Shield, Eye, Bell, 
-  Moon, Sun, LogOut, Trash2, Check, AlertCircle, X, Wallet, ExternalLink
+  Moon, Sun, LogOut, Trash2, Check, AlertCircle, X, Wallet
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { ArenaProfile } from '../types';
-import { BrowserProvider } from 'ethers';
 
 export const ArenaSettings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -49,25 +48,14 @@ export const ArenaSettings: React.FC = () => {
     if (!profile) return;
     
     const ethereum = (window as any).ethereum;
-    
-    // Check if we are in an iframe
-    const isInIframe = window.self !== window.top;
-
     if (!ethereum) {
-      let msg = 'MetaMask não detectado. Por favor, instale a extensão.';
-      if (isInIframe) {
-        msg = 'O MetaMask pode não ser detectado dentro do iframe do preview. Por favor, abra o aplicativo em uma nova aba para conectar sua carteira.';
-      }
-      setMessage({ type: 'error', text: msg });
+      setMessage({ type: 'error', text: 'MetaMask não detectado. Por favor, instale a extensão.' });
       return;
     }
 
     setConnectingWallet(true);
     try {
-      // Use ethers BrowserProvider for better interaction
-      const provider = new BrowserProvider(ethereum);
-      
-      // Request accounts
+      // Request accounts using the EIP-1193 provider directly for better error handling
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       
       if (!accounts || accounts.length === 0) {
@@ -95,11 +83,9 @@ export const ArenaSettings: React.FC = () => {
         errorMsg = 'Conexão rejeitada pelo usuário.';
       } else if (error.code === -32002) {
         errorMsg = 'Solicitação de conexão já pendente no MetaMask. Verifique a extensão.';
-      } else if (error.message && error.message.includes('User rejected')) {
-        errorMsg = 'Conexão rejeitada pelo usuário.';
-      } else if (isInIframe) {
+      } else if (window.self !== window.top) {
         // If in iframe, suggest opening in new tab
-        errorMsg = 'O MetaMask bloqueou a conexão dentro do iframe por segurança. Clique no botão "Abrir em Nova Aba" no topo do preview e tente novamente.';
+        errorMsg = 'O MetaMask pode estar bloqueado pelo navegador dentro do iframe. Tente abrir o aplicativo em uma nova aba para conectar.';
       } else {
         errorMsg = error.message || errorMsg;
       }

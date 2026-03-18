@@ -28,16 +28,11 @@ export const AdminTeams: React.FC = () => {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [formData, setFormData] = useState<any>({
     name: '',
-    city_id: null,
-    state_id: null,
+    city: '',
+    state: '',
     logo_url: '',
-    representative_id: ''
+    professor: ''
   });
-  const [states, setStates] = useState<any[]>([]);
-  const [cities, setCities] = useState<any[]>([]);
-  const [userSearch, setUserSearch] = useState('');
-  const [userResults, setUserResults] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [teamStats, setTeamStats] = useState<Record<string, number>>({});
@@ -45,31 +40,7 @@ export const AdminTeams: React.FC = () => {
 
   useEffect(() => {
     fetchTeams();
-    fetchStates();
   }, [page]);
-
-  const fetchStates = async () => {
-    try {
-      const { data, error } = await supabase.from('states').select('*').order('name');
-      if (!error) setStates(data || []);
-    } catch (err) {
-      console.error('Error fetching states:', err);
-    }
-  };
-
-  const fetchCities = async (stateId: number) => {
-    try {
-      const { data, error } = await supabase.from('cities').select('*').eq('state_id', stateId).order('name');
-      if (!error) setCities(data || []);
-    } catch (err) {
-      console.error('Error fetching cities:', err);
-    }
-  };
-
-  const handleStateChange = (stateId: number) => {
-    setFormData(prev => ({ ...prev, state_id: stateId, city_id: null }));
-    fetchCities(stateId);
-  };
 
   const fetchTeams = async () => {
     setLoading(true);
@@ -133,7 +104,7 @@ export const AdminTeams: React.FC = () => {
     setUploading(true);
     try {
       const { error: uploadError } = await supabase.storage
-        .from('team-logos')
+        .from('arena_media')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -145,7 +116,7 @@ export const AdminTeams: React.FC = () => {
         setFormData(prev => ({ ...prev, logo_url: reader.result as string }));
       } else {
         const { data: { publicUrl } } = supabase.storage
-          .from('team-logos')
+          .from('arena_media')
           .getPublicUrl(filePath);
 
         setFormData(prev => ({ ...prev, logo_url: publicUrl }));
@@ -179,43 +150,16 @@ export const AdminTeams: React.FC = () => {
     }
   };
 
-  const searchUsers = async (query: string) => {
-    setUserSearch(query);
-    if (query.length < 2) {
-      setUserResults([]);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, username')
-      .or(`full_name.ilike.%${query}%,username.ilike.%${query}%`)
-      .limit(5);
-    
-    if (!error && data) {
-      setUserResults(data);
-    }
-  };
-
-  const handleSelectUser = (user: any) => {
-    setSelectedUser(user);
-    setFormData(prev => ({ ...prev, representative_id: user.id }));
-    setUserSearch(user.full_name);
-    setUserResults([]);
-  };
-
   const handleSaveTeam = async () => {
     try {
       // Standardize text to uppercase
       const standardizedData = {
         name: formData.name?.toUpperCase(),
-        city_id: formData.city_id,
-        state_id: formData.state_id,
-        logo_url: formData.logo_url,
-        representative_id: formData.representative_id || null
+        city: formData.city?.toUpperCase(),
+        state: formData.state?.toUpperCase()?.substring(0, 2),
+        professor: formData.professor?.toUpperCase(),
+        logo_url: formData.logo_url
       };
-
-      let teamId = selectedTeam?.id;
 
       if (selectedTeam) {
         const { error } = await supabase
@@ -225,46 +169,12 @@ export const AdminTeams: React.FC = () => {
         if (error) throw error;
         setTeams(prev => prev.map(t => t.id === selectedTeam.id ? { ...t, ...standardizedData } : t));
       } else {
-        const { data: newTeam, error } = await supabase
+        const { error } = await supabase
           .from('teams')
-          .insert([standardizedData])
-          .select()
-          .single();
+          .insert([standardizedData]);
         if (error) throw error;
-        teamId = newTeam.id;
         fetchTeams();
       }
-
-      // Update representative in team_members if selected
-      if (formData.representative_id && teamId) {
-        // First, remove any existing representative for this team
-        await supabase
-          .from('team_members')
-          .delete()
-          .eq('team_id', teamId)
-          .eq('role', 'representative');
-
-        // Then insert the new one
-        const { error: memberError } = await supabase
-          .from('team_members')
-          .insert({
-            team_id: teamId,
-            user_id: formData.representative_id,
-            role: 'representative'
-          });
-        
-        if (memberError) {
-          console.error('Error updating representative:', memberError);
-          alert(`Equipe salva, mas erro ao vincular representante: ${memberError.message}`);
-        } else {
-          // Also update profiles for legacy support
-          await supabase
-            .from('profiles')
-            .update({ team_leader: 'true', team_id: teamId })
-            .eq('id', formData.representative_id);
-        }
-      }
-
       setIsModalOpen(false);
       alert(`Equipe ${selectedTeam ? 'atualizada' : 'criada'} com sucesso.`);
     } catch (error) {
@@ -290,9 +200,7 @@ export const AdminTeams: React.FC = () => {
         <button
           onClick={() => {
             setSelectedTeam(null);
-            setFormData({ name: '', city_id: null, state_id: null, logo_url: '', representative_id: '' });
-            setSelectedUser(null);
-            setUserSearch('');
+            setFormData({ name: '', city: '', state: '', logo_url: '', professor: '' });
             setIsModalOpen(true);
           }}
           className="w-full md:w-auto bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center space-x-2"
@@ -356,34 +264,9 @@ export const AdminTeams: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-1">
                   <button 
-                    onClick={async () => {
+                    onClick={() => {
                       setSelectedTeam(team);
-                      setFormData({ ...team, representative_id: '' });
-                      setSelectedUser(null);
-                      setUserSearch('');
-                      
-                      if (team.state_id) {
-                        fetchCities(team.state_id);
-                      }
-
-                      // Fetch current representative
-                      const { data: repData } = await supabase
-                        .from('team_members')
-                        .select('user_id, profiles(full_name, username)')
-                        .eq('team_id', team.id)
-                        .eq('role', 'representative')
-                        .single();
-                      
-                      if (repData) {
-                        setFormData(prev => ({ ...prev, representative_id: repData.user_id }));
-                        setSelectedUser({
-                          id: repData.user_id,
-                          full_name: (repData.profiles as any)?.full_name,
-                          username: (repData.profiles as any)?.username
-                        });
-                        setUserSearch((repData.profiles as any)?.full_name || '');
-                      }
-                      
+                      setFormData({ ...team });
                       setIsModalOpen(true);
                     }}
                     className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
@@ -481,67 +364,38 @@ export const AdminTeams: React.FC = () => {
                     placeholder="Ex: Alliance Jiu-Jitsu"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado</label>
-                    <select
-                      value={formData.state_id || ''}
-                      onChange={(e) => handleStateChange(Number(e.target.value))}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-2 space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Cidade</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                    >
-                      <option value="">Selecione</option>
-                      {states.map(s => (
-                        <option key={s.id} value={s.id}>{s.uf} - {s.name}</option>
-                      ))}
-                    </select>
+                      placeholder="Ex: São Paulo"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Cidade</label>
-                    <select
-                      value={formData.city_id || ''}
-                      onChange={(e) => setFormData({ ...formData, city_id: Number(e.target.value) })}
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value.toUpperCase() })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                      disabled={!formData.state_id}
-                    >
-                      <option value="">Selecione</option>
-                      {cities.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                      placeholder="SP"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Responsável pela Equipe (Usuário)</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={userSearch}
-                      onChange={(e) => searchUsers(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                      placeholder="Buscar usuário por nome ou username..."
-                    />
-                    {userResults.length > 0 && (
-                      <div className="absolute z-20 w-full mt-1 bg-[#0f0f0f] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
-                        {userResults.map(user => (
-                          <button
-                            key={user.id}
-                            type="button"
-                            onClick={() => handleSelectUser(user)}
-                            className="w-full px-4 py-3 text-left text-xs hover:bg-blue-600 hover:text-white transition-colors border-b border-white/5 last:border-0"
-                          >
-                            <div className="font-black uppercase">{user.full_name}</div>
-                            <div className="text-[9px] text-gray-500">@{user.username}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {selectedUser && (
-                    <div className="flex items-center gap-2 text-[9px] text-emerald-500 font-black uppercase tracking-widest mt-1">
-                      <Check size={12} />
-                      Selecionado: {selectedUser.full_name}
-                    </div>
-                  )}
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Responsável pela Equipe</label>
+                  <input
+                    type="text"
+                    value={formData.professor}
+                    onChange={(e) => setFormData({ ...formData, professor: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                    placeholder="Nome do Professor / Líder"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Logo da Equipe</label>
