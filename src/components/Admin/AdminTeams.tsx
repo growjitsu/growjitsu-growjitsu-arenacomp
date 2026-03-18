@@ -79,7 +79,12 @@ export const AdminTeams: React.FC = () => {
 
       let query = supabase
         .from('teams')
-        .select('*', { count: 'exact' });
+        .select(`
+          *,
+          countries(name),
+          states(name),
+          cities(name)
+        `, { count: 'exact' });
 
       if (search) {
         query = query.ilike('name', `%${search}%`);
@@ -151,7 +156,7 @@ export const AdminTeams: React.FC = () => {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
-      .ilike('full_name', `%${query}%`)
+      .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
       .limit(10);
     
     if (error) {
@@ -374,7 +379,9 @@ export const AdminTeams: React.FC = () => {
                       <div className="flex items-center space-x-1 text-gray-500">
                         <MapPin size={10} />
                         <span className="text-[9px] font-bold uppercase tracking-widest">
-                          {team.cities?.name ? `${team.cities.name}${team.states?.name ? `, ${team.states.name}` : ''}` : 'Sem Localização'}
+                          {team.cities?.name && team.states?.name && team.countries?.name
+                            ? `${team.cities.name}, ${team.states.name} - ${team.countries.name}`
+                            : 'Sem Localização'}
                         </span>
                       </div>
                       {team.representative ? (
@@ -382,12 +389,7 @@ export const AdminTeams: React.FC = () => {
                           <User size={10} />
                           <span className="text-[9px] font-black uppercase tracking-widest">Líder: {team.representative.name}</span>
                         </div>
-                      ) : team.professor && (
-                        <div className="flex items-center space-x-1 text-gray-500">
-                          <User size={10} />
-                          <span className="text-[9px] font-black uppercase tracking-widest italic">Professor (Legado): {team.professor}</span>
-                        </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -395,7 +397,11 @@ export const AdminTeams: React.FC = () => {
                   <button 
                     onClick={() => {
                       setSelectedTeam(team);
-                      setFormData({ ...team });
+                      setFormData({ 
+                        ...team,
+                        representative_id: team.representative?.id || ''
+                      });
+                      setUserSearch(team.representative?.name || '');
                       setIsModalOpen(true);
                     }}
                     className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
