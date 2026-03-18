@@ -157,11 +157,11 @@ export const AdminAthletes: React.FC = () => {
             }, { onConflict: 'team_id,user_id' });
           
           if (memberError) {
+            console.error('Error updating team_members:', memberError);
             if (memberError.message.includes('one_representative_per_team')) {
               alert('Erro: Esta equipe já possui um representante oficial na tabela team_members.');
-              // Revert profile if possible or just inform
             } else {
-              console.error('Error updating team_members:', memberError);
+              alert(`Erro ao vincular representante: ${memberError.message}`);
             }
           }
         } else {

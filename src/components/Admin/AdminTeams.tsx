@@ -185,7 +185,8 @@ export const AdminTeams: React.FC = () => {
         name: formData.name?.toUpperCase(),
         city: formData.city?.toUpperCase(),
         state: formData.state?.toUpperCase()?.substring(0, 2),
-        logo_url: formData.logo_url
+        logo_url: formData.logo_url,
+        representative_id: formData.representative_id || null
       };
 
       let teamId = selectedTeam?.id;
@@ -228,7 +229,7 @@ export const AdminTeams: React.FC = () => {
         
         if (memberError) {
           console.error('Error updating representative:', memberError);
-          alert('Equipe salva, mas erro ao vincular representante.');
+          alert(`Equipe salva, mas erro ao vincular representante: ${memberError.message}`);
         } else {
           // Also update profiles for legacy support
           await supabase
@@ -327,9 +328,30 @@ export const AdminTeams: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-1">
                   <button 
-                    onClick={() => {
+                    onClick={async () => {
                       setSelectedTeam(team);
-                      setFormData({ ...team });
+                      setFormData({ ...team, representative_id: '' });
+                      setSelectedUser(null);
+                      setUserSearch('');
+                      
+                      // Fetch current representative
+                      const { data: repData } = await supabase
+                        .from('team_members')
+                        .select('user_id, profiles(full_name, username)')
+                        .eq('team_id', team.id)
+                        .eq('role', 'representative')
+                        .single();
+                      
+                      if (repData) {
+                        setFormData(prev => ({ ...prev, representative_id: repData.user_id }));
+                        setSelectedUser({
+                          id: repData.user_id,
+                          full_name: (repData.profiles as any)?.full_name,
+                          username: (repData.profiles as any)?.username
+                        });
+                        setUserSearch((repData.profiles as any)?.full_name || '');
+                      }
+                      
                       setIsModalOpen(true);
                     }}
                     className="p-2 text-gray-500 hover:text-blue-500 transition-colors"
