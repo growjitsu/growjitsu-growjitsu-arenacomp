@@ -140,12 +140,14 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     setError(null);
 
     try {
+      console.log('[LOG] handleAuth iniciado', { isLogin, email, isTeamLeader, selectedTeamId, isCreatingTeam });
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
         // VALIDATION: If registering as team leader, MUST select or create a team
         if (isTeamLeader && !selectedTeamId && !isCreatingTeam) {
+          console.log('[LOG] Validação falhou: Líder sem equipe');
           setError('Para se cadastrar como representante, você deve selecionar uma equipe ou cadastrar uma nova.');
           setLoading(false);
           return;
@@ -161,15 +163,17 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             .eq('team_id', selectedTeamId)
             .eq('role', 'representative');
           
-          if (checkError) throw checkError;
+          if (checkError) {
+            console.error('[ERROR] Erro na verificação final:', checkError);
+            throw checkError;
+          }
           
           const representativesCount = Number(count || 0);
-          console.log("Team ID:", selectedTeamId);
-          console.log("Representatives count:", representativesCount);
+          console.log("[LOG] Contagem de representantes:", representativesCount);
           
           if (representativesCount > 0) {
             const { data: teamData } = await supabase.from('teams').select('name').eq('id', selectedTeamId).single();
-            console.log(`[LOG] Bloqueando inserção automática - Equipe já tem representante`);
+            console.log(`[LOG] Bloqueando inserção - Equipe já tem representante: ${teamData?.name}`);
             setError(`A equipe ${teamData?.name || ''} já possui um representante oficial.`);
             setConflictingTeamName(teamData?.name || teamSearch);
             setShowTeamConflictModal(true);
@@ -179,14 +183,32 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           console.log(`[LOG] Permitindo inserção - Vaga disponível`);
         }
 
-        const { data: { user }, error: signUpError } = await supabase.auth.signUp({ email, password });
-        if (signUpError) throw signUpError;
+        console.log('[LOG] Chamando supabase.auth.signUp');
+        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        
+        if (signUpError) {
+          console.error('[ERROR] Erro no signUp:', signUpError);
+          throw signUpError;
+        }
+        
+        const user = data.user;
+        console.log('[LOG] Resultado do signUp:', { user: !!user, identities: user?.identities?.length });
+
+        if (!user) {
+          throw new Error('Erro ao criar usuário. Verifique se o email já está cadastrado.');
+        }
+
+        // Se o usuário foi criado mas não tem identidades, pode ser um usuário duplicado (com confirmação de email ativa)
+        if (user && (!user.identities || user.identities.length === 0)) {
+          throw new Error('Este email já está cadastrado ou aguardando confirmação.');
+        }
         
         if (user) {
           let finalTeamId = selectedTeamId;
 
           // Part 4: Create new team if requested
           if (isCreatingTeam && newTeamData.name) {
+            console.log('[LOG] Criando nova equipe:', newTeamData.name);
             const { data: team, error: teamError } = await supabase
               .from('teams')
               .insert([{
@@ -198,11 +220,16 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               .select()
               .single();
             
-            if (teamError) throw teamError;
+            if (teamError) {
+              console.error('[ERROR] Erro ao criar equipe:', teamError);
+              throw teamError;
+            }
             finalTeamId = team.id;
+            console.log('[LOG] Equipe criada com sucesso:', finalTeamId);
           }
 
           // Insert Profile
+          console.log('[LOG] Inserindo perfil para o usuário:', user.id);
           const { error: profileError } = await supabase
             .from('profiles')
             .insert({
@@ -217,6 +244,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             });
 
           if (profileError) {
+            console.error('[ERROR] Erro ao inserir perfil:', profileError);
             if (profileError.message.includes('TEAM_HAS_REPRESENTATIVE')) {
               setError('Esta equipe já possui um representante. Por favor, revise sua seleção.');
               setShowTeamConflictModal(true);
@@ -226,9 +254,11 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               throw profileError;
             }
           }
+          console.log('[LOG] Perfil inserido com sucesso');
 
           // Insert Team Member relationship
           if (finalTeamId) {
+            console.log('[LOG] Vinculando usuário à equipe:', finalTeamId);
             const { error: memberError } = await supabase
               .from('team_members')
               .insert({
@@ -237,12 +267,23 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                 role: isTeamLeader ? 'representative' : 'member'
               });
             
-            if (memberError) console.error('Erro ao vincular equipe:', memberError);
+            if (memberError) {
+              console.error('[ERROR] Erro ao vincular equipe:', memberError);
+              // Se falhar aqui, o perfil já foi criado, mas o vínculo não.
+              // Vamos avisar o usuário mas não necessariamente travar tudo se o perfil já foi criado.
+              // No entanto, para o líder, o vínculo é CRUCIAL.
+              if (isTeamLeader) {
+                throw new Error(`Usuário criado, mas houve um erro ao vincular como representante: ${memberError.message}`);
+              }
+            } else {
+              console.log('[LOG] Vínculo de equipe criado com sucesso');
+            }
           }
         }
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('[ERROR] Erro geral no handleAuth:', err);
+      setError(err.message || 'Ocorreu um erro inesperado.');
     } finally {
       setLoading(false);
     }
