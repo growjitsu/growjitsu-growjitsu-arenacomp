@@ -147,13 +147,20 @@ export const AdminTeams: React.FC = () => {
       return;
     }
 
+    console.log("[LOG] Admin: Buscando usuário:", query);
     const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, email')
       .ilike('full_name', `%${query}%`)
-      .limit(5);
+      .limit(10);
     
-    if (!error && data) {
+    if (error) {
+      console.error("[LOG] Admin: Erro ao buscar usuários:", error);
+      return;
+    }
+
+    console.log("[LOG] Admin: Resultado da busca de usuários:", data);
+    if (data) {
       setUserResults(data);
     }
   };

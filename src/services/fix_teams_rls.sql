@@ -111,5 +111,10 @@ CREATE POLICY "Allow update team_members" ON team_members FOR UPDATE USING (true
 DROP POLICY IF EXISTS "Allow delete team_members" ON team_members;
 CREATE POLICY "Allow delete team_members" ON team_members FOR DELETE USING (true);
 
--- 6. Verificar status
+-- 6. Configurar RLS para profiles (necessário para busca de usuários)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow read profiles" ON profiles;
+CREATE POLICY "Allow read profiles" ON profiles FOR SELECT USING (true);
+
+-- 7. Verificar status
 SELECT 'Sucesso! Tabelas e permissões configuradas.' as status;
