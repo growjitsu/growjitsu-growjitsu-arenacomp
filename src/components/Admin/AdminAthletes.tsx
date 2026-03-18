@@ -29,6 +29,7 @@ export const AdminAthletes: React.FC = () => {
   });
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [teams, setTeams] = useState<any[]>([]);
   const [selectedAthlete, setSelectedAthlete] = useState<ArenaProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editData, setEditData] = useState<any>(null);
@@ -36,7 +37,13 @@ export const AdminAthletes: React.FC = () => {
 
   useEffect(() => {
     fetchAthletes();
+    fetchTeams();
   }, [page, filters]);
+
+  const fetchTeams = async () => {
+    const { data, error } = await supabase.from('teams').select('id, name').order('name');
+    if (!error && data) setTeams(data);
+  };
 
   const fetchAthletes = async () => {
     setLoading(true);
@@ -97,6 +104,10 @@ export const AdminAthletes: React.FC = () => {
 
   const handleSaveEdit = async () => {
     try {
+      // Find team ID if name was selected
+      const selectedTeamObj = teams.find(t => t.name === editData.team || t.id === editData.team_id);
+      const teamId = selectedTeamObj?.id || editData.team_id;
+
       // Standardize text to uppercase
       const standardizedData = {
         ...editData,
@@ -110,22 +121,58 @@ export const AdminAthletes: React.FC = () => {
         city: editData.city?.toUpperCase(),
         state: editData.state?.toUpperCase(),
         country: editData.country?.toUpperCase(),
-        team: editData.team?.toUpperCase(),
+        team: selectedTeamObj?.name || editData.team?.toUpperCase(),
+        team_id: teamId,
         titles: editData.titles?.toUpperCase(),
         team_leader: (editData.team_leader === true || editData.team_leader === 'true') ? 'true' : 'false',
       };
 
-      const { error } = await supabase
+      // 1. Update Profile
+      const { error: profileError } = await supabase
         .from('profiles')
         .update(standardizedData)
         .eq('id', selectedAthlete?.id);
       
-      if (error) {
-        if (error.message.includes('TEAM_HAS_REPRESENTATIVE')) {
-          alert('Erro: Esta equipe já possui um representante oficial (Professor ou Líder).');
+      if (profileError) {
+        if (profileError.message.includes('TEAM_HAS_REPRESENTATIVE')) {
+          alert('Erro: Esta equipe já possui um representante oficial.');
           return;
         }
-        throw error;
+        throw profileError;
+      }
+
+      // 2. Update team_members if representative status changed
+      const isRepresentative = standardizedData.team_leader === 'true';
+      const wasRepresentative = selectedAthlete?.team_leader === 'true' || selectedAthlete?.team_leader === true;
+
+      if (isRepresentative !== wasRepresentative && teamId) {
+        if (isRepresentative) {
+          // Add as representative
+          const { error: memberError } = await supabase
+            .from('team_members')
+            .upsert({
+              team_id: teamId,
+              user_id: selectedAthlete?.id,
+              role: 'representative'
+            }, { onConflict: 'team_id,user_id' });
+          
+          if (memberError) {
+            console.error('Error updating team_members:', memberError);
+            if (memberError.message.includes('one_representative_per_team')) {
+              alert('Erro: Esta equipe já possui um representante oficial na tabela team_members.');
+            } else {
+              alert(`Erro ao vincular representante: ${memberError.message}`);
+            }
+          }
+        } else {
+          // Remove as representative
+          await supabase
+            .from('team_members')
+            .delete()
+            .eq('team_id', teamId)
+            .eq('user_id', selectedAthlete?.id)
+            .eq('role', 'representative');
+        }
       }
       
       setAthletes(prev => prev.map(a => a.id === selectedAthlete?.id ? { ...a, ...standardizedData } : a));
@@ -347,12 +394,19 @@ export const AdminAthletes: React.FC = () => {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Equipe</label>
-                    <input
-                      type="text"
-                      value={editData.team}
-                      onChange={(e) => setEditData({ ...editData, team: e.target.value })}
+                    <select
+                      value={editData.team_id || ''}
+                      onChange={(e) => {
+                        const team = teams.find(t => t.id === e.target.value);
+                        setEditData({ ...editData, team_id: e.target.value, team: team?.name || '' });
+                      }}
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                    />
+                    >
+                      <option value="">Sem Equipe</option>
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>{team.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Graduação</label>

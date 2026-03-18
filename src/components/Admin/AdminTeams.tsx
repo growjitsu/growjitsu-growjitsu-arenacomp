@@ -31,8 +31,11 @@ export const AdminTeams: React.FC = () => {
     city: '',
     state: '',
     logo_url: '',
-    professor: ''
+    professor: '',
+    representative_id: ''
   });
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState<any[]>([]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [teamStats, setTeamStats] = useState<Record<string, number>>({});
@@ -58,12 +61,33 @@ export const AdminTeams: React.FC = () => {
         .range((page - 1) * pageSize, page * pageSize - 1);
 
       if (error) throw error;
-      setTeams(data || []);
+      
+      // Fetch representatives for these teams
+      const teamIds = data?.map(t => t.id) || [];
+      const { data: repsData } = await supabase
+        .from('team_members')
+        .select('team_id, user_id, profiles(full_name)')
+        .in('team_id', teamIds)
+        .eq('role', 'representative');
+
+      const repsMap: Record<string, any> = {};
+      repsData?.forEach(r => {
+        repsMap[r.team_id] = {
+          id: r.user_id,
+          name: (r.profiles as any)?.full_name
+        };
+      });
+
+      const teamsWithReps = data?.map(t => ({
+        ...t,
+        representative: repsMap[t.id]
+      })) || [];
+
+      setTeams(teamsWithReps);
       setTotalCount(count || 0);
 
       // Fetch athlete counts for these teams
       if (data && data.length > 0) {
-        const teamIds = data.map(t => t.id);
         const { data: countData, error: countError } = await supabase
           .from('profiles')
           .select('team_id')
@@ -83,6 +107,24 @@ export const AdminTeams: React.FC = () => {
       console.error('Error fetching teams:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const searchUsers = async (query: string) => {
+    setUserSearch(query);
+    if (query.length < 2) {
+      setUserResults([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .ilike('full_name', `%${query}%`)
+      .limit(5);
+    
+    if (!error && data) {
+      setUserResults(data);
     }
   };
 
@@ -157,9 +199,10 @@ export const AdminTeams: React.FC = () => {
         name: formData.name?.toUpperCase(),
         city: formData.city?.toUpperCase(),
         state: formData.state?.toUpperCase()?.substring(0, 2),
-        professor: formData.professor?.toUpperCase(),
         logo_url: formData.logo_url
       };
+
+      let teamId = selectedTeam?.id;
 
       if (selectedTeam) {
         const { error } = await supabase
@@ -167,14 +210,38 @@ export const AdminTeams: React.FC = () => {
           .update(standardizedData)
           .eq('id', selectedTeam.id);
         if (error) throw error;
-        setTeams(prev => prev.map(t => t.id === selectedTeam.id ? { ...t, ...standardizedData } : t));
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('teams')
-          .insert([standardizedData]);
+          .insert([standardizedData])
+          .select()
+          .single();
         if (error) throw error;
-        fetchTeams();
+        teamId = data.id;
       }
+
+      // Save representative in team_members
+      if (teamId && formData.representative_id) {
+        // First remove any existing representative for this team
+        await supabase
+          .from('team_members')
+          .delete()
+          .eq('team_id', teamId)
+          .eq('role', 'representative');
+
+        // Add new representative
+        const { error: repError } = await supabase
+          .from('team_members')
+          .insert({
+            team_id: teamId,
+            user_id: formData.representative_id,
+            role: 'representative'
+          });
+        
+        if (repError) console.error('Error saving representative:', repError);
+      }
+
+      fetchTeams();
       setIsModalOpen(false);
       alert(`Equipe ${selectedTeam ? 'atualizada' : 'criada'} com sucesso.`);
     } catch (error) {
@@ -253,10 +320,15 @@ export const AdminTeams: React.FC = () => {
                           {team.city ? `${team.city}${team.state ? `, ${team.state}` : ''}` : 'Sem Localização'}
                         </span>
                       </div>
-                      {team.professor && (
+                      {team.representative ? (
                         <div className="flex items-center space-x-1 text-blue-500">
                           <User size={10} />
-                          <span className="text-[9px] font-black uppercase tracking-widest">Líder: {team.professor}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest">Líder: {team.representative.name}</span>
+                        </div>
+                      ) : team.professor && (
+                        <div className="flex items-center space-x-1 text-gray-500">
+                          <User size={10} />
+                          <span className="text-[9px] font-black uppercase tracking-widest italic">Professor (Legado): {team.professor}</span>
                         </div>
                       )}
                     </div>
@@ -389,13 +461,56 @@ export const AdminTeams: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Responsável pela Equipe</label>
-                  <input
-                    type="text"
-                    value={formData.professor}
-                    onChange={(e) => setFormData({ ...formData, professor: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
-                    placeholder="Nome do Professor / Líder"
-                  />
+                  <div className="relative">
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                        <input
+                          type="text"
+                          value={userSearch}
+                          onChange={(e) => searchUsers(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus:border-blue-500"
+                          placeholder="Buscar usuário por nome..."
+                        />
+                      </div>
+                      {formData.representative_id && (
+                        <button 
+                          onClick={() => {
+                            setFormData({ ...formData, representative_id: '' });
+                            setUserSearch('');
+                          }}
+                          className="p-4 bg-rose-500/10 text-rose-500 rounded-xl hover:bg-rose-500/20 transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+
+                    {userResults.length > 0 && (
+                      <div className="absolute z-[110] w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                        {userResults.map(user => (
+                          <button
+                            key={user.id}
+                            onClick={() => {
+                              setFormData({ ...formData, representative_id: user.id });
+                              setUserSearch(user.full_name);
+                              setUserResults([]);
+                            }}
+                            className="w-full px-4 py-3 text-left text-xs hover:bg-blue-600 transition-colors border-b border-white/5 last:border-0 flex flex-col"
+                          >
+                            <span className="font-black uppercase tracking-tight">{user.full_name}</span>
+                            <span className="text-[9px] text-gray-500">{user.email}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {formData.representative_id && (
+                    <div className="flex items-center gap-2 text-[9px] text-emerald-500 font-bold uppercase mt-1 ml-1">
+                      <Check size={12} />
+                      Usuário selecionado como responsável
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Logo da Equipe</label>
