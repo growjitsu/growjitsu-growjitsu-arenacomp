@@ -546,7 +546,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                             disabled={!newTeamData.country_id}
                             className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] outline-none disabled:opacity-50"
                           >
-                            <option value="">Estado</option>
+                            <option value="">{newTeamData.country_id ? (states.length === 0 ? 'Carregando...' : 'Estado') : 'Selecione o País'}</option>
                             {states.map(s => (
                               <option key={s.id} value={s.id}>{s.name}</option>
                             ))}
@@ -558,7 +558,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                             disabled={!newTeamData.state_id}
                             className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] outline-none disabled:opacity-50"
                           >
-                            <option value="">Cidade</option>
+                            <option value="">{newTeamData.state_id ? (cities.length === 0 ? 'Nenhuma cidade' : 'Cidade') : 'Selecione o Estado'}</option>
                             {cities.map(c => (
                               <option key={c.id} value={c.id}>{c.name}</option>
                             ))}

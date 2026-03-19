@@ -611,7 +611,7 @@ export const AdminTeams: React.FC = () => {
                         }}
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
                       >
-                        <option value="">Selecionar Estado</option>
+                        <option value="">{formData.country_id ? (states.length === 0 ? 'Carregando estados...' : 'Selecionar Estado') : 'Selecione um País'}</option>
                         {states.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
@@ -625,7 +625,7 @@ export const AdminTeams: React.FC = () => {
                         onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
                       >
-                        <option value="">Selecionar Cidade</option>
+                        <option value="">{formData.state_id ? (cities.length === 0 ? 'Nenhuma cidade encontrada' : 'Selecionar Cidade') : 'Selecione um Estado'}</option>
                         {cities.map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}

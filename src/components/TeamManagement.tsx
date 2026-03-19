@@ -368,7 +368,7 @@ export default function TeamManagement() {
                         value={locationData.state_id}
                         onChange={(e) => fetchCities(e.target.value)}
                       >
-                        <option value="">Estado</option>
+                        <option value="">{locationData.country_id ? (states.length === 0 ? 'Carregando...' : 'Estado') : 'Selecione o País'}</option>
                         {states.map(s => (
                           <option key={s.id} value={s.id}>{s.name}</option>
                         ))}
@@ -382,7 +382,7 @@ export default function TeamManagement() {
                         value={locationData.city_id}
                         onChange={(e) => setLocationData(prev => ({ ...prev, city_id: e.target.value }))}
                       >
-                        <option value="">Cidade</option>
+                        <option value="">{locationData.state_id ? (cities.length === 0 ? 'Nenhuma cidade' : 'Cidade') : 'Selecione o Estado'}</option>
                         {cities.map(c => (
                           <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
