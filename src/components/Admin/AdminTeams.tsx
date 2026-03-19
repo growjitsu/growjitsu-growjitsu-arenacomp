@@ -51,6 +51,15 @@ export const AdminTeams: React.FC = () => {
     fetchCountries();
   }, [page]);
 
+  useEffect(() => {
+    if (isModalOpen && formData.country_id) {
+      fetchStates(formData.country_id);
+    }
+    if (isModalOpen && formData.state_id) {
+      fetchCities(formData.state_id);
+    }
+  }, [isModalOpen, formData.country_id, formData.state_id]);
+
   const fetchCountries = async () => {
     const { data } = await supabase
       .from('countries')
@@ -67,7 +76,6 @@ export const AdminTeams: React.FC = () => {
       .eq('country_id', countryId);
 
     setStates(data || []);
-    setCities([]);
   };
 
   const fetchCities = async (stateId: string) => {
@@ -277,11 +285,11 @@ export const AdminTeams: React.FC = () => {
       const standardizedData = {
         name: formData.name?.toUpperCase(),
         description: formData.description,
+        professor: formData.professor?.toUpperCase(),
         country_id: formData.country_id,
         state_id: formData.state_id,
         city_id: formData.city_id,
-        logo_url: formData.logo_url,
-        representative_id: formData.representative_id || null
+        logo_url: formData.logo_url
       };
 
       if (!standardizedData.name || !standardizedData.country_id || !standardizedData.state_id || !standardizedData.city_id) {
@@ -348,9 +356,9 @@ export const AdminTeams: React.FC = () => {
       fetchTeams();
       setIsModalOpen(false);
       alert(`Equipe ${selectedTeam ? 'atualizada' : 'criada'} com sucesso.`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving team:', error);
-      alert('Erro ao salvar equipe. Verifique se o nome já existe ou se os dados estão corretos.');
+      alert(`Erro ao salvar equipe: ${error.message || 'Verifique se o nome já existe ou se os dados estão corretos.'}`);
     }
   };
 
@@ -426,6 +434,12 @@ export const AdminTeams: React.FC = () => {
                             : 'Sem Localização'}
                         </span>
                       </div>
+                      {team.professor && (
+                        <div className="flex items-center space-x-1 text-gray-400">
+                          <User size={10} />
+                          <span className="text-[9px] font-bold uppercase tracking-widest">Professor: {team.professor}</span>
+                        </div>
+                      )}
                       {team.representative ? (
                         <div className="flex items-center space-x-1 text-blue-500">
                           <User size={10} />
@@ -441,6 +455,7 @@ export const AdminTeams: React.FC = () => {
                       setSelectedTeam(team);
                       setFormData({ 
                         ...team,
+                        professor: team.professor || '',
                         representative_id: team.representative?.id || ''
                       });
                       setUserSearch(team.representative?.name || '');
@@ -541,6 +556,16 @@ export const AdminTeams: React.FC = () => {
                     placeholder="Ex: Alliance Jiu-Jitsu"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Professor Responsável</label>
+                  <input
+                    type="text"
+                    value={formData.professor || ''}
+                    onChange={(e) => setFormData({ ...formData, professor: e.target.value })}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                    placeholder="Ex: Mestre Hélio Gracie"
+                  />
+                </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Descrição da Equipe</label>
@@ -557,8 +582,11 @@ export const AdminTeams: React.FC = () => {
                     <select
                       value={formData.country_id}
                       onChange={(e) => {
-                        setFormData({ ...formData, country_id: e.target.value, state_id: '', city_id: '' });
-                        fetchStates(e.target.value);
+                        const countryId = e.target.value;
+                        setFormData({ ...formData, country_id: countryId, state_id: '', city_id: '' });
+                        setStates([]);
+                        setCities([]);
+                        if (countryId) fetchStates(countryId);
                       }}
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
                     >
@@ -576,8 +604,10 @@ export const AdminTeams: React.FC = () => {
                         value={formData.state_id}
                         disabled={!formData.country_id}
                         onChange={(e) => {
-                          setFormData({ ...formData, state_id: e.target.value, city_id: '' });
-                          fetchCities(e.target.value);
+                          const stateId = e.target.value;
+                          setFormData({ ...formData, state_id: stateId, city_id: '' });
+                          setCities([]);
+                          if (stateId) fetchCities(stateId);
                         }}
                         className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
                       >

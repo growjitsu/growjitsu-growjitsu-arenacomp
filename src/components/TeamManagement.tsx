@@ -51,6 +51,23 @@ export default function TeamManagement() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
+      // First, get the team IDs where the user is a representative
+      const { data: memberData, error: memberError } = await supabase
+        .from('team_members')
+        .select('team_id')
+        .eq('user_id', session.user.id)
+        .eq('role', 'representative');
+
+      if (memberError) throw memberError;
+
+      const teamIds = memberData?.map(m => m.team_id) || [];
+
+      if (teamIds.length === 0) {
+        setTeams([]);
+        return;
+      }
+
+      // Then, fetch the team details
       const { data, error } = await supabase
         .from('teams')
         .select(`
@@ -59,7 +76,7 @@ export default function TeamManagement() {
           states(name),
           cities(name)
         `)
-        .eq('representative_id', session.user.id)
+        .in('id', teamIds)
         .order('name', { ascending: true });
 
       if (error) throw error;
@@ -103,7 +120,7 @@ export default function TeamManagement() {
       const newTeam = {
         name: (formData.get('nome') as string).toUpperCase(),
         description: (formData.get('filiacao') as string).toUpperCase(),
-        representative_id: session.user.id,
+        professor: (formData.get('professor') as string)?.toUpperCase() || null,
         country_id: locationData.country_id || null,
         state_id: locationData.state_id || null,
         city_id: locationData.city_id || null
@@ -186,6 +203,7 @@ export default function TeamManagement() {
                     <h4 className="font-black text-[var(--text-main)] uppercase">{team.name}</h4>
                     <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">
                       {team.description || 'Sem Filiação'}
+                      {team.professor && ` • PROF: ${team.professor}`}
                       {team.cities?.name && ` • ${team.cities.name}`}
                       {team.states?.name && ` • ${team.states.name}`}
                       {team.countries?.name && ` • ${team.countries.name}`}
@@ -213,7 +231,10 @@ export default function TeamManagement() {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-2xl font-black text-[var(--text-main)] uppercase">{selectedTeam.name}</h3>
-                    <p className="text-sm text-emerald-500 font-bold uppercase tracking-widest">{selectedTeam.description}</p>
+                    <p className="text-sm text-emerald-500 font-bold uppercase tracking-widest">
+                      {selectedTeam.description}
+                      {selectedTeam.professor && ` • PROF: ${selectedTeam.professor}`}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <button className="p-2 hover:bg-emerald-500/10 rounded-lg text-emerald-500 transition-colors">
@@ -312,6 +333,14 @@ export default function TeamManagement() {
                     name="filiacao" 
                     className="input-standard py-4 px-6" 
                     placeholder="Ex: GB BRASIL" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="label-standard">Professor Responsável</label>
+                  <input 
+                    name="professor" 
+                    className="input-standard py-4 px-6" 
+                    placeholder="Ex: MESTRE HÉLIO GRACIE" 
                   />
                 </div>
 

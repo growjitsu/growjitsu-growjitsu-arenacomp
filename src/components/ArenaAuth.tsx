@@ -22,6 +22,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const [isCreatingTeam, setIsCreatingTeam] = useState(false);
   const [newTeamData, setNewTeamData] = useState({ 
     name: '', 
+    professor: '',
     country_id: '', 
     state_id: '', 
     city_id: '', 
@@ -278,6 +279,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               .from('teams')
               .insert([{
                 name: newTeamData.name.toUpperCase(),
+                professor: newTeamData.professor.toUpperCase(),
                 country_id: newTeamData.country_id,
                 state_id: newTeamData.state_id,
                 city_id: newTeamData.city_id,
@@ -515,6 +517,13 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                         placeholder="Nome da Equipe"
                         value={newTeamData.name}
                         onChange={(e) => setNewTeamData(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Professor Responsável"
+                        value={newTeamData.professor}
+                        onChange={(e) => setNewTeamData(prev => ({ ...prev, professor: e.target.value }))}
                         className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-xl py-2 px-4 text-xs text-[var(--text-main)] outline-none"
                       />
                       
