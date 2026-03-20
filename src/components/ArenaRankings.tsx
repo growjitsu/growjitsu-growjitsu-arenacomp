@@ -18,9 +18,9 @@ export const ArenaRankings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'athletes' | 'teams'>('athletes');
   const [rankings, setRankings] = useState<ArenaProfile[]>([]);
   const [teamRankings, setTeamRankings] = useState<TeamRanking[]>([]);
-  const [availableLocations, setAvailableLocations] = useState<{city: string, country: string}[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<{city: string, country: string, city_id?: string}[]>([]);
   const [dbCountries, setDbCountries] = useState<string[]>([]);
-  const [dbCities, setDbCities] = useState<string[]>([]);
+  const [dbCities, setDbCities] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [filter, setFilter] = useState({
@@ -49,6 +49,7 @@ export const ArenaRankings: React.FC = () => {
       const { data, error } = await supabase
         .from('cities')
         .select(`
+          id,
           name,
           states!inner(
             countries!inner(
@@ -61,16 +62,12 @@ export const ArenaRankings: React.FC = () => {
       
       if (error) throw error;
       if (data) {
-        // Keep original casing for better matching but ensure uniqueness case-insensitively
-        const cityMap = new Map();
-        data.forEach((c: any) => {
-          const upper = c.name.toUpperCase();
-          if (!cityMap.has(upper)) {
-            cityMap.set(upper, c.name);
-          }
-        });
-        const uniqueCities = Array.from(cityMap.values()).sort();
-        setDbCities(uniqueCities);
+        // Map to objects with id and normalized name
+        const cities = data.map((c: any) => ({
+          id: c.id,
+          name: c.name.toUpperCase()
+        }));
+        setDbCities(cities);
       }
     } catch (error) {
       console.error('Error fetching cities for country:', error);
@@ -97,7 +94,7 @@ export const ArenaRankings: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('city, country')
+        .select('city, country, city_id')
         .not('city', 'is', null)
         .neq('city', '')
         .not('country', 'is', null)
@@ -107,20 +104,14 @@ export const ArenaRankings: React.FC = () => {
       
       if (data) {
         const locations = data.map(d => ({
-          city: d.city,
-          country: d.country
+          city: d.city.toUpperCase(),
+          country: d.country.toUpperCase(),
+          city_id: d.city_id
         }));
         
-        // Unique locations case-insensitively
-        const locationMap = new Map();
-        locations.forEach(l => {
-          const key = `${l.city.toUpperCase()}|${l.country.toUpperCase()}`;
-          if (!locationMap.has(key)) {
-            locationMap.set(key, l);
-          }
-        });
-        
-        const uniqueLocations = Array.from(locationMap.values())
+        // Unique locations
+        const uniqueLocations = Array.from(new Set(locations.map(l => JSON.stringify(l))))
+          .map(s => JSON.parse(s))
           .sort((a, b) => a.city.localeCompare(b.city));
           
         setAvailableLocations(uniqueLocations);
@@ -136,9 +127,18 @@ export const ArenaRankings: React.FC = () => {
 
   const citiesList = dbCities.length > 0
     ? dbCities
-    : Array.from(new Set(availableLocations
-        .filter(l => filter.country === 'Todas' || l.country === filter.country)
-        .map(l => l.city))).sort();
+    : Array.from(
+        availableLocations
+          .filter(l => (filter.country === 'Todas' || l.country === filter.country) && l.city_id)
+          .reduce((acc, l) => {
+            const key = l.city_id!;
+            if (!acc.has(key)) {
+              acc.set(key, { id: key, name: l.city });
+            }
+            return acc;
+          }, new Map<string, { id: string, name: string }>())
+          .values()
+      ).sort((a: { id: string, name: string }, b: { id: string, name: string }) => a.name.localeCompare(b.name));
 
   useEffect(() => {
     if (activeTab === 'athletes') {
@@ -164,11 +164,12 @@ export const ArenaRankings: React.FC = () => {
       }
       
       if (filter.country !== 'Todas') {
-        query = query.ilike('country', `%${filter.country}%`);
+        query = query.ilike('country', filter.country);
       }
       
       if (filter.city !== 'Todas') {
-        query = query.ilike('city', `%${filter.city}%`);
+        // Use city_id for precise filtering as requested
+        query = query.eq('city_id', filter.city);
       }
 
       const { data, error } = await query;
@@ -188,7 +189,7 @@ export const ArenaRankings: React.FC = () => {
       const { data, error } = await supabase.rpc('get_team_rankings', {
         p_modality: filter.modality === 'Todas' ? null : filter.modality,
         p_country: (filter.country !== 'Todas') ? filter.country : null,
-        p_city: (filter.city !== 'Todas') ? filter.city : null
+        p_city_id: (filter.city !== 'Todas') ? filter.city : null
       });
       
       if (!error && data && data.length > 0) {
@@ -206,7 +207,7 @@ export const ArenaRankings: React.FC = () => {
         console.log('RPC failed or empty, falling back to client-side calculation');
         let query = supabase
           .from('profiles')
-          .select('id, team, team_id, arena_score, modality, city, state, country')
+          .select('id, team, team_id, arena_score, modality, city, state, country, city_id')
           .not('team', 'is', null);
 
         if (filter.modality !== 'Todas') {
@@ -215,11 +216,12 @@ export const ArenaRankings: React.FC = () => {
         }
         
         if (filter.country !== 'Todas') {
-          query = query.ilike('country', `%${filter.country}%`);
+          query = query.ilike('country', filter.country);
         }
         
         if (filter.city !== 'Todas') {
-          query = query.ilike('city', `%${filter.city}%`);
+          // Use city_id for precise filtering as requested
+          query = query.eq('city_id', filter.city);
         }
 
         const { data: profiles, error: profilesError } = await query;
@@ -446,7 +448,7 @@ export const ArenaRankings: React.FC = () => {
             >
               <option value="Todas">Todas as Cidades</option>
               {citiesList.map(city => (
-                <option key={city} value={city}>{city}</option>
+                <option key={city.id} value={city.id}>{city.name}</option>
               ))}
             </select>
             <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
