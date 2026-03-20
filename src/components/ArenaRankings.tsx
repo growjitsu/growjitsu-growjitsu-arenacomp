@@ -20,6 +20,7 @@ export const ArenaRankings: React.FC = () => {
   const [teamRankings, setTeamRankings] = useState<TeamRanking[]>([]);
   const [availableLocations, setAvailableLocations] = useState<{city: string, country: string}[]>([]);
   const [dbCountries, setDbCountries] = useState<string[]>([]);
+  const [dbCities, setDbCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [filter, setFilter] = useState({
@@ -33,6 +34,41 @@ export const ArenaRankings: React.FC = () => {
     fetchAvailableLocations();
     fetchDbCountries();
   }, []);
+
+  useEffect(() => {
+    if (filter.country !== 'Todas') {
+      fetchCitiesByCountry(filter.country);
+    } else {
+      setDbCities([]);
+    }
+  }, [filter.country]);
+
+  const fetchCitiesByCountry = async (countryName: string) => {
+    try {
+      // Fetch cities using a join through states to countries
+      const { data, error } = await supabase
+        .from('cities')
+        .select(`
+          name,
+          states!inner(
+            countries!inner(
+              name
+            )
+          )
+        `)
+        .eq('states.countries.name', countryName)
+        .order('name');
+      
+      if (error) throw error;
+      if (data) {
+        // Normalize names to uppercase to match profile data format and ensure uniqueness
+        const uniqueCities = Array.from(new Set(data.map((c: any) => c.name.toUpperCase()))).sort();
+        setDbCities(uniqueCities);
+      }
+    } catch (error) {
+      console.error('Error fetching cities for country:', error);
+    }
+  };
 
   const fetchDbCountries = async () => {
     try {
@@ -84,9 +120,11 @@ export const ArenaRankings: React.FC = () => {
     ? dbCountries 
     : Array.from(new Set(availableLocations.map(l => l.country))).sort();
 
-  const citiesList = Array.from(new Set(availableLocations
-    .filter(l => filter.country === 'Todas' || l.country === filter.country)
-    .map(l => l.city))).sort();
+  const citiesList = dbCities.length > 0
+    ? dbCities
+    : Array.from(new Set(availableLocations
+        .filter(l => filter.country === 'Todas' || l.country === filter.country)
+        .map(l => l.city))).sort();
 
   useEffect(() => {
     if (activeTab === 'athletes') {
