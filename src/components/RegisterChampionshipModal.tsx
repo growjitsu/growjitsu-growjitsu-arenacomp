@@ -66,7 +66,8 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
     }
   }, [initialData, isOpen]);
 
-  const calculateWeightCategory = (weight: number, modality: string) => {
+  const calculateWeightCategory = (weight: number, modality: string, ageCategory: string) => {
+    if (ageCategory.includes('ABS')) return 'Absoluto';
     if (modality !== 'Jiu Jitsu') return formData.peso;
     
     if (weight <= 57) return 'Galo';
@@ -82,10 +83,20 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
 
   const handleWeightChange = (val: string) => {
     const weightNum = parseFloat(val);
-    const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, formData.modalidade) : formData.peso;
+    const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, formData.modalidade, formData.categoria_idade) : formData.peso;
     setFormData({
       ...formData,
       peso_atleta: val,
+      peso: category
+    });
+  };
+
+  const handleAgeCategoryChange = (val: string) => {
+    const weightNum = parseFloat(formData.peso_atleta);
+    const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, formData.modalidade, val) : (val.includes('ABS') ? 'Absoluto' : formData.peso);
+    setFormData({
+      ...formData,
+      categoria_idade: val,
       peso: category
     });
   };
@@ -293,7 +304,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                       onChange={e => {
                         const newModality = e.target.value;
                         const weightNum = parseFloat(formData.peso_atleta);
-                        const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, newModality) : formData.peso;
+                        const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, newModality, formData.categoria_idade) : formData.peso;
                         setFormData({...formData, modalidade: newModality, peso: category});
                       }}
                       className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] transition-all"
@@ -311,7 +322,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                     <select
                       required
                       value={formData.categoria_idade}
-                      onChange={e => setFormData({...formData, categoria_idade: e.target.value})}
+                      onChange={e => handleAgeCategoryChange(e.target.value)}
                       className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] transition-all"
                     >
                       {ageCategories.map(c => <option key={c} value={c}>{c}</option>)}

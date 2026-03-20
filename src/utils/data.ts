@@ -39,11 +39,14 @@ export const ageCategories = [
   'Infantil',
   'Infanto Juvenil',
   'Juvenil',
+  'Juvenil ABS',
   'Adulto',
+  'Adulto ABS',
   'Master 1',
   'Master 2',
   'Master 3',
-  'Master 4'
+  'Master 4',
+  'Master ABS'
 ];
 
 export const belts = [
