@@ -35,7 +35,7 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({
     <nav className="fixed bottom-0 left-0 right-0 bg-[var(--surface)]/60 backdrop-blur-2xl border-t border-[var(--border-ui)] z-50 md:top-0 md:bottom-auto md:h-screen md:w-24 md:flex-col md:border-r md:border-t-0 transition-all duration-500 shadow-2xl">
       <div className="flex justify-around items-center h-20 md:flex-col md:h-full md:py-10">
         <div className="hidden md:block mb-8">
-          <div className="relative group cursor-pointer" onClick={() => setActiveTab('feed')}>
+          <div className="relative group cursor-pointer" onClick={() => onToggleMenu?.()}>
             <div className="absolute inset-0 bg-[var(--primary)] rounded-2xl blur-lg opacity-0 group-hover:opacity-40 transition-opacity" />
             <div className="relative w-12 h-12 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-2xl flex items-center justify-center font-black text-white shadow-2xl shadow-blue-500/30 border border-white/10 italic overflow-hidden transform group-hover:scale-110 transition-transform duration-500">
               {userProfile?.profile_photo || userProfile?.avatar_url ? (

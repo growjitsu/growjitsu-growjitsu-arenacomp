@@ -184,11 +184,12 @@ export default function App() {
           </div>
         </header>
 
-        {/* Mobile Profile Menu Overlay */}
+        {/* Profile Menu Overlay */}
         <AnimatePresence>
           {showProfileMenu && (
-            <div className="md:hidden">
+            <React.Fragment key="profile-menu-container">
               <motion.div
+                key="profile-menu-backdrop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -196,10 +197,11 @@ export default function App() {
                 className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40"
               />
               <motion.div
+                key="profile-menu-content"
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 20, scale: 0.95 }}
-                className="fixed bottom-24 right-6 w-56 bg-[var(--surface)] border border-[var(--border-ui)] rounded-3xl shadow-2xl overflow-hidden z-50 py-3"
+                className="fixed bottom-24 right-6 md:bottom-10 md:left-28 md:right-auto w-56 bg-[var(--surface)] border border-[var(--border-ui)] rounded-3xl shadow-2xl overflow-hidden z-50 py-3"
               >
                 <div className="px-4 py-3 border-b border-[var(--border-ui)]/50 mb-2">
                   <p className="text-[11px] font-black text-[var(--text-main)] uppercase tracking-tight">{profile?.full_name}</p>
@@ -246,7 +248,7 @@ export default function App() {
                   <span>Logout</span>
                 </button>
               </motion.div>
-            </div>
+            </React.Fragment>
           )}
         </AnimatePresence>
 

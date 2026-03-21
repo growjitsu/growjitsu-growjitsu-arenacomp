@@ -15,6 +15,7 @@ import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { getAthleteRankings, searchTeams, getTeams } from '../services/arenaService';
 import { AchievementCard } from './AchievementCard';
+import { ShareModal } from './ShareModal';
 
 export const ArenaProfileView: React.FC<{ userId?: string; username?: string; forceEdit?: boolean }> = ({ userId, username, forceEdit }) => {
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
@@ -51,6 +52,13 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
   
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    subtitle: string;
+    shareUrl: string;
+    onGenerate: () => void;
+  } | null>(null);
   const [achievementData, setAchievementData] = useState({
     title: '',
     athleteName: '',
@@ -1102,12 +1110,39 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           </div>
           
           {isOwnProfile && !isEditing && (
-            <button 
-              onClick={() => setIsEditing(true)}
-              className="absolute top-4 right-4 bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all z-20"
-            >
-              <Edit2 size={18} />
-            </button>
+            <div className="absolute top-4 right-4 flex space-x-2 z-20">
+              <button 
+                onClick={() => {
+                  setShareModalData({
+                    title: profile.full_name,
+                    subtitle: 'Confira meu perfil na ArenaComp!',
+                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                    onGenerate: () => {
+                      setAchievementData({
+                        title: 'PERFIL ARENA',
+                        athleteName: profile.full_name,
+                        achievement: 'Confira meu perfil na ArenaComp!',
+                        modality: profile.modality || 'ATLETA ARENACOMP',
+                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                      });
+                      setIsAchievementCardOpen(true);
+                    }
+                  });
+                  setIsShareModalOpen(true);
+                }}
+                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                title="Compartilhar Perfil"
+              >
+                <Share2 size={18} />
+              </button>
+              <button 
+                onClick={() => setIsEditing(true)}
+                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                title="Editar Perfil"
+              >
+                <Edit2 size={18} />
+              </button>
+            </div>
           )}
         </div>
         
@@ -1181,7 +1216,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           </div>
           
           {!isOwnProfile && !isEditing && (
-            <div className="pb-4">
+            <div className="pb-4 flex items-center space-x-2">
               <button
                 onClick={handleFollow}
                 className={`px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -1191,6 +1226,30 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 }`}
               >
                 {isFollowing ? 'Seguindo' : 'Seguir'}
+              </button>
+              <button
+                onClick={() => {
+                  setShareModalData({
+                    title: profile.full_name,
+                    subtitle: 'Confira este perfil na ArenaComp!',
+                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                    onGenerate: () => {
+                      setAchievementData({
+                        title: 'PERFIL ARENA',
+                        athleteName: profile.full_name,
+                        achievement: 'Confira este perfil na ArenaComp!',
+                        modality: profile.modality || 'ATLETA ARENACOMP',
+                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                      });
+                      setIsAchievementCardOpen(true);
+                    }
+                  });
+                  setIsShareModalOpen(true);
+                }}
+                className="p-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center"
+                title="Compartilhar Perfil"
+              >
+                <Share2 size={18} />
               </button>
             </div>
           )}
@@ -1956,14 +2015,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                               </button>
                               <button 
                                 onClick={() => {
-                                  setAchievementData({
+                                  setShareModalData({
                                     title: '🏆 CERTIFICADO',
-                                    athleteName: profile.full_name,
-                                    achievement: `Certificado: ${cert.name}`,
-                                    modality: profile.modality || 'ATLETA ARENACOMP',
-                                    profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                    subtitle: cert.name,
+                                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                    onGenerate: () => {
+                                      setAchievementData({
+                                        title: '🏆 CERTIFICADO',
+                                        athleteName: profile.full_name,
+                                        achievement: `Certificado: ${cert.name}`,
+                                        modality: profile.modality || 'ATLETA ARENACOMP',
+                                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                      });
+                                      setIsAchievementCardOpen(true);
+                                    }
                                   });
-                                  setIsAchievementCardOpen(true);
+                                  setIsShareModalOpen(true);
                                   setActiveMenuId(null);
                                 }}
                                 className="w-full px-4 py-2 text-left text-xs font-bold uppercase tracking-widest text-amber-500 hover:bg-zinc-800 flex items-center gap-2"
@@ -2034,14 +2101,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         </div>
                         <button
                           onClick={() => {
-                            setAchievementData({
+                            setShareModalData({
                               title: fight.resultado === 'win' ? '🏆 VITÓRIA' : '🥊 LUTA',
-                              athleteName: profile.full_name,
-                              achievement: `${fight.resultado === 'win' ? 'Venceu' : 'Lutou com'} ${fight.opponent_name} no ${fight.evento}`,
-                              modality: fight.modalidade,
-                              profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                              subtitle: `${fight.opponent_name} no ${fight.evento}`,
+                              shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                              onGenerate: () => {
+                                setAchievementData({
+                                  title: fight.resultado === 'win' ? '🏆 VITÓRIA' : '🥊 LUTA',
+                                  athleteName: profile.full_name,
+                                  achievement: `${fight.resultado === 'win' ? 'Venceu' : 'Lutou com'} ${fight.opponent_name} no ${fight.evento}`,
+                                  modality: fight.modalidade,
+                                  profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                });
+                                setIsAchievementCardOpen(true);
+                              }
                             });
-                            setIsAchievementCardOpen(true);
+                            setIsShareModalOpen(true);
                           }}
                           className="p-2 text-[var(--text-muted)] hover:text-amber-500 transition-colors"
                           title="Compartilhar"
@@ -2226,14 +2301,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                           </div>
                           <button
                             onClick={() => {
-                              setAchievementData({
+                              setShareModalData({
                                 title: '🏆 CAMPEONATO',
-                                athleteName: profile.full_name,
-                                achievement: `${champ.resultado} no ${champ.championship_name}`,
-                                modality: champ.modalidade,
-                                profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                subtitle: champ.championship_name,
+                                shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                onGenerate: () => {
+                                  setAchievementData({
+                                    title: '🏆 CAMPEONATO',
+                                    athleteName: profile.full_name,
+                                    achievement: `${champ.resultado} no ${champ.championship_name}`,
+                                    modality: champ.modalidade,
+                                    profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                  });
+                                  setIsAchievementCardOpen(true);
+                                }
                               });
-                              setIsAchievementCardOpen(true);
+                              setIsShareModalOpen(true);
                             }}
                             className="p-2 text-[var(--text-muted)] hover:text-amber-500 transition-colors"
                             title="Compartilhar"
@@ -2485,6 +2568,18 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
         onClose={() => setIsAchievementCardOpen(false)}
         data={achievementData}
       />
+
+      {profile && shareModalData && (
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          shareUrl={shareModalData.shareUrl}
+          title={shareModalData.title}
+          subtitle={shareModalData.subtitle}
+          followerCount={followerCount}
+          onGenerateCard={shareModalData.onGenerate}
+        />
+      )}
 
       {isRegisterFightModalOpen && profile && (
         <RegisterFightModal

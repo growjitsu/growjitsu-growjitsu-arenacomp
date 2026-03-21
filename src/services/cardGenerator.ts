@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 import chromium from '@sparticuz/chromium-min';
 import QRCode from 'qrcode';
 import Handlebars from 'handlebars';
@@ -8,7 +8,7 @@ export interface CardData {
   athleteName: string;
   achievement: string;
   modality: string;
-  date: string;
+  date?: string;
   profileUrl: string;
 }
 
@@ -223,15 +223,28 @@ export class CardGenerator {
       qrCode: qrCodeDataUrl,
     });
 
-    console.log('[CardGenerator] Lançando Puppeteer (Core + Chromium)...');
+    console.log('[CardGenerator] Preparando lançamento do Puppeteer...');
     
+    const launchOptions: any = {
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      headless: true,
+    };
+
+    // Se estiver em produção (Google Cloud Run), usa o chromium-min
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        console.log('[CardGenerator] Detectado ambiente de produção. Carregando chromium-min...');
+        launchOptions.executablePath = await chromium.executablePath();
+        launchOptions.args = [...launchOptions.args, ...chromium.args];
+        launchOptions.headless = true;
+        console.log('[CardGenerator] ExecutablePath:', launchOptions.executablePath);
+      } catch (err) {
+        console.error("[CardGenerator] Erro ao obter executablePath do chromium-min:", err);
+      }
+    }
+
     // 3. Launch Puppeteer
-    const browser = await puppeteer.launch({
-      args: (chromium as any).args,
-      defaultViewport: (chromium as any).defaultViewport,
-      executablePath: await (chromium as any).executablePath(),
-      headless: (chromium as any).headless,
-    });
+    const browser = await puppeteer.launch(launchOptions);
 
     try {
       console.log('[CardGenerator] Abrindo nova página...');
