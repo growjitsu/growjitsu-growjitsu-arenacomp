@@ -151,15 +151,28 @@ export const ArenaRankings: React.FC = () => {
       ).sort((a: { id: string, name: string }, b: { id: string, name: string }) => a.name.localeCompare(b.name));
 
   useEffect(() => {
+    const refresh = () => {
+      if (activeTab === 'athletes') {
+        fetchRankings(false); // Don't show loading spinner on auto-refresh
+      } else {
+        fetchTeamRankings(false);
+      }
+    };
+
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+  }, [filter, activeTab]);
+
+  useEffect(() => {
     if (activeTab === 'athletes') {
-      fetchRankings();
+      fetchRankings(true);
     } else {
-      fetchTeamRankings();
+      fetchTeamRankings(true);
     }
   }, [filter, activeTab]);
 
-  const fetchRankings = async () => {
-    setLoading(true);
+  const fetchRankings = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       let query = supabase
         .from('profiles')
@@ -193,8 +206,8 @@ export const ArenaRankings: React.FC = () => {
     }
   };
 
-  const fetchTeamRankings = async () => {
-    setLoading(true);
+  const fetchTeamRankings = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       // Try to use the RPC first
       const { data, error } = await supabase.rpc('get_team_rankings', {

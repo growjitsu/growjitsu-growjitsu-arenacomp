@@ -62,6 +62,22 @@ export const AdminDashboard: React.FC = () => {
   ]);
   const [loading, setLoading] = useState(true);
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [autoRecalculate, setAutoRecalculate] = useState(false);
+
+  useEffect(() => {
+    let interval: any;
+    if (autoRecalculate) {
+      interval = setInterval(async () => {
+        try {
+          await recalculateAllRankings();
+          console.log('🔄 Rankings recalculados automaticamente');
+        } catch (err) {
+          console.error('Erro no recálculo automático:', err);
+        }
+      }, 15000);
+    }
+    return () => clearInterval(interval);
+  }, [autoRecalculate]);
 
   const COLORS = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -473,7 +489,29 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-8 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/20">
+        <div className="mt-8 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/20 space-y-6">
+          <div className="flex items-center justify-between p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/20">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                <RotateCcw size={20} className={autoRecalculate ? "animate-spin" : ""} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)]">Sincronização Automática</h4>
+                <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">Recalcular rankings a cada 15 segundos</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setAutoRecalculate(!autoRecalculate)}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                autoRecalculate 
+                  ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                  : 'bg-[var(--bg)] border border-[var(--border-ui)] text-[var(--text-muted)] hover:border-emerald-500/50'
+              }`}
+            >
+              {autoRecalculate ? 'Ativado' : 'Desativado'}
+            </button>
+          </div>
+
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
               <h4 className="text-sm font-black text-blue-500 uppercase tracking-widest italic">Sincronização de Dados</h4>

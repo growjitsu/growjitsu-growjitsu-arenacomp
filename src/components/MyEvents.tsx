@@ -10,7 +10,7 @@ export default function MyEvents({ initialEventId, onClearSelection }: { initial
   const [events, setEvents] = useState<Evento[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Evento | null>(null);
-  const [selectedLuta, setSelectedLuta] = useState<{ id: string, a: string, b: string } | null>(null);
+  const [selectedLuta, setSelectedLuta] = useState<{ id: string, a: string, b: string, aId?: string, bId?: string } | null>(null);
   const [view, setView] = useState<'list' | 'operational' | 'scoreboard'>('list');
   const [isEditingEvent, setIsEditingEvent] = useState(false);
 
@@ -62,6 +62,8 @@ export default function MyEvents({ initialEventId, onClearSelection }: { initial
     return (
       <Scoreboard 
         lutaId={selectedLuta.id} 
+        athleteAId={selectedLuta.aId}
+        athleteBId={selectedLuta.bId}
         athleteAName={selectedLuta.a} 
         athleteBName={selectedLuta.b} 
         logoUrl={selectedEvent?.logo_url}
@@ -288,7 +290,7 @@ function EventOperational({ event, onBack, onEdit, onStartLuta }: {
   event: Evento, 
   onBack: () => void,
   onEdit: () => void,
-  onStartLuta: (luta: { id: string, a: string, b: string }) => void
+  onStartLuta: (luta: { id: string, a: string, b: string, aId?: string, bId?: string }) => void
 }) {
   const [activeTab, setActiveTab] = useState<'weight' | 'warmup' | 'marshal' | 'brackets'>('weight');
   const [registrations, setRegistrations] = useState<any[]>([]);
@@ -515,7 +517,8 @@ function EventOperational({ event, onBack, onEdit, onStartLuta }: {
                                 onStartLuta({
                                   id: reg.id,
                                   a: reg.atletas?.usuarios?.nome || 'Atleta A',
-                                  b: 'Oponente'
+                                  b: 'Oponente',
+                                  aId: reg.atleta_id
                                 });
                               }}
                               className="btn-primary bg-bjj-purple hover:bg-bjj-purple/90 border-bjj-purple py-2 px-6 text-xs font-black flex items-center gap-2"

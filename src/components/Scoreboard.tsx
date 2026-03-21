@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw, Plus, Minus, Trophy, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../services/supabase';
+import { calculateAndUpdateStats } from '../services/arenaService';
 
 interface Score {
   points: number;
@@ -11,13 +12,15 @@ interface Score {
 
 interface ScoreboardProps {
   lutaId?: string;
+  athleteAId?: string;
+  athleteBId?: string;
   athleteAName?: string;
   athleteBName?: string;
   logoUrl?: string;
   onFinish?: () => void;
 }
 
-export default function Scoreboard({ lutaId, athleteAName = "Atleta 1", athleteBName = "Atleta 2", logoUrl, onFinish }: ScoreboardProps) {
+export default function Scoreboard({ lutaId, athleteAId, athleteBId, athleteAName = "Atleta 1", athleteBName = "Atleta 2", logoUrl, onFinish }: ScoreboardProps) {
   const [time, setTime] = useState(300); // 5 minutes default
   const [initialTime, setInitialTime] = useState(300);
   const [isActive, setIsActive] = useState(false);
@@ -83,12 +86,16 @@ export default function Scoreboard({ lutaId, athleteAName = "Atleta 1", athleteB
         // 2. Save Result
         await supabase.from('resultados').insert({
           luta_id: lutaId,
-          vencedor_id: winner === 'A' ? 'atleta_a_id_placeholder' : 'atleta_b_id_placeholder', // In real app, use actual IDs
+          vencedor_id: winner === 'A' ? athleteAId : athleteBId,
           motivo: reason,
           descricao_outro: reason === 'outros' ? otherReason : null,
           pontos_a: athleteA,
           pontos_b: athleteB
         });
+
+        // 3. Update Stats for both athletes if IDs are available
+        if (athleteAId) await calculateAndUpdateStats(athleteAId);
+        if (athleteBId) await calculateAndUpdateStats(athleteBId);
       }
 
       alert('Luta finalizada com sucesso!');
