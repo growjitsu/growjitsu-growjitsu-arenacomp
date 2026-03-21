@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, MessageCircle, Share2, User, Award, Volume2, VolumeX, Play, Pause } from 'lucide-react';
+import { Heart, MessageCircle, Share2, User, Award, Volume2, VolumeX, Play, Pause, ChevronUp, ChevronDown } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaPost, ArenaProfile } from '../types';
 import { Link } from 'react-router-dom';
@@ -265,6 +265,24 @@ export const ArenaClips: React.FC = () => {
     }
   };
 
+  const scrollToNext = () => {
+    if (containerRef.current && activeIndex < clips.length - 1) {
+      containerRef.current.scrollTo({
+        top: (activeIndex + 1) * containerRef.current.clientHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollToPrev = () => {
+    if (containerRef.current && activeIndex > 0) {
+      containerRef.current.scrollTo({
+        top: (activeIndex - 1) * containerRef.current.clientHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-black flex flex-col items-center justify-center space-y-4">
@@ -289,18 +307,40 @@ export const ArenaClips: React.FC = () => {
   }
 
   return (
-    <div 
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="h-full w-full bg-black md:bg-zinc-950 overflow-y-scroll snap-y snap-mandatory hide-scrollbar"
-    >
-      {clips.map((clip, index) => (
-        <ClipItem 
-          key={clip.id} 
-          post={clip} 
-          isActive={index === activeIndex} 
-        />
-      ))}
+    <div className="relative h-full w-full bg-black md:bg-zinc-950 overflow-hidden">
+      <div 
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full w-full overflow-y-scroll snap-y snap-mandatory hide-scrollbar"
+      >
+        {clips.map((clip, index) => (
+          <ClipItem 
+            key={clip.id} 
+            post={clip} 
+            isActive={index === activeIndex} 
+          />
+        ))}
+      </div>
+
+      {/* Desktop Navigation Arrows */}
+      <div className="hidden md:flex absolute right-8 lg:right-12 top-1/2 -translate-y-1/2 flex-col space-y-4 z-50">
+        <button 
+          onClick={scrollToPrev}
+          disabled={activeIndex === 0}
+          className="p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:scale-110 active:scale-95 border border-white/5"
+          title="Vídeo Anterior"
+        >
+          <ChevronUp size={32} />
+        </button>
+        <button 
+          onClick={scrollToNext}
+          disabled={activeIndex === clips.length - 1}
+          className="p-4 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-2xl text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed hover:scale-110 active:scale-95 border border-white/5"
+          title="Próximo Vídeo"
+        >
+          <ChevronDown size={32} />
+        </button>
+      </div>
     </div>
   );
 };
