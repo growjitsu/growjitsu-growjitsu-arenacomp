@@ -104,7 +104,7 @@ const ClipItem: React.FC<{ post: ArenaPost; isActive: boolean }> = ({ post, isAc
 
   return (
     <div className="relative h-full w-full snap-start bg-black md:bg-zinc-950 flex items-center justify-center overflow-hidden">
-      <div className="relative h-full w-full md:h-[96%] md:aspect-[9/16] bg-black md:rounded-[2rem] md:shadow-2xl md:border md:border-white/5 overflow-hidden">
+      <div className="relative h-full w-full md:h-[92%] md:w-auto md:aspect-[9/16] bg-black md:rounded-[2.5rem] md:shadow-2xl md:border-[8px] md:border-zinc-900 overflow-hidden">
         <video
           ref={videoRef}
           src={post.media_url}
@@ -292,7 +292,7 @@ export const ArenaClips: React.FC = () => {
     <div 
       ref={containerRef}
       onScroll={handleScroll}
-      className="h-[calc(100vh-4rem-5rem)] md:h-[calc(100vh-5rem)] w-full bg-black md:bg-zinc-950 overflow-y-scroll snap-y snap-mandatory hide-scrollbar"
+      className="h-full w-full bg-black md:bg-zinc-950 overflow-y-scroll snap-y snap-mandatory hide-scrollbar"
     >
       {clips.map((clip, index) => (
         <ClipItem 
