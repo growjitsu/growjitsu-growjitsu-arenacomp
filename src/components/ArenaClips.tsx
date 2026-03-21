@@ -4,8 +4,14 @@ import { Heart, MessageCircle, Share2, User, Award, Volume2, VolumeX, Play, Paus
 import { supabase } from '../services/supabase';
 import { ArenaPost, ArenaProfile } from '../types';
 import { Link } from 'react-router-dom';
+import { PostModal } from './PostModal';
 
-const ClipItem: React.FC<{ post: ArenaPost; isActive: boolean }> = ({ post, isActive }) => {
+const ClipItem: React.FC<{ 
+  post: ArenaPost; 
+  isActive: boolean;
+  onCommentClick: (post: ArenaPost) => void;
+  onShareClick: (post: ArenaPost) => void;
+}> = ({ post, isActive, onCommentClick, onShareClick }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -127,14 +133,26 @@ const ClipItem: React.FC<{ post: ArenaPost; isActive: boolean }> = ({ post, isAc
             <span className="text-white text-xs font-black mt-2 shadow-sm">{likesCount}</span>
           </button>
 
-          <button className="flex flex-col items-center group">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onCommentClick(post);
+            }}
+            className="flex flex-col items-center group"
+          >
             <div className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white group-hover:bg-white/20 transition-all">
               <MessageCircle size={28} />
             </div>
             <span className="text-white text-xs font-black mt-2 shadow-sm">{post.comments_count}</span>
           </button>
 
-          <button className="flex flex-col items-center group">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onShareClick(post);
+            }}
+            className="flex flex-col items-center group"
+          >
             <div className="p-3 rounded-full bg-white/10 backdrop-blur-md text-white group-hover:bg-white/20 transition-all">
               <Share2 size={28} />
             </div>
@@ -209,6 +227,7 @@ export const ArenaClips: React.FC = () => {
   const [clips, setClips] = useState<ArenaPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -283,6 +302,37 @@ export const ArenaClips: React.FC = () => {
     }
   };
 
+  const handleShare = async (post: ArenaPost) => {
+    const shareUrl = `${window.location.origin}/?post=${post.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ArenaComp',
+          text: post.content,
+          url: shareUrl,
+        });
+        
+        // Increment share count
+        await supabase
+          .from('posts')
+          .update({ shares_count: (post.shares_count || 0) + 1 })
+          .eq('id', post.id);
+          
+      } catch (err) {
+        console.log('Error sharing:', err);
+      }
+    } else {
+      // Fallback to clipboard
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        alert('Link copiado para a área de transferência!');
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-black flex flex-col items-center justify-center space-y-4">
@@ -318,9 +368,24 @@ export const ArenaClips: React.FC = () => {
             key={clip.id} 
             post={clip} 
             isActive={index === activeIndex} 
+            onCommentClick={(post) => setSelectedPost(post)}
+            onShareClick={handleShare}
           />
         ))}
       </div>
+
+      <AnimatePresence>
+        {selectedPost && (
+          <PostModal 
+            post={selectedPost} 
+            onClose={() => setSelectedPost(null)}
+            onLike={async (postId) => {
+              // Update local state if needed, though ClipItem handles its own like state
+              setClips(prev => prev.map(c => c.id === postId ? { ...c, is_liked: !c.is_liked, likes_count: c.is_liked ? c.likes_count - 1 : c.likes_count + 1 } : c));
+            }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Desktop Navigation Arrows */}
       <div className="hidden md:flex absolute right-8 lg:right-12 top-1/2 -translate-y-1/2 flex-col space-y-4 z-50">

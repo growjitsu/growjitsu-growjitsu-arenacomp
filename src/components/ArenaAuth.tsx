@@ -309,7 +309,12 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               team_leader: isTeamLeader ? 'true' : 'false',
               team_id: finalTeamId,
               perfil_publico: true,
-              permitir_seguidores: true
+              permitir_seguidores: true,
+              arena_score: 0,
+              wins: 0,
+              losses: 0,
+              total_fights: 0,
+              win_rate: 0
             });
 
           if (profileError) {

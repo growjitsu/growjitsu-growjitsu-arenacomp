@@ -165,7 +165,7 @@ export const ArenaRankings: React.FC = () => {
         .from('profiles')
         .select('*')
         .neq('role', 'admin') // Exclude admins
-        .order('arena_score', { ascending: false })
+        .order('arena_score', { ascending: false, nullsFirst: false })
         .limit(50);
 
       if (filter.modality !== 'Todas') {
@@ -303,8 +303,7 @@ export const ArenaRankings: React.FC = () => {
           wins: 15,
           losses: 2,
           perfil_publico: true,
-          permitir_seguidores: true,
-          arena_points: 1250
+          permitir_seguidores: true
         },
         { 
           full_name: 'Beatriz Mesquita', 
@@ -318,8 +317,7 @@ export const ArenaRankings: React.FC = () => {
           wins: 12,
           losses: 1,
           perfil_publico: true,
-          permitir_seguidores: true,
-          arena_points: 1100
+          permitir_seguidores: true
         },
         { 
           full_name: 'Marcus Buchecha', 
@@ -333,8 +331,7 @@ export const ArenaRankings: React.FC = () => {
           wins: 20,
           losses: 0,
           perfil_publico: true,
-          permitir_seguidores: true,
-          arena_points: 1500
+          permitir_seguidores: true
         }
       ];
 

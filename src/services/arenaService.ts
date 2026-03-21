@@ -36,13 +36,13 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
         arenaScore += 100;
         break;
       case 'Vice-campeão':
-        arenaScore += 60;
+        arenaScore += 50;
         break;
       case 'Terceiro lugar':
-        arenaScore += 40;
+        arenaScore += 25;
         break;
       case 'Participação':
-        arenaScore += 10;
+        arenaScore += 5;
         break;
     }
   });
