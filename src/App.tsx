@@ -20,7 +20,7 @@ import { AdminPosts } from './components/Admin/AdminPosts';
 import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { ArenaProfile } from './types';
-import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon } from 'lucide-react';
+import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
@@ -156,10 +156,10 @@ export default function App() {
         />
         
         {/* Mobile Header */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-16 bg-transparent flex items-center justify-between px-6 z-40 transition-all duration-500">
+        <header className={`md:hidden fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-40 transition-all duration-500 ${tabId === 'rankings' ? 'bg-[var(--bg)] border-b border-[var(--border-ui)]' : 'bg-transparent'}`}>
           <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-xl flex items-center justify-center font-black text-white italic overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10">
-              A
+              <Trophy size={20} className="text-white" />
             </div>
             <span className="text-[11px] font-black uppercase tracking-[0.2em] italic text-[var(--text-main)]">ArenaComp</span>
           </div>

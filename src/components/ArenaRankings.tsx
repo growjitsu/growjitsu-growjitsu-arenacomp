@@ -472,7 +472,7 @@ export const ArenaRankings: React.FC = () => {
       <div className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-3xl overflow-hidden transition-colors duration-300">
         <div className="grid grid-cols-12 p-4 border-b border-[var(--border-ui)] text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
           <div className="col-span-1 text-center">#</div>
-          <div className="col-span-6 md:col-span-7">{activeTab === 'athletes' ? 'Atleta' : 'Equipe'}</div>
+          <div className="col-span-8 md:col-span-7">{activeTab === 'athletes' ? 'Atleta' : 'Equipe'}</div>
           <div className="col-span-3 md:col-span-2 text-center">Arena Score</div>
           <div className="col-span-2 text-center hidden md:block">{activeTab === 'athletes' ? 'Vitórias' : 'Atletas'}</div>
         </div>
@@ -524,15 +524,15 @@ export const ArenaRankings: React.FC = () => {
                       <span className="text-xs font-bold text-[var(--text-muted)]">{index + 1}</span>
                     )}
                   </div>
-                  <div className="col-span-6 md:col-span-7 flex items-center space-x-3">
+                  <div className="col-span-8 md:col-span-7 flex items-center space-x-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-[var(--bg)] overflow-hidden flex-shrink-0">
                       {(athlete.profile_photo || athlete.avatar_url) && (
                         <img src={athlete.profile_photo || athlete.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-[var(--text-main)]">{athlete.full_name}</h3>
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-sm text-[var(--text-main)] truncate">{athlete.full_name}</h3>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest truncate">
                         {athlete.modality} • {athlete.state} {athlete.team && `• ${athlete.team}`}
                       </p>
                     </div>
@@ -564,7 +564,7 @@ export const ArenaRankings: React.FC = () => {
                       <span className="text-xs font-bold text-[var(--text-muted)]">{index + 1}</span>
                     )}
                   </div>
-                  <div className="col-span-6 md:col-span-7 flex items-center space-x-3">
+                  <div className="col-span-8 md:col-span-7 flex items-center space-x-3 min-w-0">
                     <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] flex-shrink-0 overflow-hidden">
                       {team.logo_url ? (
                         <img src={team.logo_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -572,9 +572,9 @@ export const ArenaRankings: React.FC = () => {
                         <Users size={20} />
                       )}
                     </div>
-                    <div>
-                      <h3 className="font-bold text-sm text-[var(--text-main)]">{team.team_name}</h3>
-                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Equipe / Academia</p>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-sm text-[var(--text-main)] truncate">{team.team_name}</h3>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest truncate">Equipe / Academia</p>
                     </div>
                   </div>
                   <div className="col-span-3 md:col-span-2 text-center">
