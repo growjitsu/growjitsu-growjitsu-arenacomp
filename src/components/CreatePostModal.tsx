@@ -221,17 +221,17 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--surface)] w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-2xl border border-[var(--border-ui)] p-8 relative"
+        className="bg-[var(--surface)] w-full max-w-2xl rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border border-[var(--border-ui)] p-4 sm:p-8 relative"
       >
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 p-3 bg-white/10 text-white rounded-xl hover:bg-rose-500 transition-all"
+          className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:p-3 bg-white/10 text-white rounded-xl hover:bg-rose-500 transition-all z-10"
         >
           <X size={20} />
         </button>
 
-        <div className="flex space-x-6">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl">
+        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl mx-auto sm:mx-0">
             {userProfile?.profile_photo || userProfile?.avatar_url ? (
               <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
@@ -240,19 +240,19 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
               </div>
             )}
           </div>
-          <div className="flex-1 space-y-6">
-            <h2 className="text-xl font-black uppercase tracking-widest text-[var(--text-main)] italic">Novo Relatório</h2>
+          <div className="flex-1 space-y-4 sm:space-y-6">
+            <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-[var(--text-main)] italic text-center sm:text-left">Novo Relatório</h2>
             <textarea
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
               placeholder="O que aconteceu na Arena hoje?"
-              className="w-full bg-transparent border-none focus:ring-0 text-lg text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-32 font-semibold tracking-tight"
+              className="w-full bg-transparent border-none focus:ring-0 text-base sm:text-lg text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-24 sm:h-32 font-semibold tracking-tight"
             />
             
             {previewUrls.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-2">
                 {previewUrls.map((url, index) => (
-                  <div key={index} className="relative rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group shadow-2xl">
+                  <div key={index} className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group shadow-2xl">
                     {selectedFiles[index]?.type.startsWith('image/') ? (
                       <img src={url} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
@@ -268,30 +268,32 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
                         setPreviewUrls(newUrls);
                         window.URL.revokeObjectURL(url);
                       }}
-                      className="absolute top-4 right-4 p-2.5 bg-black/80 text-white rounded-2xl hover:bg-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                      className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 bg-black/80 text-white rounded-xl sm:rounded-2xl hover:bg-rose-500 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     >
-                      <X size={18} />
+                      <X size={16} />
                     </button>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-6 border-t border-[var(--border-ui)]/20">
-              <div className="flex space-x-3">
-                <label className="p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 sm:pt-6 border-t border-[var(--border-ui)]/20 gap-4">
+              <div className="flex space-x-3 w-full sm:w-auto justify-center sm:justify-start">
+                <label className="p-3 sm:p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)] flex items-center justify-center flex-1 sm:flex-none">
                   <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
-                  <ImageIcon size={24} />
+                  <ImageIcon size={20} className="sm:w-6 sm:h-6" />
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider sm:hidden">Imagem</span>
                 </label>
-                <label className="p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)]">
+                <label className="p-3 sm:p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)] flex items-center justify-center flex-1 sm:flex-none">
                   <input type="file" className="hidden" accept="video/mp4,video/quicktime" onChange={handleFileChange} />
-                  <Video size={24} />
+                  <Video size={20} className="sm:w-6 sm:h-6" />
+                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider sm:hidden">Vídeo</span>
                 </label>
               </div>
               <button
                 onClick={handleCreatePost}
                 disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
-                className="bg-[var(--primary)] text-white px-12 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30"
+                className="w-full sm:w-auto bg-[var(--primary)] text-white px-8 sm:px-12 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30"
               >
                 {uploading ? 'Processando...' : 'Publicar'}
               </button>
