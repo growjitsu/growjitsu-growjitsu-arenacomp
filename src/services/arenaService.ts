@@ -68,6 +68,29 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
   return { wins, losses, totalFights, winRate, arenaScore };
 };
 
+export const recalculateAllRankings = async () => {
+  // Fetch all athlete profiles
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id')
+    .neq('role', 'admin');
+
+  if (profilesError) throw profilesError;
+
+  const results = [];
+  for (const profile of profiles) {
+    try {
+      const stats = await calculateAndUpdateStats(profile.id);
+      results.push({ id: profile.id, success: true, stats });
+    } catch (err) {
+      console.error(`Error recalculating stats for athlete ${profile.id}:`, err);
+      results.push({ id: profile.id, success: false, error: err });
+    }
+  }
+
+  return results;
+};
+
 export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 

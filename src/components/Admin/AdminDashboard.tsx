@@ -9,7 +9,8 @@ import {
   TrendingUp, 
   Activity,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  RotateCcw
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -28,6 +29,7 @@ import {
   Area
 } from 'recharts';
 import { supabase } from '../../services/supabase';
+import { recalculateAllRankings } from '../../services/arenaService';
 
 export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState({
@@ -59,6 +61,7 @@ export const AdminDashboard: React.FC = () => {
     { name: 'Web3 Protocol (MetaMask)', status: 'checking', latency: '0ms' },
   ]);
   const [loading, setLoading] = useState(true);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const COLORS = ['#2563eb', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -251,6 +254,23 @@ export const AdminDashboard: React.FC = () => {
       console.error('Error fetching admin stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRecalculateRankings = async () => {
+    if (!window.confirm('Deseja recalcular a pontuação de TODOS os atletas? Isso pode levar alguns segundos.')) return;
+    
+    setIsRecalculating(true);
+    try {
+      const results = await recalculateAllRankings();
+      const successCount = results.filter(r => r.success).length;
+      alert(`Recálculo concluído! ${successCount} de ${results.length} atletas atualizados com sucesso.`);
+      fetchStats(); // Refresh stats
+    } catch (error) {
+      console.error('Error recalculating rankings:', error);
+      alert('Erro ao recalcular rankings.');
+    } finally {
+      setIsRecalculating(false);
     }
   };
 
@@ -450,6 +470,32 @@ export const AdminDashboard: React.FC = () => {
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
             </div>
             <p className="text-xs text-white font-bold">Módulo de exportação Excel (xlsx) carregado e operacional.</p>
+          </div>
+        </div>
+
+        <div className="mt-8 p-6 bg-blue-500/5 rounded-2xl border border-blue-500/20">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h4 className="text-sm font-black text-blue-500 uppercase tracking-widest italic">Sincronização de Dados</h4>
+              <p className="text-xs text-gray-500">Recalcula o Arena Score de todos os atletas com base nos campeonatos e lutas registrados.</p>
+            </div>
+            <button 
+              onClick={handleRecalculateRankings}
+              disabled={isRecalculating}
+              className="px-6 py-3 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:scale-100 flex items-center space-x-2"
+            >
+              {isRecalculating ? (
+                <>
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Processando...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={14} />
+                  <span>Recalcular Rankings</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
