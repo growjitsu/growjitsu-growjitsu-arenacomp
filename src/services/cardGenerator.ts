@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 import QRCode from 'qrcode';
 import Handlebars from 'handlebars';
@@ -208,48 +208,81 @@ export class CardGenerator {
 
   static async generateAchievementCard(data: CardData): Promise<Buffer> {
     console.log('[CardGenerator] Iniciando geração de QR Code...');
-    // 1. Generate QR Code
-    const qrCodeDataUrl = await QRCode.toDataURL(data.profileUrl, {
-      margin: 1,
-      color: {
-        dark: '#000000',
-        light: '#FFFFFF',
-      },
-    });
+    try {
+      // 1. Generate QR Code
+      const qrCodeDataUrl = await QRCode.toDataURL(data.profileUrl, {
+        margin: 1,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF',
+        },
+      });
 
-    // 2. Compile Template
-    const html = this.template({
-      ...data,
-      qrCode: qrCodeDataUrl,
-    });
+      // 2. Compile Template
+      const html = this.template({
+        ...data,
+        qrCode: qrCodeDataUrl,
+      });
 
-    console.log('[CardGenerator] Preparando lançamento do Puppeteer...');
-    
-    const launchOptions: any = {
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--font-render-hinting=none'],
-      headless: true,
-    };
-
-    // Se estiver em produção (Google Cloud Run), usa o chromium-min
-    if (process.env.NODE_ENV === 'production') {
+      console.log('[CardGenerator] Preparando lançamento do Puppeteer...');
+      
+      let browser;
+      
+      // Tentativa 1: chromium-min (Produção)
       try {
-        console.log('[CardGenerator] Detectado ambiente de produção. Carregando chromium-min...');
         const executablePath = await chromium.executablePath();
-        if (!executablePath) {
-          throw new Error('Chromium executable path is empty');
+        if (executablePath) {
+          console.log('[CardGenerator] Tentando chromium-min em:', executablePath);
+          browser = await puppeteer.launch({
+            args: [...(chromium as any).args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+            defaultViewport: (chromium as any).defaultViewport,
+            executablePath: executablePath,
+            headless: (chromium as any).headless,
+          });
+          console.log('[CardGenerator] Browser iniciado com chromium-min');
         }
-        launchOptions.executablePath = executablePath;
-        launchOptions.args = [...launchOptions.args, ...chromium.args];
-        console.log('[CardGenerator] ExecutablePath obtido com sucesso:', launchOptions.executablePath);
       } catch (err) {
-        console.error("[CardGenerator] Erro crítico ao obter executablePath do chromium-min:", err);
+        console.warn('[CardGenerator] Falha ao iniciar com chromium-min:', err.message);
       }
+
+      // Tentativa 2: Puppeteer padrão (Desenvolvimento ou Fallback)
+      if (!browser) {
+        try {
+          console.log('[CardGenerator] Tentando puppeteer padrão...');
+          const puppeteerFull = await import('puppeteer');
+          browser = await puppeteerFull.default.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+            headless: true
+          });
+          console.log('[CardGenerator] Browser iniciado com puppeteer padrão');
+        } catch (err) {
+          console.warn('[CardGenerator] Falha ao iniciar com puppeteer padrão:', err.message);
+        }
+      }
+
+      // Tentativa 3: Puppeteer-core sem chromium-min (Último recurso)
+      if (!browser) {
+        try {
+          console.log('[CardGenerator] Tentando puppeteer-core sem path específico...');
+          browser = await puppeteer.launch({
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+            headless: true
+          });
+          console.log('[CardGenerator] Browser iniciado com puppeteer-core genérico');
+        } catch (err) {
+          console.error('[CardGenerator] Todas as tentativas de iniciar o browser falharam:', err.message);
+          throw new Error('Não foi possível iniciar o motor de renderização de cards.');
+        }
+      }
+
+      return await this.renderCard(browser, html);
+    } catch (error) {
+      console.error('[CardGenerator] Erro crítico na geração:', error);
+      throw error;
     }
+  }
 
-    // 3. Launch Puppeteer
-    console.log('[CardGenerator] Iniciando browser com opções:', JSON.stringify({ ...launchOptions, executablePath: launchOptions.executablePath ? 'HIDDEN' : undefined }));
-    const browser = await puppeteer.launch(launchOptions);
-
+  private static async renderCard(browser: any, html: string): Promise<Buffer> {
     try {
       console.log('[CardGenerator] Abrindo nova página...');
       const page = await browser.newPage();
@@ -263,10 +296,14 @@ export class CardGenerator {
 
       console.log('[CardGenerator] Definindo conteúdo HTML...');
       // Set content and wait for fonts/images
+      // Usamos 'domcontentloaded' para ser mais rápido e menos propenso a falhas de rede externa
       await page.setContent(html, { 
-        waitUntil: 'networkidle2',
-        timeout: 30000 
+        waitUntil: 'domcontentloaded',
+        timeout: 20000 
       });
+
+      // Pequeno delay para garantir que fontes do Google Fonts carreguem se possível
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       console.log('[CardGenerator] Capturando screenshot...');
       // Take screenshot
@@ -278,10 +315,12 @@ export class CardGenerator {
       console.log('[CardGenerator] Card gerado com sucesso!');
       return buffer as Buffer;
     } catch (error) {
-      console.error('[CardGenerator] Erro durante a geração:', error);
+      console.error('[CardGenerator] Erro durante a renderização:', error);
       throw error;
     } finally {
-      await browser.close();
+      if (browser) {
+        await browser.close();
+      }
     }
   }
 }

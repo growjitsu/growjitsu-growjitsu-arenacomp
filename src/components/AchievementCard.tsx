@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Download, Trophy, X, Loader2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { generateCard } from '../services/arenaService';
 
 interface AchievementCardProps {

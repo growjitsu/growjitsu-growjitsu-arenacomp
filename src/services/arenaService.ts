@@ -153,6 +153,7 @@ export const getTeams = async () => {
 };
 
 export const generateCard = async (data: any) => {
+  console.log('[arenaService] Chamando /api/cards/generate com dados:', data);
   const response = await fetch('/api/cards/generate', {
     method: 'POST',
     headers: {
@@ -163,9 +164,13 @@ export const generateCard = async (data: any) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.details || errorData.error || 'Failed to generate card');
+    console.error('[arenaService] Erro na resposta da API:', response.status, errorData);
+    throw new Error(errorData.details || errorData.error || `Erro ${response.status}: Falha ao gerar card`);
   }
 
+  console.log('[arenaService] Resposta recebida com sucesso, convertendo para blob...');
   const blob = await response.blob();
-  return URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  console.log('[arenaService] Blob URL criado:', url);
+  return url;
 };

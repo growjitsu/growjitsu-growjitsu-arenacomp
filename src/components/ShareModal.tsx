@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Share2, Copy, Trophy, X, Check, Award } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ShareModalProps {
   isOpen: boolean;
