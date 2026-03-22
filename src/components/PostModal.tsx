@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Heart, MessageCircle, Share2, User, Award, Calendar, Send, MoreVertical, Archive, Trash2, Edit2 } from 'lucide-react';
+import { X, Heart, MessageCircle, Share2, User, Award, Calendar, Send, MoreVertical, Archive, Trash2, Edit2, Check } from 'lucide-react';
 import { ArenaPost, ArenaComment } from '../types';
 import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
+import { ShareModal } from './ShareModal';
 
 interface PostModalProps {
   post: ArenaPost | null;
@@ -21,6 +22,13 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
   const [newComment, setNewComment] = useState('');
   const [loadingComments, setLoadingComments] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    subtitle?: string;
+    url: string;
+    onGenerate?: () => void;
+  }>({ title: '', url: '' });
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -89,23 +97,20 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
     }
   };
 
-  const handleShareOption = async (type: 'copy' | 'whatsapp') => {
+  const handleShare = async () => {
     if (!post) return;
     const shareUrl = `${window.location.origin}/?post=${post.id}`;
     
-    if (type === 'copy') {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Link copiado para a área de transferência!');
-      } catch (err) {
-        console.error('Failed to copy: ', err);
+    setShareModalData({
+      title: 'Compartilhar Postagem',
+      subtitle: post.content || 'Confira esta postagem na ArenaComp!',
+      url: shareUrl,
+      onGenerate: () => {
+        // Card generation for posts could be implemented here
+        console.log('Gerar card para post:', post.id);
       }
-    } else if (type === 'whatsapp') {
-      window.open(`https://wa.me/?text=${encodeURIComponent('Confira esta postagem na ArenaComp: ' + shareUrl)}`, '_blank');
-    }
-    
-    setShowShareOptions(false);
-    onShare?.(post);
+    });
+    setIsShareModalOpen(true);
   };
 
   const handleAddComment = async () => {
@@ -406,35 +411,11 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                   </div>
                   <div className="relative">
                     <button 
-                      onClick={() => setShowShareOptions(!showShareOptions)}
+                      onClick={handleShare}
                       className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                     >
                       <Share2 size={20} />
                     </button>
-
-                    <AnimatePresence>
-                      {showShareOptions && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          className="absolute bottom-full right-0 mb-2 w-48 bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl shadow-2xl overflow-hidden z-50 py-2"
-                        >
-                          <button 
-                            onClick={() => handleShareOption('copy')}
-                            className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-colors flex items-center space-x-2"
-                          >
-                            <span>Copiar Link</span>
-                          </button>
-                          <button 
-                            onClick={() => handleShareOption('whatsapp')}
-                            className="w-full px-4 py-3 text-left text-xs font-bold hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-colors flex items-center space-x-2"
-                          >
-                            <span>WhatsApp</span>
-                          </button>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 </div>
               </div>
@@ -517,6 +498,15 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
             </div>
           </div>
         </motion.div>
+
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          title={shareModalData.title}
+          subtitle={shareModalData.subtitle}
+          url={shareModalData.url}
+          onGenerate={shareModalData.onGenerate}
+        />
       </motion.div>
     );
 };

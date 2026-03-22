@@ -5,13 +5,15 @@ import { supabase } from '../services/supabase';
 import { ArenaPost, ArenaProfile } from '../types';
 import { Link } from 'react-router-dom';
 import { PostModal } from './PostModal';
+import { ShareModal } from './ShareModal';
 
 const ClipItem: React.FC<{ 
   post: ArenaPost; 
   isActive: boolean;
   onCommentClick: (post: ArenaPost) => void;
   onShareClick: (post: ArenaPost) => void;
-}> = ({ post, isActive, onCommentClick, onShareClick }) => {
+  currentUser?: any;
+}> = ({ post, isActive, onCommentClick, onShareClick, currentUser }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -178,17 +180,19 @@ const ClipItem: React.FC<{
               </Link>
               <p className="text-white/80 text-[10px] font-bold uppercase tracking-widest drop-shadow-lg">@{post.author?.username}</p>
             </div>
-            <button 
-              onClick={handleFollow}
-              disabled={followLoading}
-              className={`ml-4 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                isFollowing 
-                  ? 'bg-white/20 text-white border border-white/20' 
-                  : 'bg-white text-black hover:bg-white/90'
-              }`}
-            >
-              {isFollowing ? '✔ Seguindo' : 'Seguir'}
-            </button>
+            {currentUser?.id !== post.author_id && (
+              <button 
+                onClick={handleFollow}
+                disabled={followLoading}
+                className={`ml-4 px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  isFollowing 
+                    ? 'bg-white/20 text-white border border-white/20' 
+                    : 'bg-white text-black hover:bg-white/90'
+                }`}
+              >
+                {isFollowing ? '✔ Seguindo' : 'Seguir'}
+              </button>
+            )}
           </div>
           <p className="text-white text-sm font-medium line-clamp-2 drop-shadow-lg max-w-[80%]">
             {post.content}
@@ -228,10 +232,19 @@ export const ArenaClips: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    subtitle?: string;
+    url: string;
+    onGenerate?: () => void;
+  }>({ title: '', url: '' });
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchClips();
+    supabase.auth.getUser().then(({ data: { user } }) => setCurrentUser(user));
   }, []);
 
   const fetchClips = async () => {
@@ -305,32 +318,16 @@ export const ArenaClips: React.FC = () => {
   const handleShare = async (post: ArenaPost) => {
     const shareUrl = `${window.location.origin}/?post=${post.id}`;
     
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'ArenaComp',
-          text: post.content,
-          url: shareUrl,
-        });
-        
-        // Increment share count
-        await supabase
-          .from('posts')
-          .update({ shares_count: (post.shares_count || 0) + 1 })
-          .eq('id', post.id);
-          
-      } catch (err) {
-        console.log('Error sharing:', err);
+    setShareModalData({
+      title: 'Compartilhar Clip',
+      subtitle: post.content || 'Confira este clip na ArenaComp!',
+      url: shareUrl,
+      onGenerate: () => {
+        // Here we could implement card generation for clips if desired
+        console.log('Gerar card para clip:', post.id);
       }
-    } else {
-      // Fallback to clipboard
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Link copiado para a área de transferência!');
-      } catch (err) {
-        console.error('Failed to copy: ', err);
-      }
-    }
+    });
+    setIsShareModalOpen(true);
   };
 
   if (loading) {
@@ -370,6 +367,7 @@ export const ArenaClips: React.FC = () => {
             isActive={index === activeIndex} 
             onCommentClick={(post) => setSelectedPost(post)}
             onShareClick={handleShare}
+            currentUser={currentUser}
           />
         ))}
       </div>
@@ -386,6 +384,15 @@ export const ArenaClips: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        title={shareModalData.title}
+        subtitle={shareModalData.subtitle}
+        url={shareModalData.url}
+        onGenerate={shareModalData.onGenerate}
+      />
 
       {/* Desktop Navigation Arrows */}
       <div className="hidden md:flex absolute right-8 lg:right-12 top-1/2 -translate-y-1/2 flex-col space-y-4 z-50">

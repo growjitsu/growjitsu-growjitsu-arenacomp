@@ -5,6 +5,7 @@ import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Vi
 import { supabase } from '../services/supabase';
 import { ArenaPost, ArenaProfile, PostType, ArenaAd } from '../types';
 import { PostModal } from './PostModal';
+import { ShareModal } from './ShareModal';
 
 export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
   const [posts, setPosts] = useState<ArenaPost[]>([]);
@@ -21,6 +22,13 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    subtitle?: string;
+    url: string;
+    onGenerate?: () => void;
+  }>({ title: '', url: '' });
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isEditingPost, setIsEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -440,30 +448,17 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const handleShare = async (post: ArenaPost) => {
     const shareUrl = `${window.location.origin}/?post=${post.id}`;
-    const shareData = {
-      title: 'ArenaComp - Performance Esportiva',
-      text: `Confira esta postagem de ${post.author?.full_name} na ArenaComp!`,
+    
+    setShareModalData({
+      title: 'Compartilhar Postagem',
+      subtitle: post.content || 'Confira esta postagem na ArenaComp!',
       url: shareUrl,
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(shareUrl);
-        alert('Link copiado para a área de transferência!');
+      onGenerate: () => {
+        // Card generation for posts could be implemented here
+        console.log('Gerar card para post:', post.id);
       }
-      
-      // Increment share count
-      await supabase
-        .from('posts')
-        .update({ shares_count: (post.shares_count || 0) + 1 })
-        .eq('id', post.id);
-        
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, shares_count: (p.shares_count || 0) + 1 } : p));
-    } catch (error) {
-      console.error('Error sharing:', error);
-    }
+    });
+    setIsShareModalOpen(true);
   };
 
   const compressImage = (file: File, targetRatio: '4:5' | '1:1' | '1.91:1' | 'original' = 'original'): Promise<Blob> => {
@@ -867,8 +862,8 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           className="group bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-ui)] rounded-[3rem] overflow-hidden transition-all duration-700 hover:border-[var(--primary)]/40 hover:shadow-[0_40px_80px_-20px_rgba(0,0,0,0.5)] cursor-pointer relative"
                         >
                           {/* Post Header - Cinematic Style */}
-                          <div className="p-8 flex items-center justify-between relative z-10">
-                            <div className="flex items-center space-x-5">
+                          <div className="p-4 md:p-8 flex items-center justify-between relative z-10">
+                            <div className="flex items-center space-x-3 md:space-x-5">
                               <Link 
                                 to={`/user/@${post.author?.username}`} 
                                 className="relative group/avatar"
@@ -983,7 +978,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
 
                           {/* Post Content */}
-                          <div className="px-8 pb-4">
+                          <div className="px-4 md:px-8 pb-4">
                             {isEditingPost === post.id ? (
                               <div className="space-y-4 mb-6" onClick={(e) => e.stopPropagation()}>
                                 <textarea
@@ -1088,33 +1083,33 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
 
                           {/* Post Actions */}
-                          <div className="p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
-                            <div className="flex items-center space-x-8">
+                          <div className="p-4 md:p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
+                            <div className="flex items-center space-x-4 md:space-x-8">
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleLike(post.id, post.author_id);
                                 }}
-                                className={`flex items-center space-x-4 group/btn transition-all ${
+                                className={`flex items-center space-x-2 md:space-x-4 group/btn transition-all ${
                                   post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
                                 }`}
                               >
-                                <div className={`p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
-                                  <Heart size={22} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
+                                <div className={`p-2 md:p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
+                                  <Heart size={18} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
-                                  <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Curtidas</span>
+                                  <span className="text-[10px] md:text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
+                                  <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest opacity-50">Curtidas</span>
                                 </div>
                               </button>
 
-                              <button className="flex items-center space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
-                                <div className="p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
-                                  <MessageCircle size={22} className="group-hover/btn:scale-110 transition-transform" />
+                              <button className="flex items-center space-x-2 md:space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
+                                <div className="p-2 md:p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
+                                  <MessageCircle size={18} className="group-hover/btn:scale-110 transition-transform" />
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
-                                  <span className="text-[8px] font-black uppercase tracking-widest opacity-50">Comentários</span>
+                                  <span className="text-[10px] md:text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
+                                  <span className="text-[7px] md:text-[8px] font-black uppercase tracking-widest opacity-50">Comentários</span>
                                 </div>
                               </button>
                             </div>
@@ -1124,9 +1119,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 e.stopPropagation();
                                 handleShare(post);
                               }}
-                              className="p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500"
+                              className="p-3 md:p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500"
                             >
-                              <Share2 size={22} />
+                              <Share2 size={18} />
                             </button>
                           </div>
                         </motion.div>
@@ -1206,6 +1201,15 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
           />
         )}
       </AnimatePresence>
+
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        title={shareModalData.title}
+        subtitle={shareModalData.subtitle}
+        url={shareModalData.url}
+        onGenerate={shareModalData.onGenerate}
+      />
     </div>
   );
 };
