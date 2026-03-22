@@ -226,7 +226,7 @@ export class CardGenerator {
     console.log('[CardGenerator] Preparando lançamento do Puppeteer...');
     
     const launchOptions: any = {
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--font-render-hinting=none'],
       headless: true,
     };
 
@@ -234,16 +234,20 @@ export class CardGenerator {
     if (process.env.NODE_ENV === 'production') {
       try {
         console.log('[CardGenerator] Detectado ambiente de produção. Carregando chromium-min...');
-        launchOptions.executablePath = await chromium.executablePath();
+        const executablePath = await chromium.executablePath();
+        if (!executablePath) {
+          throw new Error('Chromium executable path is empty');
+        }
+        launchOptions.executablePath = executablePath;
         launchOptions.args = [...launchOptions.args, ...chromium.args];
-        launchOptions.headless = true;
-        console.log('[CardGenerator] ExecutablePath:', launchOptions.executablePath);
+        console.log('[CardGenerator] ExecutablePath obtido com sucesso:', launchOptions.executablePath);
       } catch (err) {
-        console.error("[CardGenerator] Erro ao obter executablePath do chromium-min:", err);
+        console.error("[CardGenerator] Erro crítico ao obter executablePath do chromium-min:", err);
       }
     }
 
     // 3. Launch Puppeteer
+    console.log('[CardGenerator] Iniciando browser com opções:', JSON.stringify({ ...launchOptions, executablePath: launchOptions.executablePath ? 'HIDDEN' : undefined }));
     const browser = await puppeteer.launch(launchOptions);
 
     try {
@@ -260,7 +264,7 @@ export class CardGenerator {
       console.log('[CardGenerator] Definindo conteúdo HTML...');
       // Set content and wait for fonts/images
       await page.setContent(html, { 
-        waitUntil: 'networkidle0',
+        waitUntil: 'networkidle2',
         timeout: 30000 
       });
 

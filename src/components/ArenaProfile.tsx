@@ -56,7 +56,7 @@ export const ArenaProfileView: React.FC<{ userId?: string; username?: string; fo
   const [shareModalData, setShareModalData] = useState<{
     title: string;
     subtitle: string;
-    shareUrl: string;
+    url: string;
     onGenerate: () => void;
   } | null>(null);
   const [achievementData, setAchievementData] = useState({
@@ -1116,7 +1116,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   setShareModalData({
                     title: profile.full_name,
                     subtitle: 'Confira meu perfil na ArenaComp!',
-                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                    url: `${window.location.origin}/profile/@${profile.username}`,
                     onGenerate: () => {
                       setAchievementData({
                         title: 'PERFIL ARENA',
@@ -1232,7 +1232,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   setShareModalData({
                     title: profile.full_name,
                     subtitle: 'Confira este perfil na ArenaComp!',
-                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                    url: `${window.location.origin}/profile/@${profile.username}`,
                     onGenerate: () => {
                       setAchievementData({
                         title: 'PERFIL ARENA',
@@ -2018,7 +2018,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                   setShareModalData({
                                     title: '🏆 CERTIFICADO',
                                     subtitle: cert.name,
-                                    shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                    url: `${window.location.origin}/profile/@${profile.username}`,
                                     onGenerate: () => {
                                       setAchievementData({
                                         title: '🏆 CERTIFICADO',
@@ -2104,7 +2104,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             setShareModalData({
                               title: fight.resultado === 'win' ? '🏆 VITÓRIA' : '🥊 LUTA',
                               subtitle: `${fight.opponent_name} no ${fight.evento}`,
-                              shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                              url: `${window.location.origin}/profile/@${profile.username}`,
                               onGenerate: () => {
                                 setAchievementData({
                                   title: fight.resultado === 'win' ? '🏆 VITÓRIA' : '🥊 LUTA',
@@ -2304,7 +2304,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                               setShareModalData({
                                 title: '🏆 CAMPEONATO',
                                 subtitle: champ.championship_name,
-                                shareUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                url: `${window.location.origin}/profile/@${profile.username}`,
                                 onGenerate: () => {
                                   setAchievementData({
                                     title: '🏆 CAMPEONATO',
@@ -2573,11 +2573,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
         <ShareModal
           isOpen={isShareModalOpen}
           onClose={() => setIsShareModalOpen(false)}
-          shareUrl={shareModalData.shareUrl}
+          url={shareModalData.url}
           title={shareModalData.title}
           subtitle={shareModalData.subtitle}
           followerCount={followerCount}
-          onGenerateCard={shareModalData.onGenerate}
+          onGenerate={shareModalData.onGenerate}
         />
       )}
 

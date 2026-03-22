@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerateCard: () => void;
-  shareUrl: string;
+  onGenerate: () => void;
+  url: string;
   title: string;
   subtitle?: string;
   followerCount: number;
@@ -15,8 +15,8 @@ interface ShareModalProps {
 export const ShareModal: React.FC<ShareModalProps> = ({ 
   isOpen, 
   onClose, 
-  onGenerateCard, 
-  shareUrl, 
+  onGenerate, 
+  url, 
   title,
   subtitle,
   followerCount 
@@ -25,7 +25,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -67,7 +67,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               {/* Option 1: Generate Card */}
               <button
                 onClick={() => {
-                  onGenerateCard();
+                  onGenerate();
                   onClose();
                 }}
                 className="w-full p-4 rounded-2xl border bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 flex items-center justify-between transition-all group"

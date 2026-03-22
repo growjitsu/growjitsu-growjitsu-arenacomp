@@ -162,7 +162,8 @@ export const generateCard = async (data: any) => {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to generate card');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.details || errorData.error || 'Failed to generate card');
   }
 
   const blob = await response.blob();

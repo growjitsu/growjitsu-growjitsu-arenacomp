@@ -5,6 +5,8 @@ import { ArenaPost, ArenaComment } from '../types';
 import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { ShareModal } from './ShareModal';
+import { AchievementCard } from './AchievementCard';
+import { generateCard } from '../services/arenaService';
 
 interface PostModalProps {
   post: ArenaPost | null;
@@ -23,6 +25,14 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
   const [loadingComments, setLoadingComments] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [achievementData, setAchievementData] = useState({
+    title: '',
+    athleteName: '',
+    achievement: '',
+    modality: '',
+    profileUrl: ''
+  });
   const [shareModalData, setShareModalData] = useState<{
     title: string;
     subtitle?: string;
@@ -106,8 +116,14 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
       subtitle: post.content || 'Confira esta postagem na ArenaComp!',
       url: shareUrl,
       onGenerate: () => {
-        // Card generation for posts could be implemented here
-        console.log('Gerar card para post:', post.id);
+        setAchievementData({
+          title: 'POSTAGEM ARENA',
+          athleteName: post.author?.full_name || 'Atleta Arena',
+          achievement: post.content?.substring(0, 60) + (post.content && post.content.length > 60 ? '...' : '') || 'Confira esta postagem na ArenaComp!',
+          modality: 'ARENACOMP POST',
+          profileUrl: shareUrl
+        });
+        setIsAchievementCardOpen(true);
       }
     });
     setIsShareModalOpen(true);
@@ -505,8 +521,17 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
           title={shareModalData.title}
           subtitle={shareModalData.subtitle}
           url={shareModalData.url}
-          onGenerate={shareModalData.onGenerate}
+          onGenerate={shareModalData.onGenerate || (() => {})}
+          followerCount={0}
         />
+
+        {isAchievementCardOpen && (
+          <AchievementCard
+            isOpen={isAchievementCardOpen}
+            onClose={() => setIsAchievementCardOpen(false)}
+            data={achievementData}
+          />
+        )}
       </motion.div>
     );
 };

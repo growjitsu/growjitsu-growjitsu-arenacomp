@@ -6,6 +6,8 @@ import { ArenaPost, ArenaProfile } from '../types';
 import { Link } from 'react-router-dom';
 import { PostModal } from './PostModal';
 import { ShareModal } from './ShareModal';
+import { AchievementCard } from './AchievementCard';
+import { generateCard } from '../services/arenaService';
 
 const ClipItem: React.FC<{ 
   post: ArenaPost; 
@@ -234,6 +236,14 @@ export const ArenaClips: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [achievementData, setAchievementData] = useState({
+    title: '',
+    athleteName: '',
+    achievement: '',
+    modality: '',
+    profileUrl: ''
+  });
   const [shareModalData, setShareModalData] = useState<{
     title: string;
     subtitle?: string;
@@ -323,8 +333,14 @@ export const ArenaClips: React.FC = () => {
       subtitle: post.content || 'Confira este clip na ArenaComp!',
       url: shareUrl,
       onGenerate: () => {
-        // Here we could implement card generation for clips if desired
-        console.log('Gerar card para clip:', post.id);
+        setAchievementData({
+          title: 'CLIP ARENA',
+          athleteName: post.author?.full_name || 'Atleta Arena',
+          achievement: post.content?.substring(0, 60) + (post.content && post.content.length > 60 ? '...' : '') || 'Confira este clip na ArenaComp!',
+          modality: 'ARENACOMP CLIPS',
+          profileUrl: shareUrl
+        });
+        setIsAchievementCardOpen(true);
       }
     });
     setIsShareModalOpen(true);
@@ -391,8 +407,17 @@ export const ArenaClips: React.FC = () => {
         title={shareModalData.title}
         subtitle={shareModalData.subtitle}
         url={shareModalData.url}
-        onGenerate={shareModalData.onGenerate}
+        onGenerate={shareModalData.onGenerate || (() => {})}
+        followerCount={0}
       />
+
+      {isAchievementCardOpen && (
+        <AchievementCard
+          isOpen={isAchievementCardOpen}
+          onClose={() => setIsAchievementCardOpen(false)}
+          data={achievementData}
+        />
+      )}
 
       {/* Desktop Navigation Arrows */}
       <div className="hidden md:flex absolute right-8 lg:right-12 top-1/2 -translate-y-1/2 flex-col space-y-4 z-50">
