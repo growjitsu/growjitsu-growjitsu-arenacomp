@@ -115,30 +115,24 @@ async function startServer() {
     res.json({ success: true, message: "API is reachable", timestamp: new Date().toISOString() });
   });
 
-  // Card Generation Endpoint - Changed path to avoid potential proxy conflicts
-  app.all(["/api/cards/generate-card", "/api/cards/generate-card/"], async (req, res) => {
-    console.log(`[API] Requisição recebida em ${req.url} | Método: ${req.method}`);
+  // NEW ROBUST API STRUCTURE
+  const cardGenerationHandler = async (req: any, res: any) => {
+    console.log(`[API-CORE] Requisição recebida em ${req.url} | Método: ${req.method}`);
     
     if (req.method === 'GET') {
-      return res.json({ message: "Este endpoint aceita apenas POST para geração de cards." });
+      return res.json({ status: "active", message: "Card generation API is ready. Use POST to generate." });
     }
 
     if (req.method !== 'POST') {
-      console.warn(`[API] Método não permitido em ${req.url}: ${req.method}`);
       return res.status(405).json({ error: `Method ${req.method} not allowed. Use POST.` });
     }
 
-    console.log("[API] Processando POST para gerar card...");
     try {
       const cardData: CardData = req.body;
-      
       if (!cardData || !cardData.athleteName || !cardData.achievement) {
-        console.warn("[API] Dados inválidos ou incompletos:", req.body);
         return res.status(400).json({ error: "Missing required card data", received: req.body });
       }
 
-      console.log(`[API] Gerando card para: ${cardData.athleteName}`);
-      
       const buffer = await CardGenerator.generateAchievementCard({
         ...cardData,
         date: cardData.date || new Date().toLocaleDateString('pt-BR'),
@@ -147,27 +141,31 @@ async function startServer() {
         profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
       });
 
-      console.log("[API] Card gerado com sucesso!");
       res.set('Content-Type', 'image/png');
       res.set('Cache-Control', 'no-store');
       res.send(buffer);
     } catch (error: any) {
-      console.error("[API] Erro na geração de card:", error);
-      res.status(500).json({ 
-        error: "Failed to generate card", 
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
+      console.error("[API-CORE] Erro:", error);
+      res.status(500).json({ error: "Failed to generate card", details: error.message });
     }
+  };
+
+  // Register the handler on multiple paths to ensure maximum compatibility
+  app.all(["/api/v1/generate-card", "/api/v1/generate-card/"], cardGenerationHandler);
+  app.all(["/api-core/generate", "/api-core/generate/"], cardGenerationHandler);
+  
+  // POST Ping for connectivity test
+  app.post("/api/ping", (req, res) => {
+    res.json({ success: true, message: "POST reached server successfully" });
   });
 
-  // Legacy route redirect or support
-  app.all(["/api/cards/generate", "/api/cards/generate/"], (req, res) => {
-    console.log(`[API] Redirecionando rota legada ${req.url} para /api/cards/generate-card`);
-    if (req.method === 'POST') {
-      return res.redirect(307, "/api/cards/generate-card");
-    }
-    res.redirect(301, "/api/cards/generate-card");
+  // Keep old routes for backward compatibility but make them direct handlers
+  app.all(["/api/cards/generate-card", "/api/cards/generate-card/"], cardGenerationHandler);
+  app.all(["/api/cards/generate", "/api/cards/generate/"], cardGenerationHandler);
+
+  // Catch-all for /api routes to prevent falling through to static files
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ success: false, error: "API route not found", path: req.path });
   });
 
   app.get("/api/health", (req, res) => {

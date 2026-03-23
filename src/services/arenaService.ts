@@ -153,24 +153,59 @@ export const getTeams = async () => {
 };
 
 export const generateCard = async (data: any) => {
-  console.log('[arenaService] Chamando /api/cards/generate-card com dados:', data);
-  const response = await fetch('/api/cards/generate-card', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  });
+  const endpoints = [
+    '/api/v1/generate-card',
+    '/api-core/generate',
+    '/api/cards/generate-card',
+    '/api/cards/generate'
+  ];
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error('[arenaService] Erro na resposta da API:', response.status, errorData);
-    throw new Error(errorData.details || errorData.error || `Erro ${response.status}: Falha ao gerar card`);
+  let lastError = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`[arenaService] Tentando gerar card em: ${endpoint}`);
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        console.log(`[arenaService] Sucesso no endpoint: ${endpoint}`);
+        const blob = await response.blob();
+        return URL.createObjectURL(blob);
+      }
+
+      // Se não for OK, tenta ler o erro
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText };
+      }
+      
+      console.warn(`[arenaService] Falha no endpoint ${endpoint}:`, response.status, errorData);
+      lastError = `Erro ${response.status}: ${errorData.error || errorData.details || 'Falha desconhecida'}`;
+      
+      // Se for 405 ou 404, continua para o próximo endpoint
+      if (response.status === 405 || response.status === 404) {
+        continue;
+      }
+      
+      // Se for outro erro (ex: 400 ou 500), interrompe e joga o erro
+      throw new Error(lastError);
+    } catch (err: any) {
+      console.error(`[arenaService] Erro ao chamar ${endpoint}:`, err);
+      lastError = err.message;
+      // Continua para o próximo se não for um erro de validação (400)
+      if (err.message.includes('400')) throw err;
+    }
   }
 
-  console.log('[arenaService] Resposta recebida com sucesso, convertendo para blob...');
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  console.log('[arenaService] Blob URL criado:', url);
-  return url;
+  throw new Error(lastError || "Falha ao gerar o card em todos os endpoints disponíveis.");
 };
