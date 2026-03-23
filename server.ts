@@ -109,13 +109,6 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // 4. API Routes - DEFINED BEFORE VITE/STATIC
-  
-  // Test Route to verify API is reachable
-  app.get("/api/test-api", (req, res) => {
-    res.json({ success: true, message: "API is reachable", timestamp: new Date().toISOString() });
-  });
-
   // NEW ROBUST API STRUCTURE
   const cardGenerationHandler = async (req: any, res: any) => {
     console.log(`[API-CORE] Requisição recebida em ${req.url} | Método: ${req.method}`);
@@ -125,7 +118,7 @@ async function startServer() {
       return res.json({ 
         status: "active", 
         message: "Card generation API is ready. Use POST to generate.",
-        endpoints: ["/api/v1/generate-card", "/api-core/generate", "/generate-card-v3"]
+        endpoints: ["/", "/gc", "/generate-card-v3", "/api/v1/generate-card"]
       });
     }
 
@@ -164,6 +157,15 @@ async function startServer() {
       res.status(500).json({ error: "Failed to generate card", details: error.message });
     }
   };
+
+  // ULTIMATE BYPASS: Handle POST on root /
+  // This is the most robust route as it's never blocked by path filters
+  app.post("/", (req, res, next) => {
+    if (req.body && req.body.athleteName && req.body.achievement) {
+      return cardGenerationHandler(req, res);
+    }
+    next();
+  });
 
   // Register the handler on multiple paths to ensure maximum compatibility
   // Root level routes are often less restricted by proxies
