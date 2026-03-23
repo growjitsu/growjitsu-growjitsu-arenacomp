@@ -132,27 +132,19 @@ async function startServer() {
     }
 
     try {
-      const body = req.body;
-      console.log("[API-CORE] Body received:", JSON.stringify(body));
+      const cardData: CardData = req.body;
+      if (!cardData || !cardData.athleteName || !cardData.achievement) {
+        console.warn("[API-CORE] Dados ausentes:", req.body);
+        return res.status(400).json({ error: "Missing required card data", received: req.body });
+      }
 
-      // Robust data extraction with fallbacks for multiple frontend structures
-      const athleteName = body.athleteName || body.user?.name || body.name || "ATLETA ARENA";
-      const achievement = body.achievement || body.content?.description || body.title || body.content?.title || "CONQUISTA ARENACOMP";
-      const title = body.title || body.content?.title || "🏆 NOVA CONQUISTA";
-      const modality = body.modality || body.type || "JIU-JITSU";
-      const date = body.date || body.content?.date || new Date().toLocaleDateString('pt-BR');
-      const username = body.username || body.user?.username || "atleta";
-      const profileUrl = body.profileUrl || `https://arenacomp.com.br/user/@${username}`;
-
-      console.log(`[API-CORE] Mapping: Name=${athleteName}, Achievement=${achievement}, Modality=${modality}`);
-
+      console.log(`[API-CORE] Gerando card para: ${cardData.athleteName}`);
       const buffer = await CardGenerator.generateAchievementCard({
-        athleteName,
-        achievement,
-        title,
-        modality,
-        date,
-        profileUrl
+        ...cardData,
+        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
+        title: cardData.title || "🏆 NOVA CONQUISTA",
+        modality: cardData.modality || "ATLETA ARENACOMP",
+        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
       });
 
       console.log("[API-CORE] Card gerado com sucesso!");
@@ -169,8 +161,7 @@ async function startServer() {
   // ULTIMATE BYPASS: Handle POST on root /
   // This is the most robust route as it's never blocked by path filters
   app.post("/", (req, res, next) => {
-    // If it looks like a card generation request, handle it
-    if (req.body && (req.body.athleteName || req.body.user || req.body.name)) {
+    if (req.body && req.body.athleteName && req.body.achievement) {
       return cardGenerationHandler(req, res);
     }
     next();
