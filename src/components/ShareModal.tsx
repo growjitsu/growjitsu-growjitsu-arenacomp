@@ -77,9 +77,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                     <Trophy size={24} />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black uppercase italic text-amber-500">Gerar Card</h4>
+                    <h4 className="text-sm font-black uppercase italic text-amber-500">Card Visual</h4>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                      Imagem personalizada para redes
+                      Preview estilizado para redes
                     </p>
                   </div>
                 </div>

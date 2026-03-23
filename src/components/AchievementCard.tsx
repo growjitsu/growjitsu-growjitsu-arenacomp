@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Share2, Download, Trophy, X, Loader2, MessageCircle } from 'lucide-react';
+import { Share2, Download, Trophy, X, Loader2, MessageCircle, Link as LinkIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CardData, generateCard, shareCard, shareWhatsApp } from '../services/arenaService';
+import { CardPreview } from './CardPreview';
+
+import { toast } from 'sonner';
 
 interface AchievementCardProps {
   isOpen: boolean;
@@ -10,143 +13,130 @@ interface AchievementCardProps {
 }
 
 export const AchievementCard: React.FC<AchievementCardProps> = ({ isOpen, onClose, data }) => {
-  const [cardUrl, setCardUrl] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     if (isOpen) {
-      setCardUrl(null);
+      setShareUrl(null);
       setLoading(false);
     }
   }, [isOpen]);
 
-  const handleGenerate = async () => {
-    console.log('Iniciando geração de card com dados:', data);
+  const handleGenerateShareLink = async () => {
     setLoading(true);
     try {
       const url = await generateCard(data);
-      console.log('Card gerado com sucesso:', url);
-      setCardUrl(url);
+      setShareUrl(url);
+      toast.success('Link de compartilhamento gerado!');
     } catch (error: any) {
-      console.error('Erro ao gerar card:', error);
-      alert('Falha ao gerar o card. Por favor, tente novamente.\nErro: ' + (error.message || 'Erro desconhecido'));
+      console.error('Erro ao gerar link:', error);
+      toast.error('Falha ao gerar o link de compartilhamento.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!cardUrl) return;
-    const link = document.createElement('a');
-    link.href = cardUrl;
-    link.download = `ArenaComp-${data.title}-${data.athleteName}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleShare = async () => {
-    if (!cardUrl) return;
-    await shareCard(cardUrl, `Minha conquista no ArenaComp: ${data.title}`);
+    if (!shareUrl) return;
+    await shareCard(shareUrl, `Minha conquista no ArenaComp: ${data.title}`);
   };
 
   const handleWhatsApp = () => {
-    if (!cardUrl) return;
-    shareWhatsApp(cardUrl, `Confira minha conquista na ArenaComp 🔥`);
+    if (!shareUrl) return;
+    shareWhatsApp(shareUrl, `Confira minha conquista na ArenaComp 🔥`);
+  };
+
+  const handleCopyLink = () => {
+    if (!shareUrl) return;
+    navigator.clipboard.writeText(shareUrl);
+    toast.success('Link copiado para a área de transferência!');
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="bg-zinc-900 border border-zinc-800 rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl"
+            className="bg-[#111] border border-white/10 rounded-[2.5rem] overflow-hidden max-w-lg w-full shadow-2xl"
           >
-            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+            <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <Trophy className="w-5 h-5 text-amber-500" />
+                <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/10 flex items-center justify-center border border-[#D4AF37]/20">
+                  <Trophy className="w-5 h-5 text-[#D4AF37]" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white">Card de Conquista</h3>
-                  <p className="text-xs text-zinc-400">Gere um card para compartilhar</p>
+                  <h3 className="text-lg font-black uppercase italic text-white tracking-tighter">Card de Conquista</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">Preview em tempo real</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-zinc-800 rounded-full transition-colors text-zinc-400"
+                className="p-2 hover:bg-white/10 rounded-xl transition-colors text-zinc-400"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-8 flex flex-col items-center">
-              {cardUrl ? (
-                <div className="relative group w-full">
-                  <img
-                    src={cardUrl}
-                    alt="Achievement Card"
-                    className="w-full rounded-xl shadow-2xl border border-zinc-700"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
-                    <p className="text-white font-medium">Visualização do Card</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full aspect-[4/5] bg-zinc-800/50 rounded-xl border-2 border-dashed border-zinc-700 flex flex-col items-center justify-center p-12 text-center">
-                  <Trophy className="w-16 h-16 text-zinc-600 mb-4" />
-                  <h4 className="text-zinc-300 font-bold mb-2">Pronto para Gerar!</h4>
-                  <p className="text-zinc-500 text-sm mb-8">
-                    Vamos criar um card incrível para sua conquista na ArenaComp.
-                  </p>
+            <div className="p-6 flex flex-col items-center">
+              {/* Real-time Preview */}
+              <div className="w-full max-w-[320px] shadow-2xl rounded-3xl overflow-hidden border border-white/10">
+                <CardPreview data={data} />
+              </div>
+              
+              {!shareUrl && (
+                <div className="mt-8 w-full">
                   <button
-                    onClick={handleGenerate}
+                    onClick={handleGenerateShareLink}
                     disabled={loading}
-                    className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:bg-zinc-700 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-[#0066FF] hover:bg-blue-600 disabled:bg-zinc-800 text-white font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/20"
                   >
                     {loading ? (
                       <>
                         <Loader2 className="w-5 h-5 animate-spin" />
-                        Gerando Card...
+                        Gerando Link...
                       </>
                     ) : (
                       <>
-                        <Trophy className="w-5 h-5" />
-                        Gerar Card Agora
+                        <Share2 className="w-5 h-5" />
+                        Gerar Link de Compartilhamento
                       </>
                     )}
                   </button>
+                  <p className="mt-4 text-[10px] font-medium text-zinc-500 text-center uppercase tracking-widest">
+                    O link incluirá o preview visual para redes sociais
+                  </p>
                 </div>
               )}
             </div>
 
-            {cardUrl && (
-              <div className="p-6 bg-zinc-800/50 border-t border-zinc-800 flex flex-col gap-4">
-                <div className="flex gap-4">
+            {shareUrl && (
+              <div className="p-6 bg-white/5 border-t border-white/5 flex flex-col gap-4">
+                <div className="flex gap-3">
                   <button
-                    onClick={handleDownload}
-                    className="flex-1 py-3 bg-zinc-700 hover:bg-zinc-600 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                    onClick={handleCopyLink}
+                    className="flex-1 py-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center justify-center gap-2"
                   >
-                    <Download className="w-5 h-5" />
-                    Baixar
+                    <LinkIcon className="w-4 h-4" />
+                    Copiar Link
                   </button>
                   <button
                     onClick={handleWhatsApp}
-                    className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-4 bg-[#25D366] hover:bg-[#128C7E] text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
                   >
-                    <MessageCircle className="w-5 h-5" />
+                    <MessageCircle className="w-4 h-4" />
                     WhatsApp
                   </button>
                 </div>
                 <button
                   onClick={handleShare}
-                  className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-[#0066FF] hover:bg-blue-600 text-white font-black uppercase tracking-widest text-[11px] rounded-2xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/20"
                 >
                   <Share2 className="w-5 h-5" />
-                  Compartilhar em outras redes
+                  Compartilhar Agora
                 </button>
               </div>
             )}

@@ -153,16 +153,17 @@ export const getTeams = async () => {
 };
 
 export interface CardData {
-  title: string;
+  title?: string;
   athleteName: string;
   achievement: string;
   modality: string;
   date?: string;
   profileUrl: string;
+  mainImageUrl?: string;
 }
 
 export const generateCard = async (data: CardData) => {
-  console.log('🔥 DATA REAL ENVIADA PARA O CARD:', data);
+  console.log('🚀 Gerando URL de compartilhamento para o card:', data);
   
   if (!data || !data.athleteName) {
     console.error('❌ DADOS INVÁLIDOS PARA O CARD:', data);
@@ -170,43 +171,28 @@ export const generateCard = async (data: CardData) => {
   }
 
   try {
-    console.log('[arenaService] Chamando Serverless Function em /api/generate-card com payload contextual');
-    const response = await fetch('/api/generate-card', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Erro ${response.status}: ${text}`);
-    }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    console.log('[arenaService] Card gerado com sucesso:', url);
+    // Encode data to Base64 to create a shareable ID
+    // In a real app, you might save this to a database and get a real ID
+    const jsonString = JSON.stringify(data);
+    const base64Id = btoa(jsonString);
     
-    return url;
-
+    const shareUrl = `${window.location.origin}/share/${base64Id}`;
+    console.log('[arenaService] URL de compartilhamento gerada:', shareUrl);
+    
+    return shareUrl;
   } catch (error: any) {
-    console.error('[arenaService] Erro ao gerar card:', error);
-    throw new Error('Falha ao gerar o card. Por favor, tente novamente.');
+    console.error('[arenaService] Erro ao gerar link de compartilhamento:', error);
+    throw new Error('Falha ao gerar o link de compartilhamento.');
   }
 };
 
 export const shareCard = async (url: string, title: string = 'Minha conquista no ArenaComp') => {
   if (navigator.share) {
     try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const file = new File([blob], 'conquista.png', { type: 'image/png' });
-      
       await navigator.share({
         title,
         text: 'Veja minha conquista na ArenaComp 🔥',
-        files: [file]
+        url: url
       });
       return true;
     } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate, useParams, BrowserRouter } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { ArenaNavbar } from './components/ArenaNavbar';
@@ -11,6 +11,7 @@ import { ArenaProfileView } from './components/ArenaProfile';
 import { ArenaSettings } from './components/ArenaSettings';
 import { ArenaAuth } from './components/ArenaAuth';
 import { ArenaNotifications } from './components/ArenaNotifications';
+import { SharePage } from './pages/SharePage';
 import { CreatePostModal } from './components/CreatePostModal';
 import { AdminLayout } from './components/Admin/AdminLayout';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
@@ -22,6 +23,8 @@ import { AdminExport } from './components/Admin/AdminExport';
 import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
+
+import { Toaster } from 'sonner';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
   const { userId, username } = useParams();
@@ -311,7 +314,9 @@ export default function App() {
   };
 
   return (
-    <Routes>
+    <BrowserRouter>
+      <Toaster position="top-center" theme="dark" />
+      <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
       <Route path="/" element={renderLayout(<ArenaFeed userProfile={profile} />, 'feed')} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
@@ -325,6 +330,8 @@ export default function App() {
       <Route path="/settings" element={renderLayout(<ArenaSettings />, 'settings')} />
       <Route path="/gyms" element={renderLayout(<div className="flex items-center justify-center h-screen text-[var(--text-muted)] uppercase font-black tracking-widest">Módulo de Academias em Breve</div>, 'gyms')} />
       
+      <Route path="/share/:id" element={<SharePage />} />
+
       {/* Admin Routes */}
       <Route 
         path="/admin/*" 
@@ -378,5 +385,6 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </BrowserRouter>
   );
 }

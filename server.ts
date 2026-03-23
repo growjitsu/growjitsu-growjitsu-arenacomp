@@ -428,6 +428,61 @@ async function startServer() {
     });
   });
 
+  // 4. OG Tag Injection for Share Links
+  app.get("/share/:id", async (req, res) => {
+    const { id } = req.params;
+    let cardData: any = null;
+
+    try {
+      // Decode the Base64 ID
+      const jsonString = Buffer.from(id, 'base64').toString('utf-8');
+      cardData = JSON.parse(jsonString);
+    } catch (err) {
+      console.error("[OG-TAGS] Erro ao decodificar ID:", err);
+    }
+
+    const title = cardData?.title || "Conquista ArenaComp";
+    const description = `${cardData?.athleteName || "Atleta"} conquistou ${cardData?.achievement || "um novo marco"} na ArenaComp! 🔥`;
+    // For the image, we can use a generic one or the athlete's photo if available
+    // Ideally, we'd have a way to generate a thumbnail, but for now, let's use a brand image
+    const imageUrl = cardData?.mainImageUrl || "https://arenacomp.com.br/og-image.png"; 
+    const url = `${process.env.APP_URL || 'https://arenacomp.com.br'}/share/${id}`;
+
+    const ogTags = `
+      <title>${title}</title>
+      <meta name="description" content="${description}">
+      <meta property="og:title" content="${title}">
+      <meta property="og:description" content="${description}">
+      <meta property="og:image" content="${imageUrl}">
+      <meta property="og:url" content="${url}">
+      <meta property="og:type" content="website">
+      <meta name="twitter:card" content="summary_large_image">
+      <meta name="twitter:title" content="${title}">
+      <meta name="twitter:description" content="${description}">
+      <meta name="twitter:image" content="${imageUrl}">
+    `;
+
+    if (process.env.NODE_ENV !== "production") {
+      // In dev, we can't easily inject into Vite's index.html without more complex setup
+      // So we just redirect to the frontend route and let it handle it (no OG tags in dev)
+      return res.redirect(`/share/${id}`);
+    } else {
+      try {
+        const fs = await import("fs");
+        const indexPath = path.join(process.cwd(), 'dist', 'index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        
+        // Inject tags before </head>
+        html = html.replace('</head>', `${ogTags}</head>`);
+        
+        return res.send(html);
+      } catch (err) {
+        console.error("[OG-TAGS] Erro ao carregar index.html:", err);
+        return res.redirect(`/share/${id}`);
+      }
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
