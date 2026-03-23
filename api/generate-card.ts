@@ -1,23 +1,45 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createCanvas, loadImage } from 'canvas';
+import { createCanvas, loadImage, registerFont } from 'canvas';
+
+// 🚨 ETAPA 3 — CORRIGIR FONTE DO CANVAS (CRÍTICO)
+try {
+  registerFont('/var/task/fonts/Arial.ttf', { family: 'ArialCustom' });
+} catch (e) {
+  console.warn('Aviso: Não foi possível registrar a fonte ArialCustom. Usando fallbacks do sistema.');
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // 🚨 ETAPA 1 — DEBUG DE DADOS (OBRIGATÓRIO)
+  console.log('BODY RECEBIDO:', req.body);
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { type, user, content } = req.body;
-    const username = user?.username || 'atleta';
-    const name = user?.name || 'Arena Fighter';
-    const avatarUrl = user?.avatar;
+    // 🚨 ETAPA 2 — GARANTIR DADOS VÁLIDOS
+    const { user = {}, content = {}, type = 'default' } = req.body;
+
+    const name = user.name || 'Atleta';
+    const username = user.username || 'usuario';
+    const title = content.title || 'Sem título';
+    const avatarUrl = user.avatar;
+    const contentImage = content.image || user.avatar || null;
     
-    const title = content?.title || 'ArenaComp';
-    const description = content?.description;
-    const score = content?.score || 0;
-    const city = content?.city || 'Brasil';
-    const date = content?.date;
-    const contentImage = content?.image;
+    const description = content.description;
+    const score = content.score || 0;
+    const city = content.city || 'Brasil';
+    const date = content.date;
+
+    // 🚨 ETAPA 6 — PROTEGER CONTRA CARD VAZIO
+    if (!name && !title) {
+      return res.status(400).json({
+        error: 'Dados insuficientes para gerar card'
+      });
+    }
+
+    // 🚨 ETAPA 7 — LOG DE TEXTO FINAL
+    console.log({ name, username, title });
 
     let highlight = '';
     switch (type) {
@@ -59,9 +81,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ctx.fillRect(0, 0, width, height);
 
     // 🏆 Branding Superior
+    // 🚨 ETAPA 5 — GARANTIR TEXTO VISÍVEL
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 70px Arial';
     ctx.textAlign = 'center';
+    
+    // 🚨 ETAPA 4 — FALLBACK SE FONTE FALHAR
+    const getFont = (style: string) => {
+      return `${style} ArialCustom, Arial, sans-serif`;
+    };
+
+    ctx.font = getFont('bold 70px');
     ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
     ctx.shadowBlur = 20;
     ctx.fillText('ARENACOMP', width / 2, 150);
@@ -128,42 +157,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ctx.arc(width / 2, 550, 220, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = 'bold 150px Arial';
+        ctx.font = getFont('bold 150px');
         ctx.fillText(name.charAt(0).toUpperCase(), width / 2, 600);
       }
     }
 
     // 🧾 Nome do Atleta
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 85px Arial';
+    ctx.font = getFont('bold 85px');
     ctx.fillText(name, width / 2, 1000);
 
     // @username
     ctx.fillStyle = '#1E90FF';
-    ctx.font = '50px Arial';
+    ctx.font = getFont('50px');
     ctx.fillText(`@${username}`, width / 2, 1080);
 
     // 🏆 Destaque Dinâmico
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 100px Arial';
+    ctx.font = getFont('bold 100px');
     ctx.fillText(highlight, width / 2, 1250);
 
     // 📊 Informações Adicionais (Score e Cidade)
     if (type === 'profile' || score > 0) {
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 60px Arial';
+      ctx.font = getFont('bold 60px');
       ctx.fillText(`SCORE: ${score}`, width / 2, 1400);
     }
 
     if (city && city !== 'Brasil') {
       ctx.fillStyle = '#AAAAAA';
-      ctx.font = '45px Arial';
+      ctx.font = getFont('45px');
       ctx.fillText(city, width / 2, 1480);
     }
 
     if (date) {
       ctx.fillStyle = '#AAAAAA';
-      ctx.font = '40px Arial';
+      ctx.font = getFont('40px');
       ctx.fillText(date, width / 2, 1550);
     }
 
@@ -171,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const textToDisplay = description || title;
     if (textToDisplay && textToDisplay !== 'ArenaComp') {
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'italic 40px Arial';
+      ctx.font = getFont('italic 40px');
       const words = textToDisplay.split(' ');
       let line = '';
       let y = 1650;
@@ -190,11 +219,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 🔻 Rodapé / CTA
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 45px Arial';
+    ctx.font = getFont('bold 45px');
     ctx.fillText('WWW.ARENACOMP.COM.BR', width / 2, 1800);
     
     ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-    ctx.font = '30px Arial';
+    ctx.font = getFont('30px');
     ctx.fillText('Siga sua jornada no ArenaComp', width / 2, 1850);
 
     const buffer = canvas.toBuffer('image/png');

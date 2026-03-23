@@ -10,6 +10,8 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
+import generateCardHandler from "./api/generate-card";
+
 // ... (Supabase config remains same)
 const rawUrl = process.env.VITE_SUPABASE_URL || 'https://vfefztzaiqhpsfnvpkba.supabase.co';
 const rawKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
@@ -195,6 +197,8 @@ async function startServer() {
   });
 
   // Location Endpoints
+  app.all("/api/generate-card", (req, res) => generateCardHandler(req as any, res as any));
+  
   app.get("/api/locations/states", async (req, res) => {
     try {
       const { data, error } = await supabase

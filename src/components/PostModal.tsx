@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { ShareModal } from './ShareModal';
 import { AchievementCard } from './AchievementCard';
-import { generateCard } from '../services/arenaService';
+import { generateCard, CardData } from '../services/arenaService';
 
 interface PostModalProps {
   post: ArenaPost | null;
@@ -26,14 +26,19 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
-  const [achievementData, setAchievementData] = useState({
+  const [achievementData, setAchievementData] = useState<CardData>({
     type: 'post',
-    username: '',
-    name: '',
-    score: 0,
-    city: '',
-    title: '',
-    avatarUrl: ''
+    user: {
+      name: '',
+      username: '',
+      avatar: ''
+    },
+    content: {
+      title: '',
+      description: '',
+      score: 0,
+      city: ''
+    }
   });
   const [shareModalData, setShareModalData] = useState<{
     title: string;
@@ -120,12 +125,18 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
       onGenerate: () => {
         setAchievementData({
           type: 'post',
-          username: post.author?.username || 'atleta',
-          name: post.author?.full_name || 'Atleta Arena',
-          score: post.author?.arena_score || 0,
-          city: post.author?.city || 'Brasil',
-          title: post.content?.substring(0, 100) || 'Postagem Arena',
-          avatarUrl: post.author?.profile_photo || post.author?.avatar_url
+          user: {
+            name: post.author?.full_name || 'Atleta Arena',
+            username: post.author?.username || 'atleta',
+            avatar: post.author?.profile_photo || post.author?.avatar_url || ''
+          },
+          content: {
+            title: '🏆 NOVA POSTAGEM',
+            description: post.content?.substring(0, 100) || 'Confira minha nova postagem na ArenaComp!',
+            score: post.author?.arena_score || 0,
+            city: post.author?.city || 'Brasil',
+            date: new Date(post.created_at).toLocaleDateString('pt-BR')
+          }
         });
         setIsAchievementCardOpen(true);
       }
