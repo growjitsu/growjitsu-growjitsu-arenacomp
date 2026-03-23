@@ -3,23 +3,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server.ts"
-    },
-    {
-      "source": "/gc",
-      "destination": "/server.ts"
-    },
-    {
-      "source": "/generate",
-      "destination": "/server.ts"
-    },
-    {
-      "source": "/generate-card-v3",
-      "destination": "/server.ts"
-    },
-    {
-      "source": "/post-receiver",
-      "destination": "/server.ts"
+      "destination": "/api/$1"
     },
     {
       "source": "/(.*)",

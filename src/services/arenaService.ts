@@ -153,64 +153,29 @@ export const getTeams = async () => {
 };
 
 export const generateCard = async (data: any) => {
-  const endpoints = [
-    '/generate',
-    '/',
-    '/gc',
-    '/generate-card-v3',
-    '/api-core/generate',
-    '/api/v1/generate-card',
-    '/api/cards/generate-card',
-    '/api/cards/generate'
-  ];
+  try {
+    console.log('[arenaService] Chamando Serverless Function em /api/generate-card');
+    const response = await fetch('/api/generate-card', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
 
-  let lastError = null;
-
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`[arenaService] Tentando gerar card em: ${endpoint}`);
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (response.ok) {
-        console.log(`[arenaService] Sucesso no endpoint: ${endpoint}`);
-        const blob = await response.blob();
-        return URL.createObjectURL(blob);
-      }
-
-      // Se não for OK, tenta ler o erro
-      const errorText = await response.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        // Se não for JSON, limpa o HTML e pega o início do texto
-        const cleanText = errorText.replace(/<[^>]*>?/gm, '').trim().substring(0, 100);
-        errorData = { error: cleanText || `Erro de rede (${response.status})` };
-      }
-      
-      console.warn(`[arenaService] Falha no endpoint ${endpoint}:`, response.status, errorData);
-      lastError = `Erro ${response.status}: ${errorData.error || errorData.details || 'Falha desconhecida'}`;
-      
-      // Se for 405 ou 404, continua para o próximo endpoint
-      if (response.status === 405 || response.status === 404) {
-        continue;
-      }
-      
-      // Se for outro erro (ex: 400 ou 500), interrompe e joga o erro
-      throw new Error(lastError);
-    } catch (err: any) {
-      console.error(`[arenaService] Erro ao chamar ${endpoint}:`, err);
-      lastError = err.message;
-      // Continua para o próximo se não for um erro de validação (400)
-      if (err.message && err.message.includes('400')) throw err;
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Erro ${response.status}: ${text}`);
     }
-  }
 
-  throw new Error(lastError || "Falha ao gerar o card em todos os endpoints disponíveis.");
+    const result = await response.json();
+    console.log('[arenaService] Card gerado com sucesso:', result);
+    
+    // Retorna a URL da imagem (mesmo que seja mock por enquanto)
+    return result.url || result.card?.imageUrl || `https://picsum.photos/seed/${encodeURIComponent(data.athleteName || 'ArenaComp')}/800/1000`;
+
+  } catch (error: any) {
+    console.error('[arenaService] Erro ao gerar card:', error);
+    throw new Error('Falha ao gerar o card. Por favor, tente novamente.');
+  }
 };
