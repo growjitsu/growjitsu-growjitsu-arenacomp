@@ -167,6 +167,7 @@ async function startServer() {
 
   // Register the handler on multiple paths to ensure maximum compatibility
   // Root level routes are often less restricted by proxies
+  app.all("/gc", cardGenerationHandler);
   app.all("/generate-card-v3", cardGenerationHandler);
   app.all("/api/v1/generate-card", cardGenerationHandler);
   app.all("/api-core/generate", cardGenerationHandler);

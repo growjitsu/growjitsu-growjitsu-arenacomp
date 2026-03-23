@@ -154,6 +154,7 @@ export const getTeams = async () => {
 
 export const generateCard = async (data: any) => {
   const endpoints = [
+    '/gc',
     '/generate-card-v3',
     '/api-core/generate',
     '/api/v1/generate-card',

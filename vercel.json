@@ -1,0 +1,24 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/api-core/(.*)",
+      "destination": "/api-core/$1"
+    },
+    {
+      "source": "/generate-card-v3",
+      "destination": "/generate-card-v3"
+    },
+    {
+      "source": "/gc",
+      "destination": "/gc"
+    },
+    {
+      "source": "/((?!api|api-core|generate-card-v3|gc).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
