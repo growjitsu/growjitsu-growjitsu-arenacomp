@@ -9,7 +9,7 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Supabase Configuration (Backend)
+// ... (Supabase config remains same)
 const rawUrl = process.env.VITE_SUPABASE_URL || 'https://vfefztzaiqhpsfnvpkba.supabase.co';
 const rawKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
 
@@ -25,15 +25,11 @@ const isValidUrl = (url: string) => {
 const supabaseUrl = isValidUrl(rawUrl) ? rawUrl : 'https://vfefztzaiqhpsfnvpkba.supabase.co';
 const supabaseKey = rawKey.length > 20 ? rawKey : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
 
-if (!isValidUrl(rawUrl)) {
-  console.warn("[BACKEND] Supabase URL invalid or missing, using fallback.");
-}
-
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const db = new Database("arenacomp.db");
 
-// Initialize Database
+// ... (Database init remains same)
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,9 +80,62 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // 1. Request Logging Middleware
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
+  // 2. CORS & OPTIONS Middleware
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
+  // 3. Body Parsing
   app.use(express.json({ limit: '50mb' }));
 
-  // API Routes
+  // 4. API Routes - DEFINED BEFORE VITE/STATIC
+  
+  // Card Generation Endpoint - Moved to top for priority
+  app.post(["/api/cards/generate", "/api/cards/generate/"], async (req, res) => {
+    console.log("[API] Recebida requisição para gerar card:", JSON.stringify(req.body).substring(0, 100) + "...");
+    try {
+      const cardData: CardData = req.body;
+      
+      if (!cardData.athleteName || !cardData.achievement) {
+        console.warn("[API] Dados incompletos para geração de card:", cardData);
+        return res.status(400).json({ error: "Missing required card data" });
+      }
+
+      console.log(`[API] Iniciando geração para ${cardData.athleteName}: ${cardData.achievement}`);
+      
+      const buffer = await CardGenerator.generateAchievementCard({
+        ...cardData,
+        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
+        title: cardData.title || "🏆 NOVA CONQUISTA",
+        modality: cardData.modality || "ATLETA ARENACOMP",
+        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
+      });
+
+      console.log("[API] Card gerado com sucesso, enviando buffer...");
+      res.set('Content-Type', 'image/png');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("[API] Erro crítico na geração de card:", error);
+      res.status(500).json({ 
+        error: "Failed to generate card", 
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  });
+
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "ArenaComp API is running" });
   });
@@ -268,40 +317,6 @@ async function startServer() {
     }
   });
 
-  // Card Generation Endpoint
-  app.post("/api/cards/generate", async (req, res) => {
-    console.log("[API] Recebida requisição para gerar card:", req.body);
-    try {
-      const cardData: CardData = req.body;
-      
-      if (!cardData.athleteName || !cardData.achievement) {
-        console.warn("[API] Dados incompletos para geração de card:", cardData);
-        return res.status(400).json({ error: "Missing required card data" });
-      }
-
-      console.log(`[API] Iniciando geração para ${cardData.athleteName}: ${cardData.achievement}`);
-      
-      const buffer = await CardGenerator.generateAchievementCard({
-        ...cardData,
-        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
-        title: cardData.title || "🏆 NOVA CONQUISTA",
-        modality: cardData.modality || "ATLETA ARENACOMP",
-        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
-      });
-
-      console.log("[API] Card gerado com sucesso, enviando buffer...");
-      res.set('Content-Type', 'image/png');
-      res.send(buffer);
-    } catch (error: any) {
-      console.error("[API] Erro crítico na geração de card:", error);
-      res.status(500).json({ 
-        error: "Failed to generate card", 
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  });
-
   // Mock Championship Data
   app.get("/api/championships", (req, res) => {
     try {
@@ -325,6 +340,9 @@ async function startServer() {
   // Global Error Handler (Standardizing all errors to JSON)
   app.use((err: any, req: any, res: any, next: any) => {
     console.error("[GLOBAL ERROR]", err);
+    if (res.headersSent) {
+      return next(err);
+    }
     res.status(err.status || 500).json({
       success: false,
       error: err.message || "Internal Server Error",
@@ -340,21 +358,12 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static("dist"));
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
     app.get("*", (req, res) => {
-      res.sendFile(path.resolve("dist/index.html"));
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
-
-  // Global Error Handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("[CRITICAL] Unhandled error:", err);
-    res.status(500).json({
-      success: false,
-      error: "Unhandled server error",
-      message: err.message
-    });
-  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`ArenaComp Server running on http://localhost:${PORT}`);
