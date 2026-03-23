@@ -248,13 +248,13 @@ export class CardGenerator {
       // Tentativa 2: Puppeteer padrão (Desenvolvimento ou Fallback)
       if (!browser) {
         try {
-          console.log('[CardGenerator] Tentando puppeteer padrão...');
-          const puppeteerFull = await import('puppeteer');
-          browser = await puppeteerFull.default.launch({
+          console.log('[CardGenerator] Tentando puppeteer-core padrão...');
+          const puppeteerFull = await import('puppeteer-core');
+          browser = await (puppeteerFull as any).default.launch({
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
             headless: true
           });
-          console.log('[CardGenerator] Browser iniciado com puppeteer padrão');
+          console.log('[CardGenerator] Browser iniciado com puppeteer-core padrão');
         } catch (err) {
           console.warn('[CardGenerator] Falha ao iniciar com puppeteer padrão:', err.message);
         }

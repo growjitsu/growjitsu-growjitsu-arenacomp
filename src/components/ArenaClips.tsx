@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { PostModal } from './PostModal';
 import { ShareModal } from './ShareModal';
 import { AchievementCard } from './AchievementCard';
-import { generateCard } from '../services/arenaService';
+import { generateCard, CardData } from '../services/arenaService';
 
 const ClipItem: React.FC<{ 
   post: ArenaPost; 
@@ -237,14 +237,19 @@ export const ArenaClips: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
-  const [achievementData, setAchievementData] = useState({
+  const [achievementData, setAchievementData] = useState<CardData>({
     type: 'clip',
-    username: '',
-    name: '',
-    score: 0,
-    city: '',
-    title: '',
-    avatarUrl: ''
+    user: {
+      name: '',
+      username: '',
+      avatar: ''
+    },
+    content: {
+      title: '',
+      description: '',
+      score: 0,
+      city: ''
+    }
   });
   const [shareModalData, setShareModalData] = useState<{
     title: string;
@@ -337,12 +342,18 @@ export const ArenaClips: React.FC = () => {
       onGenerate: () => {
         setAchievementData({
           type: 'clip',
-          username: post.author?.username || 'atleta',
-          name: post.author?.full_name || 'Atleta Arena',
-          score: post.author?.arena_score || 0,
-          city: post.author?.city || 'Brasil',
-          title: post.content?.substring(0, 100) || 'Clip Arena',
-          avatarUrl: post.author?.profile_photo || post.author?.avatar_url
+          user: {
+            name: post.author?.full_name || 'Atleta Arena',
+            username: post.author?.username || 'atleta',
+            avatar: post.author?.profile_photo || post.author?.avatar_url || ''
+          },
+          content: {
+            title: '🏆 NOVO CLIP',
+            description: post.content?.substring(0, 100) || 'Confira este novo clip na ArenaComp!',
+            score: post.author?.arena_score || 0,
+            city: post.author?.city || 'Brasil',
+            date: new Date(post.created_at).toLocaleDateString('pt-BR')
+          }
         });
         setIsAchievementCardOpen(true);
       }
