@@ -1,45 +1,23 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createCanvas, loadImage, registerFont } from 'canvas';
-
-// 🚨 ETAPA 3 — CORRIGIR FONTE DO CANVAS (CRÍTICO)
-try {
-  registerFont('/var/task/fonts/Arial.ttf', { family: 'ArialCustom' });
-} catch (e) {
-  console.warn('Aviso: Não foi possível registrar a fonte ArialCustom. Usando fallbacks do sistema.');
-}
+import { createCanvas, loadImage } from 'canvas';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // 🚨 ETAPA 1 — DEBUG DE DADOS (OBRIGATÓRIO)
-  console.log('BODY RECEBIDO:', req.body);
-
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // 🚨 ETAPA 2 — GARANTIR DADOS VÁLIDOS
-    const { user = {}, content = {}, type = 'default' } = req.body;
-
-    const name = user.name || 'Atleta';
-    const username = user.username || 'usuario';
-    const title = content.title || 'Sem título';
-    const avatarUrl = user.avatar;
-    const contentImage = content.image || user.avatar || null;
+    const { type, user, content } = req.body;
+    const username = user?.username || 'atleta';
+    const name = user?.name || 'Arena Fighter';
+    const avatarUrl = user?.avatar;
     
-    const description = content.description;
-    const score = content.score || 0;
-    const city = content.city || 'Brasil';
-    const date = content.date;
-
-    // 🚨 ETAPA 6 — PROTEGER CONTRA CARD VAZIO
-    if (!name && !title) {
-      return res.status(400).json({
-        error: 'Dados insuficientes para gerar card'
-      });
-    }
-
-    // 🚨 ETAPA 7 — LOG DE TEXTO FINAL
-    console.log({ name, username, title });
+    const title = content?.title || 'ArenaComp';
+    const description = content?.description;
+    const score = content?.score || 0;
+    const city = content?.city || 'Brasil';
+    const date = content?.date;
+    const contentImage = content?.image;
 
     let highlight = '';
     switch (type) {
@@ -81,16 +59,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ctx.fillRect(0, 0, width, height);
 
     // 🏆 Branding Superior
-    // 🚨 ETAPA 5 — GARANTIR TEXTO VISÍVEL
-    ctx.fillStyle = '#FFD700';
-    ctx.textAlign = 'center';
-    
-    // 🚨 ETAPA 4 — FALLBACK SE FONTE FALHAR
     const getFont = (style: string) => {
-      return `${style} ArialCustom, Arial, sans-serif`;
+      return `${style} Arial, sans-serif`;
     };
 
+    ctx.fillStyle = '#FFD700';
     ctx.font = getFont('bold 70px');
+    ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
     ctx.shadowBlur = 20;
     ctx.fillText('ARENACOMP', width / 2, 150);
@@ -98,68 +73,76 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 👤 Imagem de Destaque (Avatar ou Conteúdo)
     const mainImageUrl = contentImage || avatarUrl;
-    if (mainImageUrl) {
-      try {
-        const image = await loadImage(mainImageUrl);
-        ctx.save();
+    let image = null;
+
+    try {
+      if (mainImageUrl && mainImageUrl.startsWith('http')) {
+        image = await loadImage(mainImageUrl);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar imagem:', err);
+    }
+
+    if (image) {
+      ctx.save();
+      
+      if (contentImage && (type === 'post' || type === 'clip' || type === 'certificate')) {
+        // Para posts, clips e certificados, usamos um retângulo arredondado
+        const r = 40;
+        const x = 100;
+        const y = 300;
+        const w = 880;
+        const h = 600;
         
-        if (contentImage && (type === 'post' || type === 'clip' || type === 'certificate')) {
-          // Para posts, clips e certificados, usamos um retângulo arredondado
-          const r = 40;
-          const x = 100;
-          const y = 300;
-          const w = 880;
-          const h = 600;
-          
-          ctx.beginPath();
-          ctx.moveTo(x + r, y);
-          ctx.lineTo(x + w - r, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-          ctx.lineTo(x + w, y + h - r);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          ctx.lineTo(x + r, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-          ctx.lineTo(x, y + r);
-          ctx.quadraticCurveTo(x, y, x + r, y);
-          ctx.closePath();
-          
-          ctx.strokeStyle = '#FFD700';
-          ctx.lineWidth = 10;
-          ctx.stroke();
-          
-          ctx.clip();
-          // Aspect fill logic
-          const scale = Math.max(w / image.width, h / image.height);
-          const drawW = image.width * scale;
-          const drawH = image.height * scale;
-          const drawX = x + (w - drawW) / 2;
-          const drawY = y + (h - drawH) / 2;
-          ctx.drawImage(image, drawX, drawY, drawW, drawH);
-        } else {
-          // Para perfil, mantemos o círculo
-          ctx.beginPath();
-          ctx.arc(width / 2, 550, 220, 0, Math.PI * 2);
-          ctx.closePath();
-          
-          ctx.strokeStyle = '#FFD700';
-          ctx.lineWidth = 15;
-          ctx.stroke();
-          
-          ctx.clip();
-          ctx.drawImage(image, width / 2 - 220, 330, 440, 440);
-        }
-        ctx.restore();
-      } catch (err) {
-        console.error('[Serverless] Erro ao carregar imagem:', err);
-        // Fallback: Círculo com inicial
-        ctx.fillStyle = '#1E90FF';
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+        
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 10;
+        ctx.stroke();
+        
+        ctx.clip();
+        // Aspect fill logic
+        const scale = Math.max(w / image.width, h / image.height);
+        const drawW = image.width * scale;
+        const drawH = image.height * scale;
+        const drawX = x + (w - drawW) / 2;
+        const drawY = y + (h - drawH) / 2;
+        ctx.drawImage(image, drawX, drawY, drawW, drawH);
+      } else {
+        // Para perfil, mantemos o círculo
         ctx.beginPath();
         ctx.arc(width / 2, 550, 220, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#FFFFFF';
-        ctx.font = getFont('bold 150px');
-        ctx.fillText(name.charAt(0).toUpperCase(), width / 2, 600);
+        ctx.closePath();
+        
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 15;
+        ctx.stroke();
+        
+        ctx.clip();
+        ctx.drawImage(image, width / 2 - 220, 330, 440, 440);
       }
+      ctx.restore();
+    }
+
+    if (!image) {
+      ctx.fillStyle = '#1E90FF';
+      ctx.beginPath();
+      ctx.arc(width / 2, 550, 220, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = getFont('bold 120px');
+      ctx.fillText(name.charAt(0).toUpperCase(), width / 2, 600);
     }
 
     // 🧾 Nome do Atleta
