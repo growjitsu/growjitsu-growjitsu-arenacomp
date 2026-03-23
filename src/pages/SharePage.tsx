@@ -76,16 +76,9 @@ export const SharePage = () => {
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-[#111] rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden mb-8"
+        className="w-full max-w-[320px] bg-[#111] rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden mb-8"
       >
-        <CardPreview 
-          athleteName={cardData.athleteName}
-          achievement={cardData.achievement}
-          modality={cardData.modality}
-          date={cardData.date}
-          profileUrl={cardData.profileUrl}
-          mainImageUrl={cardData.mainImageUrl}
-        />
+        <CardPreview data={cardData} />
       </motion.div>
 
       {/* Actions */}

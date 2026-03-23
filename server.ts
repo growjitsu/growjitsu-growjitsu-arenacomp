@@ -429,7 +429,7 @@ async function startServer() {
   });
 
   // 4. OG Tag Injection for Share Links
-  app.get("/share/:id", async (req, res) => {
+  app.get("/share/:id", async (req, res, next) => {
     const { id } = req.params;
     let cardData: any = null;
 
@@ -463,9 +463,8 @@ async function startServer() {
     `;
 
     if (process.env.NODE_ENV !== "production") {
-      // In dev, we can't easily inject into Vite's index.html without more complex setup
-      // So we just redirect to the frontend route and let it handle it (no OG tags in dev)
-      return res.redirect(`/share/${id}`);
+      // In dev, we let the Vite middleware handle the SPA routing
+      return next();
     } else {
       try {
         const fs = await import("fs");
