@@ -429,7 +429,7 @@ async function startServer() {
   });
 
   // 4. OG Tag Injection for Share Links
-  app.get("/share/:id", async (req, res, next) => {
+  app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
     const { id } = req.params;
     let cardData: any = null;
 

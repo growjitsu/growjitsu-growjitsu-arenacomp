@@ -471,7 +471,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
           achievement: post.content || 'Compartilhou um post',
           modality: 'Feed',
           date: new Date(post.created_at).toLocaleDateString(),
-          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`
+          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
+          type: 'post',
+          realId: post.id
         });
         setIsAchievementCardOpen(true);
       }

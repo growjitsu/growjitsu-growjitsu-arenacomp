@@ -7,7 +7,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 
 export const SharePage = () => {
-  const { id } = useParams<{ id: string }>();
+  const { type, id } = useParams<{ type?: string; id: string }>();
   const navigate = useNavigate();
   const [cardData, setCardData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -17,14 +17,26 @@ export const SharePage = () => {
 
     try {
       // Decode Base64 data from ID
-      // The ID is expected to be a base64 encoded JSON string
       const decodedData = JSON.parse(atob(id));
       setCardData(decodedData);
+
+      // Redirection logic as requested
+      const contentType = type || decodedData.type;
+      const realId = decodedData.realId;
+
+      if (realId && contentType) {
+        // Redirection logic as requested
+        if (contentType === 'post') navigate(`/post/${realId}`);
+        else if (contentType === 'certificate') navigate(`/certificate/${realId}`);
+        else if (contentType === 'clip') navigate(`/clip/${realId}`);
+        else if (contentType === 'profile') navigate(`/profile/${realId}`);
+        else navigate('/');
+      }
     } catch (err) {
       console.error('Erro ao decodificar dados do card:', err);
       setError('Link de compartilhamento inválido ou expirado.');
     }
-  }, [id]);
+  }, [id, type, navigate]);
 
   if (error) {
     return (

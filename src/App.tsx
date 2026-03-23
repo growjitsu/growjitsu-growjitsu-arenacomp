@@ -330,6 +330,10 @@ export default function App() {
       <Route path="/settings" element={renderLayout(<ArenaSettings />, 'settings')} />
       <Route path="/gyms" element={renderLayout(<div className="flex items-center justify-center h-screen text-[var(--text-muted)] uppercase font-black tracking-widest">Módulo de Academias em Breve</div>, 'gyms')} />
       
+      <Route path="/post/:id" element={<Navigate to="/" replace />} />
+      <Route path="/clip/:id" element={<Navigate to="/clips" replace />} />
+      <Route path="/certificate/:id" element={<Navigate to="/profile" replace />} />
+      <Route path="/share/:type/:id" element={<SharePage />} />
       <Route path="/share/:id" element={<SharePage />} />
 
       {/* Admin Routes */}

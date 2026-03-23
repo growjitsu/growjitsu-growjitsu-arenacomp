@@ -56,20 +56,31 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ data, className = "" }
         </div>
 
         {/* Content */}
-        <div className="flex-grow flex flex-col justify-center space-y-4">
+        <div className="flex-grow flex flex-col justify-center space-y-4 px-6">
           <div className="space-y-1">
-            <h1 className="text-5xl font-black uppercase leading-[0.85] text-white tracking-tighter drop-shadow-2xl">
+            <h1 
+              className="font-black uppercase leading-[0.85] text-white tracking-tighter drop-shadow-2xl break-words text-center"
+              style={{ fontSize: 'clamp(32px, 6vw, 72px)' }}
+            >
               {athleteName}
             </h1>
-            <div className="inline-block px-3 py-1 bg-[#D4AF37] rounded-md">
-              <span className="text-[10px] font-black text-black uppercase tracking-widest">
-                {modality}
-              </span>
+            <div className="flex justify-center">
+              <div className="inline-block px-3 py-1 bg-[#D4AF37] rounded-md">
+                <span className="text-[10px] font-black text-black uppercase tracking-widest">
+                  {modality}
+                </span>
+              </div>
             </div>
           </div>
           
-          <div className="max-w-[90%]">
-            <p className="text-2xl font-black uppercase italic text-white leading-tight drop-shadow-lg">
+          <div className="max-w-full text-center">
+            <p 
+              className="font-black uppercase italic text-white drop-shadow-lg break-words"
+              style={{ 
+                fontSize: 'clamp(18px, 3vw, 32px)',
+                lineHeight: '1.3'
+              }}
+            >
               "{achievement}"
             </p>
           </div>

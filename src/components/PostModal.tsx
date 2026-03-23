@@ -123,7 +123,9 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
           achievement: post.content || 'Compartilhou um post',
           modality: 'Feed',
           date: new Date(post.created_at).toLocaleDateString(),
-          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`
+          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
+          type: 'post',
+          realId: post.id
         });
         setIsAchievementCardOpen(true);
       }

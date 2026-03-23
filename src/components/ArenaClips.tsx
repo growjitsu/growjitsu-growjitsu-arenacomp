@@ -340,7 +340,9 @@ export const ArenaClips: React.FC = () => {
           achievement: post.content || 'Publicou um novo clip',
           modality: 'Clip',
           date: new Date(post.created_at).toLocaleDateString(),
-          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`
+          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
+          type: 'clip',
+          realId: post.id
         });
         setIsAchievementCardOpen(true);
       }

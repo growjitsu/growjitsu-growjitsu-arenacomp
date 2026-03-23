@@ -925,7 +925,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
         achievement: `Recebeu o certificado: ${file.name.split('.')[0].toUpperCase()}`,
         modality: profile.modality || 'Jiu-Jitsu',
         date: new Date().toLocaleDateString(),
-        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+        profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+        type: 'certificate',
+        realId: certData?.[0]?.id || ''
       });
       setIsAchievementCardOpen(true);
 
@@ -1126,7 +1128,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         achievement: 'Confira meu perfil na ArenaComp!',
                         modality: profile.modality || 'Jiu-Jitsu',
                         date: new Date().toLocaleDateString(),
-                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                        profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+                        type: 'profile',
+                        realId: profile.id
                       });
                       setIsAchievementCardOpen(true);
                     }

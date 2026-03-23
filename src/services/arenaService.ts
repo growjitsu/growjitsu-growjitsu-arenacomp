@@ -160,6 +160,8 @@ export interface CardData {
   date?: string;
   profileUrl: string;
   mainImageUrl?: string;
+  type?: 'post' | 'certificate' | 'clip' | 'profile';
+  realId?: string;
 }
 
 export const generateCard = async (data: CardData) => {
@@ -172,11 +174,12 @@ export const generateCard = async (data: CardData) => {
 
   try {
     // Encode data to Base64 to create a shareable ID
-    // In a real app, you might save this to a database and get a real ID
     const jsonString = JSON.stringify(data);
-    const base64Id = btoa(jsonString);
+    const base64Data = btoa(jsonString);
     
-    const shareUrl = `${window.location.origin}/share/${base64Id}`;
+    // Use the new format /share/${type}/${id}
+    const type = data.type || 'post';
+    const shareUrl = `${window.location.origin}/share/${type}/${base64Data}`;
     console.log('[arenaService] URL de compartilhamento gerada:', shareUrl);
     
     return shareUrl;
