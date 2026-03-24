@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { User, Calendar, Weight, Users, ShieldCheck, ExternalLink, AlertCircle, Save, Loader2, VenusAndMars } from 'lucide-react';
+import { User, Calendar, Weight, Users, ShieldCheck, ExternalLink, AlertCircle, Save, Loader2, VenusAndMars, Award } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { AthleteProfile, Belt, Gender, Equipe } from '../types';
+import { getAutomaticCategorization } from '../services/categorization';
 
 interface AthleteProfileFormProps {
   userId: string;
@@ -33,6 +34,30 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     city_id: '',
     perfil_completo: false
   });
+
+  const [autoCategory, setAutoCategory] = useState({
+    ageCategory: '',
+    weightCategory: '',
+    fullCategory: ''
+  });
+
+  useEffect(() => {
+    if (profile.data_nascimento && profile.genero && profile.peso_kg > 0) {
+      const result = getAutomaticCategorization(profile.data_nascimento, profile.genero, profile.peso_kg);
+      setAutoCategory({
+        ageCategory: result.ageCategory,
+        weightCategory: result.weightCategory,
+        fullCategory: result.fullCategory
+      });
+      
+      console.log('[AUTO CATEGORY]', {
+        weight: profile.peso_kg,
+        gender: profile.genero,
+        birthDate: profile.data_nascimento,
+        category: result.fullCategory
+      });
+    }
+  }, [profile.peso_kg, profile.genero, profile.data_nascimento]);
 
   useEffect(() => {
     fetchProfile();
@@ -127,6 +152,8 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     try {
       const payload = {
         ...profile,
+        categoria_idade: autoCategory.ageCategory,
+        categoria_peso: autoCategory.weightCategory,
         usuario_id: userId,
         perfil_completo: true,
         atualizado_em: new Date().toISOString()
@@ -224,15 +251,17 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
             {/* Gênero */}
             <div>
               <label className="label-standard">
-                Gênero
+                Sexo / Gênero <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <VenusAndMars className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
                 <select
-                  value={profile.genero}
+                  required
+                  value={profile.genero || ''}
                   onChange={(e) => setProfile({ ...profile, genero: e.target.value as Gender })}
                   className="input-standard pl-12"
                 >
+                  <option value="">Selecione o sexo</option>
                   <option value="Masculino">Masculino</option>
                   <option value="Feminino">Feminino</option>
                 </select>
@@ -275,18 +304,41 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
             {/* Peso */}
             <div>
               <label className="label-standard">
-                Peso (kg)
+                Peso (kg) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Weight className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
                 <input
+                  required
                   type="number"
                   step="0.1"
                   value={profile.peso_kg || ''}
-                  onChange={(e) => setProfile({ ...profile, peso_kg: parseFloat(e.target.value) })}
+                  onChange={(e) => setProfile({ ...profile, peso_kg: parseFloat(e.target.value) || 0 })}
                   className="input-standard pl-12"
                   placeholder="0.0"
                 />
+              </div>
+            </div>
+
+            {/* Categoria Automática */}
+            <div className="md:col-span-2">
+              <div className="p-4 bg-bjj-blue/5 border border-bjj-blue/20 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-bjj-blue/10 rounded-lg flex items-center justify-center text-bjj-blue">
+                    <Award size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-bjj-blue">Categoria Identificada</p>
+                    <p className="text-sm font-bold text-[var(--text-main)]">
+                      {autoCategory.fullCategory || 'Preencha peso, sexo e nascimento'}
+                    </p>
+                  </div>
+                </div>
+                {autoCategory.fullCategory && (
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Confirmada</p>
+                  </div>
+                )}
               </div>
             </div>
 

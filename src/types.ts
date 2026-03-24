@@ -9,6 +9,7 @@ export interface ArenaProfile {
   full_name: string;
   nickname?: string;
   role: UserRole;
+  genero?: Gender;
   modality?: string;
   category?: string;
   weight?: number;
@@ -203,6 +204,8 @@ export interface AthleteProfile {
   graduacao: string;
   data_nascimento: string;
   peso_kg: number;
+  categoria_idade?: string;
+  categoria_peso?: string;
   equipe: string;
   equipe_id?: string;
   perfil_completo: boolean;
