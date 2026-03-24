@@ -4,7 +4,8 @@ import { X, Trophy, Target, MapPin, Calendar, User, Save, Camera, Award, Shield,
 import { supabase } from '../services/supabase';
 import { modalities, ageCategories, belts } from '../utils/data';
 import { calculateAndUpdateStats } from '../services/arenaService';
-import { ChampionshipPlacement, ArenaChampionshipResult } from '../types';
+import { getWeightCategory } from '../services/categorization';
+import { ChampionshipPlacement, ArenaChampionshipResult, Gender } from '../types';
 
 interface RegisterChampionshipModalProps {
   isOpen: boolean;
@@ -20,6 +21,28 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.foto_podio_url || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [athleteGender, setAthleteGender] = useState<Gender | null>(null);
+
+  useEffect(() => {
+    if (isOpen && athleteId) {
+      const fetchGender = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('atletas')
+            .select('genero')
+            .eq('usuario_id', athleteId)
+            .maybeSingle();
+          
+          if (data) {
+            setAthleteGender(data.genero as Gender);
+          }
+        } catch (err) {
+          console.error('Erro ao buscar gênero do atleta:', err);
+        }
+      };
+      fetchGender();
+    }
+  }, [isOpen, athleteId]);
 
   const [formData, setFormData] = useState({
     championship_name: initialData?.championship_name || '',
@@ -70,15 +93,8 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
     if (ageCategory.includes('ABS')) return 'Absoluto';
     if (modality !== 'Jiu Jitsu') return formData.peso;
     
-    if (weight <= 57) return 'Galo';
-    if (weight <= 64) return 'Pluma';
-    if (weight <= 70) return 'Pena';
-    if (weight <= 76) return 'Leve';
-    if (weight <= 82) return 'Médio';
-    if (weight <= 88) return 'Meio Pesado';
-    if (weight <= 94) return 'Pesado';
-    if (weight <= 100) return 'Super Pesado';
-    return 'Pesadíssimo';
+    // Usar lógica centralizada que agora suporta feminino corretamente
+    return getWeightCategory(athleteGender || 'Masculino', weight, ageCategory);
   };
 
   const handleWeightChange = (val: string) => {

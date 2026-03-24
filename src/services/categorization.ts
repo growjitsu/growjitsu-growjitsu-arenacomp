@@ -1,10 +1,13 @@
 import { AthleteProfile, Gender, Belt } from '../types';
 
-export const calculateCompetitiveAge = (birthDate: string): number => {
+export const getCompetitionAge = (birthDate: string): number => {
   const birthYear = new Date(birthDate).getFullYear();
   const currentYear = new Date().getFullYear();
   return currentYear - birthYear;
 };
+
+// Alias for backward compatibility if needed, though only used in this file
+export const calculateCompetitiveAge = getCompetitionAge;
 
 export const getAgeCategory = (age: number): string => {
   if (age <= 5) return 'PRÉ MIRIM';
@@ -23,8 +26,18 @@ export const getAgeCategory = (age: number): string => {
   return 'MASTER 6';
 };
 
+const getFemaleCategoryAdult = (weight: number) => {
+  if (weight <= 48.5) return 'Galo';
+  if (weight <= 53.5) return 'Pluma';
+  if (weight <= 58.5) return 'Pena';
+  if (weight <= 64.0) return 'Leve';
+  if (weight <= 69.0) return 'Médio';
+  if (weight <= 74.0) return 'Meio-Pesado';
+  if (weight <= 79.3) return 'Pesado';
+  return 'Super-Pesado';
+};
+
 // Simplified IBJJF-like weight classes for Adult/Master (Gi)
-// In a real app, this would be a complex table lookup
 export const getWeightCategory = (gender: Gender, weight: number, ageCategory: string): string => {
   const isAdultOrMaster = ageCategory.includes('ADULTO') || ageCategory.includes('MASTER');
   
@@ -47,14 +60,7 @@ export const getWeightCategory = (gender: Gender, weight: number, ageCategory: s
   } else {
     // Feminino
     if (isAdultOrMaster) {
-      if (weight <= 48.5) return 'Galo';
-      if (weight <= 53.5) return 'Pluma';
-      if (weight <= 58.5) return 'Pena';
-      if (weight <= 64.0) return 'Leve';
-      if (weight <= 69.0) return 'Médio';
-      if (weight <= 74.0) return 'Meio-Pesado';
-      if (weight <= 79.3) return 'Pesado';
-      return 'Super-Pesado';
+      return getFemaleCategoryAdult(weight);
     }
     if (weight <= 45) return 'Pena';
     if (weight <= 55) return 'Leve';
@@ -62,10 +68,37 @@ export const getWeightCategory = (gender: Gender, weight: number, ageCategory: s
   }
 };
 
-export const getAutomaticCategorization = (birthDate: string, gender: Gender, weight: number) => {
-  const age = calculateCompetitiveAge(birthDate);
+export const getAutomaticCategorization = (birthDate: string, gender: string, weight: number) => {
+  console.log('--- DEBUG CATEGORIZAÇÃO ---');
+  console.log('Input:', { birthDate, gender, weight });
+
+  const age = getCompetitionAge(birthDate);
   const ageCat = getAgeCategory(age);
-  const weightCat = getWeightCategory(gender, weight, ageCat);
+  
+  let weightCat = 'Galo'; // default
+
+  // Normalizar gênero para evitar erros de case
+  const normalizedGender = gender?.toLowerCase();
+
+  if (normalizedGender === 'feminino' || normalizedGender === 'female') {
+    console.log('Aplicando regra feminina');
+    const isAdultOrMaster = ageCat.includes('ADULTO') || ageCat.includes('MASTER');
+    
+    if (isAdultOrMaster) {
+      weightCat = getFemaleCategoryAdult(weight);
+    } else {
+      // Regras para categorias de base feminina (simplificado)
+      if (weight <= 45) weightCat = 'Pena';
+      else if (weight <= 55) weightCat = 'Leve';
+      else weightCat = 'Pesado';
+    }
+  } else {
+    // Manter lógica masculina intacta
+    console.log('Aplicando regra masculina');
+    weightCat = getWeightCategory('Masculino', weight, ageCat);
+  }
+
+  console.log('Resultado:', { age, ageCat, weightCat });
   
   return {
     competitiveAge: age,
