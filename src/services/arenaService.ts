@@ -164,6 +164,13 @@ export interface CardData {
   realId?: string;
 }
 
+export const generateShareLink = ({ type, id }: { type: string; id: string }) => {
+  if (!type || !id) {
+    throw new Error('Dados inválidos para gerar link');
+  }
+  return `${window.location.origin}/share/${type}/${id}`;
+};
+
 export const generateCard = async (data: CardData) => {
   console.log('🚀 Gerando URL de compartilhamento para o card:', data);
   
@@ -172,15 +179,22 @@ export const generateCard = async (data: CardData) => {
     throw new Error('Dados inválidos para geração do card');
   }
 
+  // Se tivermos o realId e o type, usamos o novo formato curto para evitar URI_TOO_LONG
+  if (data.type && data.realId) {
+    const shareUrl = generateShareLink({ type: data.type, id: data.realId });
+    console.log('[arenaService] URL curta gerada:', shareUrl);
+    return shareUrl;
+  }
+
   try {
-    // Encode data to Base64 to create a shareable ID
+    // Encode data to Base64 to create a shareable ID (Fallback para compatibilidade)
     const jsonString = JSON.stringify(data);
     const base64Data = btoa(jsonString);
     
     // Use the new format /share/${type}/${id}
     const type = data.type || 'post';
     const shareUrl = `${window.location.origin}/share/${type}/${base64Data}`;
-    console.log('[arenaService] URL de compartilhamento gerada:', shareUrl);
+    console.log('[arenaService] URL de compartilhamento gerada (Base64):', shareUrl);
     
     return shareUrl;
   } catch (error: any) {

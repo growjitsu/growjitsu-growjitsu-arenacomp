@@ -1,56 +1,189 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CardPreview } from '../components/CardPreview';
-import { Trophy, ArrowLeft, Share2, Download } from 'lucide-react';
+import { Trophy, ArrowLeft, Share2, Download, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
-
+import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
 export const SharePage = () => {
   const { type, id } = useParams<{ type?: string; id: string }>();
   const navigate = useNavigate();
   const [cardData, setCardData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
 
-    try {
-      // Decode Base64 data from ID
-      const decodedData = JSON.parse(atob(id));
-      setCardData(decodedData);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        let data: any = null;
 
-      // Redirection logic as requested
-      const contentType = type || decodedData.type;
-      const realId = decodedData.realId;
+        // 1. Tenta decodificar como Base64 (formato antigo/fallback)
+        if (id.length > 50) {
+          try {
+            data = JSON.parse(atob(id));
+            console.log('Dados decodificados via Base64:', data);
+          } catch (e) {
+            console.log('ID longo mas não é Base64 JSON válido');
+          }
+        }
 
-      if (realId && contentType) {
-        // Redirection logic as requested
-        if (contentType === 'post') navigate(`/post/${realId}`);
-        else if (contentType === 'certificate') navigate(`/certificate/${realId}`);
-        else if (contentType === 'clip') navigate(`/clip/${realId}`);
-        else if (contentType === 'profile') navigate(`/profile/${realId}`);
-        else if (contentType === 'championship' || contentType === 'fight') {
-          // Redirect to profile since these are part of the profile view
-          if (decodedData.profileUrl) {
-            const usernameMatch = decodedData.profileUrl.match(/@([^/]+)/);
-            if (usernameMatch) {
-              navigate(`/profile/@${usernameMatch[1]}`);
-            } else {
-              navigate('/');
+        // 2. Se não decodificou ou se temos um type explícito, busca via API/Supabase
+        if (!data && type) {
+          console.log(`Buscando dados via API para type: ${type}, id: ${id}`);
+          
+          if (type === 'post' || type === 'clip') {
+            const { data: post } = await supabase
+              .from('posts')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (post) {
+              data = {
+                athleteName: post.profiles?.full_name || 'Atleta Arena',
+                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+                modality: post.profiles?.modality || 'Feed',
+                date: new Date(post.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/@${post.profiles?.username}`,
+                mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+                type: type,
+                realId: id
+              };
             }
+          } else if (type === 'profile') {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', id)
+              .single();
+            
+            if (profile) {
+              data = {
+                athleteName: profile.full_name || 'Atleta Arena',
+                achievement: 'Confira meu perfil na ArenaComp!',
+                modality: profile.modality || 'Atleta',
+                date: new Date().toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/@${profile.username}`,
+                mainImageUrl: profile.profile_photo,
+                type: 'profile',
+                realId: id
+              };
+            }
+          } else if (type === 'certificate') {
+            const { data: cert } = await supabase
+              .from('certificates')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (cert) {
+              data = {
+                athleteName: cert.profiles?.full_name || 'Atleta Arena',
+                achievement: `Certificado: ${cert.name}`,
+                modality: cert.profiles?.modality || 'Atleta',
+                date: new Date(cert.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/@${cert.profiles?.username}`,
+                mainImageUrl: cert.media_url,
+                type: 'certificate',
+                realId: id
+              };
+            }
+          } else if (type === 'championship') {
+             const { data: champ } = await supabase
+              .from('championship_results')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (champ) {
+              data = {
+                athleteName: champ.profiles?.full_name || 'Atleta Arena',
+                achievement: `${champ.resultado} no ${champ.evento}`,
+                modality: champ.profiles?.modality || 'Atleta',
+                date: new Date(champ.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/@${champ.profiles?.username}`,
+                mainImageUrl: champ.media_url,
+                type: 'championship',
+                realId: id
+              };
+            }
+          } else if (type === 'fight') {
+             const { data: fight } = await supabase
+              .from('fights')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (fight) {
+              data = {
+                athleteName: fight.profiles?.full_name || 'Atleta Arena',
+                achievement: `Luta no ${fight.evento}`,
+                modality: fight.profiles?.modality || 'Atleta',
+                date: new Date(fight.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/@${fight.profiles?.username}`,
+                mainImageUrl: fight.media_url,
+                type: 'fight',
+                realId: id
+              };
+            }
+          }
+        }
+
+        if (data) {
+          setCardData(data);
+        } else {
+          setError('Conteúdo não encontrado ou link inválido.');
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados do card:', err);
+        setError('Falha ao carregar informações de compartilhamento.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [id, type]);
+
+  const handleRedirect = () => {
+    if (!cardData) return;
+
+    const contentType = cardData.type;
+    const realId = cardData.realId;
+
+    if (realId && contentType) {
+      if (contentType === 'post') navigate(`/post/${realId}`);
+      else if (contentType === 'certificate') navigate(`/certificate/${realId}`);
+      else if (contentType === 'clip') navigate(`/clip/${realId}`);
+      else if (contentType === 'profile') navigate(`/profile/${realId}`);
+      else if (contentType === 'championship' || contentType === 'fight') {
+        if (cardData.profileUrl) {
+          const usernameMatch = cardData.profileUrl.match(/@([^/]+)/);
+          if (usernameMatch) {
+            navigate(`/profile/@${usernameMatch[1]}`);
           } else {
             navigate('/');
           }
+        } else {
+          navigate('/');
         }
-        else navigate('/');
       }
-    } catch (err) {
-      console.error('Erro ao decodificar dados do card:', err);
-      setError('Link de compartilhamento inválido ou expirado.');
+      else navigate('/');
     }
-  }, [id, type, navigate]);
+  };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 text-[#0066FF] animate-spin" />
+        <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Carregando Conquista...</p>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-6 text-center">
@@ -108,6 +241,14 @@ export const SharePage = () => {
 
       {/* Actions */}
       <div className="w-full max-w-md grid grid-cols-1 gap-4">
+        <button 
+          onClick={handleRedirect}
+          className="w-full py-4 bg-white/10 text-white border border-white/20 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-white/20 transition-all flex items-center justify-center space-x-3"
+        >
+          <Trophy size={18} />
+          <span>Ver Conteúdo Original</span>
+        </button>
+
         <button 
           onClick={() => {
             if (navigator.share) {

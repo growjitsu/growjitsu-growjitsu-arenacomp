@@ -59,8 +59,17 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ data, className = "" }
         <div className="flex-grow flex flex-col justify-center space-y-4 px-6">
           <div className="space-y-1">
             <h1 
-              className="font-black uppercase leading-[0.85] text-white tracking-tighter drop-shadow-2xl break-words text-center"
-              style={{ fontSize: 'clamp(32px, 6vw, 72px)' }}
+              className="font-black uppercase leading-[0.85] text-white tracking-tighter drop-shadow-2xl text-center"
+              style={{ 
+                fontSize: 'clamp(24px, 4vw, 56px)',
+                maxWidth: '85%',
+                wordBreak: 'break-word',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+                margin: '0 auto'
+              }}
             >
               {athleteName}
             </h1>

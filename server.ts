@@ -430,23 +430,110 @@ async function startServer() {
 
   // 4. OG Tag Injection for Share Links
   app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
-    const { id } = req.params;
+    const { id, type } = req.params;
     let cardData: any = null;
 
     try {
-      // Decode the Base64 ID
-      const jsonString = Buffer.from(id, 'base64').toString('utf-8');
-      cardData = JSON.parse(jsonString);
+      // 1. Tenta decodificar como Base64 (formato antigo/fallback)
+      if (id.length > 50) {
+        try {
+          const jsonString = Buffer.from(id, 'base64').toString('utf-8');
+          cardData = JSON.parse(jsonString);
+        } catch (e) {
+          console.log("[OG-TAGS] ID longo mas não é Base64 JSON válido");
+        }
+      }
+
+      // 2. Se não decodificou e temos type, busca no Supabase
+      if (!cardData && type) {
+        console.log(`[OG-TAGS] Buscando dados no Supabase para type: ${type}, id: ${id}`);
+        
+        if (type === 'post' || type === 'clip') {
+          const { data: post } = await supabase
+            .from('posts')
+            .select('*, profiles(username, full_name, profile_photo, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (post) {
+            cardData = {
+              athleteName: post.profiles?.full_name || 'Atleta Arena',
+              achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+              mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+              title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp'
+            };
+          }
+        } else if (type === 'profile') {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', id)
+            .single();
+          
+          if (profile) {
+            cardData = {
+              athleteName: profile.full_name || 'Atleta Arena',
+              achievement: 'Confira meu perfil na ArenaComp!',
+              mainImageUrl: profile.profile_photo,
+              title: 'Perfil ArenaComp'
+            };
+          }
+        } else if (type === 'certificate') {
+          const { data: cert } = await supabase
+            .from('certificates')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (cert) {
+            cardData = {
+              athleteName: cert.profiles?.full_name || 'Atleta Arena',
+              achievement: `Certificado: ${cert.name}`,
+              mainImageUrl: cert.media_url,
+              title: 'Certificado ArenaComp'
+            };
+          }
+        } else if (type === 'championship') {
+           const { data: champ } = await supabase
+            .from('championship_results')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (champ) {
+            cardData = {
+              athleteName: champ.profiles?.full_name || 'Atleta Arena',
+              achievement: `${champ.resultado} no ${champ.evento}`,
+              mainImageUrl: champ.media_url,
+              title: 'Conquista ArenaComp'
+            };
+          }
+        } else if (type === 'fight') {
+           const { data: fight } = await supabase
+            .from('fights')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (fight) {
+            cardData = {
+              athleteName: fight.profiles?.full_name || 'Atleta Arena',
+              achievement: `Luta no ${fight.evento}`,
+              mainImageUrl: fight.media_url,
+              title: 'Luta ArenaComp'
+            };
+          }
+        }
+      }
     } catch (err) {
-      console.error("[OG-TAGS] Erro ao decodificar ID:", err);
+      console.error("[OG-TAGS] Erro ao carregar dados para OG tags:", err);
     }
 
     const title = cardData?.title || "Conquista ArenaComp";
     const description = `${cardData?.athleteName || "Atleta"} conquistou ${cardData?.achievement || "um novo marco"} na ArenaComp! 🔥`;
     // For the image, we can use a generic one or the athlete's photo if available
-    // Ideally, we'd have a way to generate a thumbnail, but for now, let's use a brand image
     const imageUrl = cardData?.mainImageUrl || "https://arenacomp.com.br/og-image.png"; 
-    const url = `${process.env.APP_URL || 'https://arenacomp.com.br'}/share/${id}`;
+    const url = `${process.env.APP_URL || 'https://arenacomp.com.br'}/share/${type ? type + '/' : ''}${id}`;
 
     const ogTags = `
       <title>${title}</title>
