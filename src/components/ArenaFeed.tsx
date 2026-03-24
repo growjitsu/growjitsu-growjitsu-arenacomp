@@ -461,6 +461,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   const handleShare = async (post: ArenaPost) => {
+    console.log('🔗 SHARE DATA:', {
+      type: 'post',
+      id: post.id,
+      fullData: post
+    });
     const shareUrl = `${window.location.origin}/share/post/${post.id}`;
     
     setShareModalData({

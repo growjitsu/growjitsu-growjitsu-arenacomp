@@ -110,7 +110,12 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
 
   const handleShare = async () => {
     if (!post) return;
-    const shareUrl = `${window.location.origin}/?post=${post.id}`;
+    console.log('🔗 SHARE DATA:', {
+      type: 'post',
+      id: post.id,
+      fullData: post
+    });
+    const shareUrl = `${window.location.origin}/share/post/${post.id}`;
     
     setShareModalData({
       title: 'Compartilhar Postagem',

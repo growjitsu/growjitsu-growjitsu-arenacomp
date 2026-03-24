@@ -38,17 +38,23 @@ export const SharePage = () => {
           if (type === 'post' || type === 'clip') {
             const { data: post } = await supabase
               .from('posts')
-              .select('*, profiles(username, full_name, profile_photo, modality)')
+              .select('*')
               .eq('id', id)
               .single();
             
             if (post) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('username, full_name, profile_photo, modality')
+                .eq('id', post.author_id)
+                .single();
+
               data = {
-                athleteName: post.profiles?.full_name || 'Atleta Arena',
+                athleteName: profile?.full_name || 'Atleta Arena',
                 achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-                modality: post.profiles?.modality || 'Feed',
+                modality: profile?.modality || 'Feed',
                 date: new Date(post.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${post.profiles?.username}`,
+                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
                 type: type,
                 realId: id
@@ -76,17 +82,23 @@ export const SharePage = () => {
           } else if (type === 'certificate') {
             const { data: cert } = await supabase
               .from('certificates')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*')
               .eq('id', id)
               .single();
             
             if (cert) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('username, full_name, modality')
+                .eq('id', cert.athlete_id)
+                .single();
+
               data = {
-                athleteName: cert.profiles?.full_name || 'Atleta Arena',
+                athleteName: profile?.full_name || 'Atleta Arena',
                 achievement: `Certificado: ${cert.name}`,
-                modality: cert.profiles?.modality || 'Atleta',
+                modality: profile?.modality || 'Atleta',
                 date: new Date(cert.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${cert.profiles?.username}`,
+                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: cert.media_url,
                 type: 'certificate',
                 realId: id
@@ -95,17 +107,23 @@ export const SharePage = () => {
           } else if (type === 'championship') {
              const { data: champ } = await supabase
               .from('championship_results')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*')
               .eq('id', id)
               .single();
             
             if (champ) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('username, full_name, modality')
+                .eq('id', champ.athlete_id)
+                .single();
+
               data = {
-                athleteName: champ.profiles?.full_name || 'Atleta Arena',
+                athleteName: profile?.full_name || 'Atleta Arena',
                 achievement: `${champ.resultado} no ${champ.evento}`,
-                modality: champ.profiles?.modality || 'Atleta',
+                modality: profile?.modality || 'Atleta',
                 date: new Date(champ.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${champ.profiles?.username}`,
+                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: champ.media_url,
                 type: 'championship',
                 realId: id
@@ -114,17 +132,23 @@ export const SharePage = () => {
           } else if (type === 'fight') {
              const { data: fight } = await supabase
               .from('fights')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*')
               .eq('id', id)
               .single();
             
             if (fight) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('username, full_name, modality')
+                .eq('id', fight.athlete_id)
+                .single();
+
               data = {
-                athleteName: fight.profiles?.full_name || 'Atleta Arena',
+                athleteName: profile?.full_name || 'Atleta Arena',
                 achievement: `Luta no ${fight.evento}`,
-                modality: fight.profiles?.modality || 'Atleta',
+                modality: profile?.modality || 'Atleta',
                 date: new Date(fight.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${fight.profiles?.username}`,
+                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: fight.media_url,
                 type: 'fight',
                 realId: id
@@ -172,6 +196,9 @@ export const SharePage = () => {
           break;
         case 'profile':
           window.location.href = `/profile/${realId}`;
+          break;
+        case 'fight':
+          window.location.href = `/fights/${realId}`;
           break;
         default:
           window.location.href = '/feed';

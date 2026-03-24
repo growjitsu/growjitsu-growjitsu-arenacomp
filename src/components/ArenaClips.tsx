@@ -343,6 +343,11 @@ export const ArenaClips: React.FC = () => {
   };
 
   const handleShare = async (post: ArenaPost) => {
+    console.log('🔗 SHARE DATA:', {
+      type: 'clip',
+      id: post.id,
+      fullData: post
+    });
     const shareUrl = `${window.location.origin}/share/clip/${post.id}`;
     
     setShareModalData({
