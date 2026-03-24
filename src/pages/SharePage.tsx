@@ -30,6 +30,19 @@ export const SharePage = () => {
         else if (contentType === 'certificate') navigate(`/certificate/${realId}`);
         else if (contentType === 'clip') navigate(`/clip/${realId}`);
         else if (contentType === 'profile') navigate(`/profile/${realId}`);
+        else if (contentType === 'championship' || contentType === 'fight') {
+          // Redirect to profile since these are part of the profile view
+          if (decodedData.profileUrl) {
+            const usernameMatch = decodedData.profileUrl.match(/@([^/]+)/);
+            if (usernameMatch) {
+              navigate(`/profile/@${usernameMatch[1]}`);
+            } else {
+              navigate('/');
+            }
+          } else {
+            navigate('/');
+          }
+        }
         else navigate('/');
       }
     } catch (err) {

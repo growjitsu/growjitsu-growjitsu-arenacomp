@@ -1130,7 +1130,8 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         date: new Date().toLocaleDateString(),
                         profileUrl: `${window.location.origin}/profile/@${profile.username}`,
                         type: 'profile',
-                        realId: profile.id
+                        realId: profile.id,
+                        mainImageUrl: profile.profile_photo || profile.avatar_url
                       });
                       setIsAchievementCardOpen(true);
                     }
@@ -1247,7 +1248,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         achievement: 'Confira este perfil na ArenaComp!',
                         modality: profile.modality || 'Jiu-Jitsu',
                         date: new Date().toLocaleDateString(),
-                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                        profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+                        type: 'profile',
+                        realId: profile.id,
+                        mainImageUrl: profile.profile_photo || profile.avatar_url
                       });
                       setIsAchievementCardOpen(true);
                     }
@@ -2034,7 +2038,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                         achievement: `Certificado: ${cert.name}`,
                                         modality: profile.modality || 'Jiu-Jitsu',
                                         date: new Date().toLocaleDateString(),
-                                        profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                        profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                        type: 'certificate',
+                                        realId: cert.id,
+                                        mainImageUrl: cert.media_url
                                       });
                                       setIsAchievementCardOpen(true);
                                     }
@@ -2121,7 +2128,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                   achievement: `${fight.resultado === 'win' ? 'Venceu' : 'Lutou com'} ${fight.opponent_name} no ${fight.evento}`,
                                   modality: fight.modalidade || profile.modality || 'Jiu-Jitsu',
                                   date: new Date(fight.data_luta).toLocaleDateString(),
-                                  profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                  profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                  type: 'fight',
+                                  realId: fight.id
                                 });
                                 setIsAchievementCardOpen(true);
                               }
@@ -2322,7 +2331,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                     achievement: `${champ.resultado} no ${champ.championship_name}`,
                                     modality: champ.modalidade || profile.modality || 'Jiu-Jitsu',
                                     date: new Date(champ.data_evento).toLocaleDateString(),
-                                    profileUrl: `${window.location.origin}/profile/@${profile.username}`
+                                    profileUrl: `${window.location.origin}/profile/@${profile.username}`,
+                                    type: 'championship',
+                                    realId: champ.id,
+                                    mainImageUrl: champ.foto_podio_url
                                   });
                                   setIsAchievementCardOpen(true);
                                 }

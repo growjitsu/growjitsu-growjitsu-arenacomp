@@ -342,7 +342,8 @@ export const ArenaClips: React.FC = () => {
           date: new Date(post.created_at).toLocaleDateString(),
           profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
           type: 'clip',
-          realId: post.id
+          realId: post.id,
+          mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0])
         });
         setIsAchievementCardOpen(true);
       }
