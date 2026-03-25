@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown, Upload, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,6 +43,25 @@ export const AdminAds: React.FC = () => {
   const [desktopPreview, setDesktopPreview] = useState<string>('');
   const [mobilePreview, setMobilePreview] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isFirebaseAuthReady, setIsFirebaseAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setIsFirebaseAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleFirebaseLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      toast.success('Autenticado no Firebase com sucesso!');
+    } catch (error: any) {
+      console.error('Erro no login Firebase:', error);
+      toast.error('Erro ao autenticar no Firebase: ' + error.message);
+    }
+  };
 
   useEffect(() => {
     const q = query(collection(db, 'featured_banners'), orderBy('order', 'asc'));
@@ -184,6 +204,11 @@ export const AdminAds: React.FC = () => {
     e.preventDefault();
     if (isUploading) return;
     
+    if (!auth.currentUser) {
+      toast.error('Você precisa estar autenticado no Firestore para salvar banners. Clique no botão "Conectar Firestore" no topo da página.');
+      return;
+    }
+    
     console.log('Iniciando submissão do banner...');
     console.log('Usuário atual:', auth.currentUser?.email);
     
@@ -309,13 +334,26 @@ export const AdminAds: React.FC = () => {
           <h2 className="text-xl font-black uppercase italic tracking-tight">Arena Ads</h2>
           <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Gestão de Patrocínios e Destaques</p>
         </div>
-        <button 
-          onClick={() => handleOpenModal()}
-          className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
-        >
-          <Plus size={16} />
-          <span>Novo Banner</span>
-        </button>
+        
+        <div className="flex items-center space-x-3">
+          {!auth.currentUser && (
+            <button
+              onClick={handleFirebaseLogin}
+              className="flex items-center space-x-2 px-4 py-2 bg-rose-600/10 text-rose-500 border border-rose-600/20 hover:bg-rose-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+            >
+              <Lock size={14} />
+              <span>Conectar Firestore</span>
+            </button>
+          )}
+          
+          <button 
+            onClick={() => handleOpenModal()}
+            className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
+          >
+            <Plus size={16} />
+            <span>Novo Banner</span>
+          </button>
+        </div>
       </div>
 
       {loading ? (

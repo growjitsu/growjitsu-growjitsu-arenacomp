@@ -31,8 +31,9 @@ service cloud.firestore {
       return isAuthenticated() && 
         (
           request.auth.token.admin == true ||
-          request.auth.token.email == "admin@arenacomp.com.br" || 
-          request.auth.token.email == "carlos.atila001@gmail.com"
+          (request.auth.token.email != null && 
+           (request.auth.token.email.lower() == "admin@arenacomp.com.br" || 
+            request.auth.token.email.lower() == "carlos.atila001@gmail.com"))
         ); // Admin emails + Custom Claim
     }
 
@@ -59,9 +60,7 @@ service cloud.firestore {
 
     match /featured_banners/{bannerId} {
       allow read: if true; // Publicly readable for the landing page
-      allow create: if isAdmin() && isValidBanner(request.resource.data);
-      allow update: if isAdmin() && isValidBanner(request.resource.data);
-      allow delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
   }
 }
