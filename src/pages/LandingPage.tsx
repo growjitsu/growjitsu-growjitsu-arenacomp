@@ -112,7 +112,7 @@ export const LandingPage: React.FC = () => {
   const prevBanner = () => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length);
 
   return (
-    <div className="min-h-screen bg-[#000] text-white selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[#000] text-white selection:bg-blue-500/30 overflow-x-hidden">
       <PublicHeader />
 
       <main className="pt-20">
@@ -293,7 +293,7 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {featuredProfiles.map((profile, index) => (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -301,7 +301,7 @@ export const LandingPage: React.FC = () => {
                   viewport={{ once: true }}
                   transition={{ delay: (index % 10) * 0.05 }}
                   key={profile.id}
-                  className="group relative bg-white/5 border border-white/10 rounded-[32px] overflow-hidden hover:border-blue-500/50 transition-all cursor-pointer"
+                  className="group relative w-full bg-white/5 border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden hover:border-blue-500/50 transition-all cursor-pointer"
                   onClick={() => navigate(`/user/@${profile.username}`)}
                 >
                   <div className="aspect-[4/5] relative overflow-hidden">
