@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, isSupabaseConfigured } from './services/supabase';
+import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { ArenaNavbar } from './components/ArenaNavbar';
 import { ArenaFeed } from './components/ArenaFeed';
 import { ArenaClips } from './components/ArenaClips';
@@ -114,6 +116,40 @@ export default function App() {
     });
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // Firebase Auth Listener for Admin Claims
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user && (user.email === 'admin@arenacomp.com.br' || user.email === 'carlos.atila001@gmail.com')) {
+        console.log('[FIREBASE] Admin detectado, verificando claims...');
+        
+        try {
+          const token = await user.getIdTokenResult();
+          
+          if (!token.claims.admin) {
+            console.log('[FIREBASE] Claim de admin não encontrado. Solicitando ao servidor...');
+            const response = await fetch('/api/admin/set-admin-claim', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: user.email })
+            });
+            
+            if (response.ok) {
+              console.log('[FIREBASE] Claim de admin solicitado com sucesso. Atualizando token...');
+              await user.getIdToken(true);
+              console.log('[FIREBASE] Token atualizado com novos claims.');
+            }
+          } else {
+            console.log('[FIREBASE] Claim de admin já está ativo.');
+          }
+        } catch (error) {
+          console.error('[FIREBASE] Erro ao processar claims de admin:', error);
+        }
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const fetchProfile = async (userId: string) => {

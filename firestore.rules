@@ -29,8 +29,11 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-        (request.auth.token.email == "admin@arenacomp.com.br" || 
-         request.auth.token.email == "carlos.atila001@gmail.com"); // Admin emails
+        (
+          request.auth.token.admin == true ||
+          request.auth.token.email == "admin@arenacomp.com.br" || 
+          request.auth.token.email == "carlos.atila001@gmail.com"
+        ); // Admin emails + Custom Claim
     }
 
     function isValidBanner(data) {

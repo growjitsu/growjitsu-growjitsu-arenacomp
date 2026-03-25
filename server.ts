@@ -6,9 +6,21 @@ import cors from "cors";
 import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
 import dotenv from "dotenv";
+import * as admin from 'firebase-admin';
+import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
 dotenv.config();
+
+// Initialize Firebase Admin SDK
+try {
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId,
+  });
+  console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
+} catch (error) {
+  console.error('[FIREBASE-ADMIN] Erro ao inicializar SDK:', error);
+}
 
 // ... (Supabase config remains same)
 const rawUrl = process.env.VITE_SUPABASE_URL || 'https://vfefztzaiqhpsfnvpkba.supabase.co';
@@ -216,6 +228,36 @@ async function startServer() {
 
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "ArenaComp API is running" });
+  });
+
+  // FIREBASE ADMIN: Set Custom Claims
+  app.post("/api/admin/set-admin-claim", async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email é obrigatório." });
+    }
+
+    try {
+      console.log(`[FIREBASE-ADMIN] Tentando definir claim de admin para: ${email}`);
+      const user = await admin.auth().getUserByEmail(email);
+      
+      await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+      
+      console.log(`[FIREBASE-ADMIN] Claim 'admin: true' definido com sucesso para ${email} (UID: ${user.uid})`);
+      
+      return res.json({ 
+        success: true, 
+        message: `Claim de administrador definido com sucesso para ${email}.`,
+        uid: user.uid
+      });
+    } catch (error: any) {
+      console.error('[FIREBASE-ADMIN] Erro ao definir claim:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || "Erro interno ao definir claim." 
+      });
+    }
   });
 
   // Location Endpoints
