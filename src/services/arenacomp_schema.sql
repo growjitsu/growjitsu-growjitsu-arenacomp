@@ -267,6 +267,34 @@ CREATE POLICY "Follows are viewable by everyone" ON follows FOR SELECT USING (tr
 CREATE POLICY "Users can follow others" ON follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
 CREATE POLICY "Users can unfollow" ON follows FOR DELETE USING (auth.uid() = follower_id);
 
+-- Phase 1: Enable RLS with permissive policies for production safety (Zero Downtime)
+-- These policies ensure that RLS is active but does not block existing traffic.
+-- Refinement (Phase 2) should be done after validating stability.
+
+ALTER TABLE public.gyms ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_gyms" ON public.gyms;
+CREATE POLICY "allow_all_gyms" ON public.gyms FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_likes" ON public.likes;
+CREATE POLICY "allow_all_likes" ON public.likes FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.competition_results ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_competition_results" ON public.competition_results;
+CREATE POLICY "allow_all_competition_results" ON public.competition_results FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.event_lotes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_event_lotes" ON public.event_lotes;
+CREATE POLICY "allow_all_event_lotes" ON public.event_lotes FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.event_config_absoluto ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_event_config_absoluto" ON public.event_config_absoluto;
+CREATE POLICY "allow_all_event_config_absoluto" ON public.event_config_absoluto FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.event_regras_especiais ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_event_regras_especiais" ON public.event_regras_especiais;
+CREATE POLICY "allow_all_event_regras_especiais" ON public.event_regras_especiais FOR ALL USING (true) WITH CHECK (true);
+
 -- ===============================================================
 -- MIGRATION COMMANDS (Run these if you already have the tables)
 -- ===============================================================
