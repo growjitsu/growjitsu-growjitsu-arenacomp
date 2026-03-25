@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS user_modalities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     modality TEXT NOT NULL,
+    belt TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

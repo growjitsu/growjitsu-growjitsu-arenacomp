@@ -54,6 +54,7 @@ export interface UserModality {
   id: string;
   user_id: string;
   modality: string;
+  belt?: string;
   created_at: string;
 }
 
