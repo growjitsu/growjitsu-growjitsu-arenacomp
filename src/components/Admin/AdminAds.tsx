@@ -185,6 +185,7 @@ export const AdminAds: React.FC = () => {
     if (isUploading) return;
     
     console.log('Iniciando submissão do banner...');
+    console.log('Usuário atual:', auth.currentUser?.email);
     setIsUploading(true);
     
     try {
@@ -210,18 +211,28 @@ export const AdminAds: React.FC = () => {
 
       if (editingBanner) {
         console.log('Atualizando documento existente:', editingBanner.id);
-        await updateDoc(doc(db, 'featured_banners', editingBanner.id), {
-          ...dataToSave,
-          updated_at: serverTimestamp()
-        });
-        toast.success('Banner atualizado com sucesso!');
+        const path = `featured_banners/${editingBanner.id}`;
+        try {
+          await updateDoc(doc(db, 'featured_banners', editingBanner.id), {
+            ...dataToSave,
+            updated_at: serverTimestamp()
+          });
+          toast.success('Banner atualizado com sucesso!');
+        } catch (err) {
+          handleFirestoreError(err, OperationType.UPDATE, path);
+        }
       } else {
         console.log('Criando novo documento...');
-        await addDoc(collection(db, 'featured_banners'), {
-          ...dataToSave,
-          created_at: serverTimestamp()
-        });
-        toast.success('Banner criado com sucesso!');
+        const path = 'featured_banners';
+        try {
+          await addDoc(collection(db, 'featured_banners'), {
+            ...dataToSave,
+            created_at: serverTimestamp()
+          });
+          toast.success('Banner criado com sucesso!');
+        } catch (err) {
+          handleFirestoreError(err, OperationType.CREATE, path);
+        }
       }
       
       console.log('Processo finalizado com sucesso.');
