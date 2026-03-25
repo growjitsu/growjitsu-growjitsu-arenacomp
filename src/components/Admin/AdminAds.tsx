@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown, Upload, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '../../services/supabase';
 
 interface Banner {
   id: string;
@@ -14,6 +15,8 @@ interface Banner {
   display_time: number;
   is_active: boolean;
   order: number;
+  start_date?: any;
+  end_date?: any;
   created_at: any;
 }
 
@@ -29,8 +32,16 @@ export const AdminAds: React.FC = () => {
     title: '',
     display_time: 15,
     is_active: true,
-    order: 0
+    order: 0,
+    start_date: '',
+    end_date: ''
   });
+
+  const [desktopFile, setDesktopFile] = useState<File | null>(null);
+  const [mobileFile, setMobileFile] = useState<File | null>(null);
+  const [desktopPreview, setDesktopPreview] = useState<string>('');
+  const [mobilePreview, setMobilePreview] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'featured_banners'), orderBy('order', 'asc'));
@@ -49,8 +60,12 @@ export const AdminAds: React.FC = () => {
   }, []);
 
   const handleOpenModal = (banner?: Banner) => {
+    setDesktopFile(null);
+    setMobileFile(null);
     if (banner) {
       setEditingBanner(banner);
+      setDesktopPreview(banner.image_url);
+      setMobilePreview(banner.mobile_image_url || '');
       setFormData({
         image_url: banner.image_url,
         mobile_image_url: banner.mobile_image_url || '',
@@ -58,10 +73,14 @@ export const AdminAds: React.FC = () => {
         title: banner.title || '',
         display_time: banner.display_time,
         is_active: banner.is_active,
-        order: banner.order
+        order: banner.order,
+        start_date: banner.start_date ? new Date(banner.start_date.seconds * 1000).toISOString().slice(0, 16) : '',
+        end_date: banner.end_date ? new Date(banner.end_date.seconds * 1000).toISOString().slice(0, 16) : ''
       });
     } else {
       setEditingBanner(null);
+      setDesktopPreview('');
+      setMobilePreview('');
       setFormData({
         image_url: '',
         mobile_image_url: '',
@@ -69,32 +88,96 @@ export const AdminAds: React.FC = () => {
         title: '',
         display_time: 15,
         is_active: true,
-        order: banners.length > 0 ? Math.max(...banners.map(b => b.order)) + 1 : 0
+        order: banners.length > 0 ? Math.max(...banners.map(b => b.order)) + 1 : 0,
+        start_date: '',
+        end_date: ''
       });
     }
     setIsModalOpen(true);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'desktop' | 'mobile') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (type === 'desktop') {
+        setDesktopFile(file);
+        setDesktopPreview(reader.result as string);
+      } else {
+        setMobileFile(file);
+        setMobilePreview(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadImage = async (file: File, path: string) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${path}/${fileName}`;
+
+    const { error: uploadError, data } = await supabase.storage
+      .from('banners')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('banners')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsUploading(true);
     try {
+      let finalImageUrl = formData.image_url;
+      let finalMobileImageUrl = formData.mobile_image_url;
+
+      if (desktopFile) {
+        finalImageUrl = await uploadImage(desktopFile, 'desktop');
+      }
+
+      if (mobileFile) {
+        finalMobileImageUrl = await uploadImage(mobileFile, 'mobile');
+      }
+
+      const dataToSave = {
+        ...formData,
+        image_url: finalImageUrl,
+        mobile_image_url: finalMobileImageUrl,
+        start_date: formData.start_date ? new Date(formData.start_date) : null,
+        end_date: formData.end_date ? new Date(formData.end_date) : null,
+      };
+
       if (editingBanner) {
         await updateDoc(doc(db, 'featured_banners', editingBanner.id), {
-          ...formData,
+          ...dataToSave,
           updated_at: serverTimestamp()
         });
         toast.success('Banner atualizado com sucesso!');
       } else {
         await addDoc(collection(db, 'featured_banners'), {
-          ...formData,
+          ...dataToSave,
           created_at: serverTimestamp()
         });
         toast.success('Banner criado com sucesso!');
       }
       setIsModalOpen(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'featured_banners');
-      toast.error('Erro ao salvar banner.');
+      console.error(error);
+      toast.error('Erro ao salvar banner. Verifique se o bucket "banners" existe no Supabase.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -272,7 +355,31 @@ export const AdminAds: React.FC = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              {/* Preview Section */}
+              {(desktopPreview || mobilePreview) && (
+                <div className="px-8 pt-6 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {desktopPreview && (
+                      <div className="space-y-2">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-gray-500">Preview Desktop</p>
+                        <div className="aspect-[3/1] bg-black rounded-xl overflow-hidden border border-white/10">
+                          <img src={desktopPreview} alt="Preview Desktop" className="w-full h-full object-cover" />
+                        </div>
+                      </div>
+                    )}
+                    {mobilePreview && (
+                      <div className="space-y-2">
+                        <p className="text-[8px] font-black uppercase tracking-widest text-gray-500">Preview Mobile</p>
+                        <div className="aspect-[9/16] h-32 mx-auto bg-black rounded-xl overflow-hidden border border-white/10">
+                          <img src={mobilePreview} alt="Preview Mobile" className="w-full h-full object-cover" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-1 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título (Opcional)</label>
@@ -285,27 +392,51 @@ export const AdminAds: React.FC = () => {
                     />
                   </div>
 
+                  {/* Upload Desktop */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">URL da Imagem (Desktop)</label>
-                    <input 
-                      type="url"
-                      required
-                      value={formData.image_url}
-                      onChange={(e) => setFormData({...formData, image_url: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                      placeholder="https://..."
-                    />
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Imagem Desktop (1200x400)</label>
+                    <div className="relative group">
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'desktop')}
+                        className="hidden"
+                        id="desktop-upload"
+                      />
+                      <label 
+                        htmlFor="desktop-upload"
+                        className="flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all"
+                      >
+                        <Upload size={24} className="text-gray-500 mb-2" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                          {desktopFile ? desktopFile.name : 'Clique ou arraste para upload'}
+                        </span>
+                        <span className="text-[8px] text-gray-600 mt-1 uppercase tracking-widest">JPG, PNG, WebP (Máx 2MB)</span>
+                      </label>
+                    </div>
                   </div>
 
+                  {/* Upload Mobile */}
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">URL da Imagem (Mobile - Opcional)</label>
-                    <input 
-                      type="url"
-                      value={formData.mobile_image_url}
-                      onChange={(e) => setFormData({...formData, mobile_image_url: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                      placeholder="https://..."
-                    />
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Imagem Mobile (Opcional)</label>
+                    <div className="relative group">
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, 'mobile')}
+                        className="hidden"
+                        id="mobile-upload"
+                      />
+                      <label 
+                        htmlFor="mobile-upload"
+                        className="flex flex-col items-center justify-center w-full h-24 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all"
+                      >
+                        <Upload size={20} className="text-gray-500 mb-2" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                          {mobileFile ? mobileFile.name : 'Upload Mobile (Opcional)'}
+                        </span>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -318,6 +449,32 @@ export const AdminAds: React.FC = () => {
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
                       placeholder="https://..."
                     />
+                  </div>
+
+                  {/* Scheduling */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2 flex items-center gap-1">
+                        <Calendar size={10} /> Início (Opcional)
+                      </label>
+                      <input 
+                        type="datetime-local"
+                        value={formData.start_date}
+                        onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2 flex items-center gap-1">
+                        <Calendar size={10} /> Fim (Opcional)
+                      </label>
+                      <input 
+                        type="datetime-local"
+                        value={formData.end_date}
+                        onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -355,9 +512,10 @@ export const AdminAds: React.FC = () => {
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all"
+                    disabled={isUploading}
+                    className="flex-1 py-4 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Salvar Banner
+                    {isUploading ? 'Enviando...' : 'Salvar Banner'}
                   </button>
                 </div>
               </form>

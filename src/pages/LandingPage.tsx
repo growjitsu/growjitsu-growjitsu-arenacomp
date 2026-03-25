@@ -18,6 +18,8 @@ interface Banner {
   display_time: number;
   is_active: boolean;
   order: number;
+  start_date?: any;
+  end_date?: any;
 }
 
 export const LandingPage: React.FC = () => {
@@ -32,11 +34,23 @@ export const LandingPage: React.FC = () => {
     // Fetch Banners from Firebase
     const q = query(collection(db, 'featured_banners'), where('is_active', '==', true), orderBy('order', 'asc'));
     const unsubscribeBanners = onSnapshot(q, (snapshot) => {
+      const now = new Date();
       const bannersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Banner[];
-      setBanners(bannersData);
+
+      // Filter by date
+      const filteredBanners = bannersData.filter(banner => {
+        const start = banner.start_date ? new Date(banner.start_date.seconds * 1000) : null;
+        const end = banner.end_date ? new Date(banner.end_date.seconds * 1000) : null;
+
+        if (start && start > now) return false;
+        if (end && end < now) return false;
+        return true;
+      });
+
+      setBanners(filteredBanners);
     });
 
     // Fetch Rankings from Supabase

@@ -34,10 +34,12 @@ service cloud.firestore {
 
     function isValidBanner(data) {
       return data.keys().hasAll(['image_url', 'link', 'is_active', 'order']) &&
-             data.image_url is string && data.image_url.size() < 1000 &&
+             data.image_url is string && data.image_url.size() < 1000000 && // Increased for base64 if needed, though we'll use storage
              data.link is string && data.link.size() < 1000 &&
              data.is_active is bool &&
-             data.order is number;
+             data.order is number &&
+             (!('start_date' in data) || data.start_date is timestamp || data.start_date == null) &&
+             (!('end_date' in data) || data.end_date is timestamp || data.end_date == null);
     }
 
     // ===============================================================

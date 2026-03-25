@@ -13,6 +13,8 @@
         "display_time": { "type": "number" },
         "is_active": { "type": "boolean" },
         "order": { "type": "number" },
+        "start_date": { "type": "string", "format": "date-time" },
+        "end_date": { "type": "string", "format": "date-time" },
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["image_url", "link", "is_active", "order"]
