@@ -123,11 +123,38 @@ export const AdminAds: React.FC = () => {
     const fileName = `${Math.random()}.${fileExt}`;
     const filePath = `${path}/${fileName}`;
 
-    const { error: uploadError, data } = await supabase.storage
+    // Try to upload
+    const { error: uploadError } = await supabase.storage
       .from('banners')
       .upload(filePath, file);
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      // If bucket not found, try to create it (requires appropriate permissions)
+      if (uploadError.message?.toLowerCase().includes('not found')) {
+        try {
+          const { error: createError } = await supabase.storage.createBucket('banners', {
+            public: true,
+            allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+            fileSizeLimit: 2 * 1024 * 1024
+          });
+          
+          if (!createError || createError.message?.includes('already exists')) {
+            // Retry upload if bucket was created or already exists
+            const { error: retryError } = await supabase.storage
+              .from('banners')
+              .upload(filePath, file);
+            if (retryError) throw retryError;
+          } else {
+            throw createError;
+          }
+        } catch (err) {
+          console.error('Bucket creation failed:', err);
+          throw new Error('O bucket "banners" não existe no Supabase e não pôde ser criado automaticamente. Por favor, crie-o manualmente no painel do Supabase Storage e defina-o como público.');
+        }
+      } else {
+        throw uploadError;
+      }
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('banners')
@@ -173,9 +200,10 @@ export const AdminAds: React.FC = () => {
         toast.success('Banner criado com sucesso!');
       }
       setIsModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error('Erro ao salvar banner. Verifique se o bucket "banners" existe no Supabase.');
+      const message = error.message || 'Erro ao salvar banner. Verifique se o bucket "banners" existe no Supabase.';
+      toast.error(message);
     } finally {
       setIsUploading(false);
     }
