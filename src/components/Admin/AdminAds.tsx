@@ -59,7 +59,16 @@ export const AdminAds: React.FC = () => {
       toast.success('Autenticado no Firebase com sucesso!');
     } catch (error: any) {
       console.error('Erro no login Firebase:', error);
-      toast.error('Erro ao autenticar no Firebase: ' + error.message);
+      
+      if (error.code === 'auth/unauthorized-domain') {
+        const currentDomain = window.location.hostname;
+        toast.error(
+          `Domínio não autorizado: "${currentDomain}". Adicione este domínio no Firebase Console (Authentication > Settings > Authorized Domains).`,
+          { duration: 10000 }
+        );
+      } else {
+        toast.error('Erro ao autenticar no Firebase: ' + error.message);
+      }
     }
   };
 
