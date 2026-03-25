@@ -189,6 +189,15 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3.11 User Modalities (Multiple Modalities per User)
+CREATE TABLE IF NOT EXISTS user_modalities (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    modality TEXT NOT NULL,
+    belt TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 4. Arena Score Algorithm Logic
 
 CREATE OR REPLACE FUNCTION calculate_result_points(p_placement INTEGER, p_level event_level)
@@ -266,6 +275,11 @@ CREATE POLICY "Users can update/delete their own posts" ON posts FOR ALL USING (
 CREATE POLICY "Follows are viewable by everyone" ON follows FOR SELECT USING (true);
 CREATE POLICY "Users can follow others" ON follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
 CREATE POLICY "Users can unfollow" ON follows FOR DELETE USING (auth.uid() = follower_id);
+
+-- 3.11 User Modalities Policies
+ALTER TABLE user_modalities ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Modalities are viewable by everyone" ON user_modalities FOR SELECT USING (true);
+CREATE POLICY "Users can manage their own modalities" ON user_modalities FOR ALL USING (auth.uid() = user_id);
 
 -- Phase 1: Enable RLS with permissive policies for production safety (Zero Downtime)
 -- These policies ensure that RLS is active but does not block existing traffic.

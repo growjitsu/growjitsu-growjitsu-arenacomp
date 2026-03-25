@@ -20,6 +20,8 @@ import { AdminTeams } from './components/Admin/AdminTeams';
 import { AdminPosts } from './components/Admin/AdminPosts';
 import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
+import { AdminAds } from './components/Admin/AdminAds';
+import { LandingPage } from './pages/LandingPage';
 import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
@@ -327,7 +329,8 @@ export default function App() {
       <Toaster position="top-center" theme="dark" />
       <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
-      <Route path="/" element={renderLayout(<ArenaFeed userProfile={profile} />, 'feed')} />
+      <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />
+      <Route path="/home-public" element={<LandingPage />} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
@@ -365,6 +368,7 @@ export default function App() {
                 <Route path="/athletes" element={<AdminAthletes />} />
                 <Route path="/teams" element={<AdminTeams />} />
                 <Route path="/posts" element={<AdminPosts />} />
+                <Route path="/ads" element={<AdminAds />} />
                 <Route path="/logs" element={<AdminLogs />} />
                 <Route path="/export" element={<AdminExport />} />
               </Routes>

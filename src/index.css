@@ -9,6 +9,9 @@
 :root {
   --primary: #2563EB;
   --primary-highlight: #3B82F6;
+  --gold: #FFD700;
+  --deep-black: #000000;
+  --arena-blue: #0A1F44;
   
   /* Default to Dark Mode */
   --bg: #0F172A;

@@ -8,8 +8,8 @@ import {
   Brain, Zap, Cpu, BarChart3, Shield, Info, Wallet, FileText, Eye
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate } from '../types';
-import { countries, modalities } from '../utils/data';
+import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality } from '../types';
+import { countries, modalities, belts } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
@@ -57,6 +57,10 @@ export const ArenaProfileView: React.FC<{
   const [editingChampionship, setEditingChampionship] = useState<ArenaChampionshipResult | null>(null);
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
+  const [userModalities, setUserModalities] = useState<UserModality[]>([]);
+  const [newModality, setNewModality] = useState('');
+  const [newModalityBelt, setNewModalityBelt] = useState('');
+  const [editingModalityId, setEditingModalityId] = useState<string | null>(null);
   
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -139,6 +143,185 @@ export const ArenaProfileView: React.FC<{
       setFollowerCount(count || 0);
     } catch (err) {
       console.error('Error fetching follower count:', err);
+    }
+  }
+
+  async function fetchUserModalities(targetId: string, currentProfile?: ArenaProfile | null) {
+    try {
+      const { data, error } = await supabase
+        .from('user_modalities')
+        .select('*')
+        .eq('user_id', targetId)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      
+      let modalities = data || [];
+      
+      // Auto-migrate if empty and it's the own profile
+      const { data: { user } } = await supabase.auth.getUser();
+      if (modalities.length === 0 && currentProfile?.modality && user?.id === targetId) {
+        const { data: migrated, error: migrateError } = await supabase
+          .from('user_modalities')
+          .insert({
+            user_id: targetId,
+            modality: currentProfile.modality,
+            belt: currentProfile.graduation
+          })
+          .select()
+          .single();
+        
+        if (!migrateError && migrated) {
+          modalities = [migrated];
+        }
+      }
+      
+      setUserModalities(modalities);
+    } catch (err) {
+      console.error('Error fetching user modalities:', err);
+    }
+  }
+
+  async function handleAddModality() {
+    if (!newModality.trim() || !profile) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_modalities')
+        .insert({
+          user_id: profile.id,
+          modality: newModality.trim(),
+          belt: newModalityBelt.trim() || null
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      const updatedModalities = [...userModalities, data];
+      setUserModalities(updatedModalities);
+      setNewModality('');
+      setNewModalityBelt('');
+
+      // Update main profile if this is the first modality
+      if (updatedModalities.length === 1) {
+        await supabase
+          .from('profiles')
+          .update({
+            modality: data.modality.toUpperCase(),
+            graduation: data.belt?.toUpperCase() || null
+          })
+          .eq('id', profile.id);
+        
+        const updatedProfile = {
+          ...profile,
+          modality: data.modality.toUpperCase(),
+          graduation: data.belt?.toUpperCase() || null
+        };
+        setProfile(updatedProfile);
+        setEditData(prev => ({
+          ...prev,
+          modality: data.modality.toUpperCase(),
+          graduation: data.belt?.toUpperCase() || null
+        }));
+      }
+    } catch (err) {
+      console.error('Error adding modality:', err);
+    }
+  }
+
+  async function handleEditModality(id: string) {
+    if (!newModality.trim() || !profile) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_modalities')
+        .update({
+          modality: newModality.trim(),
+          belt: newModalityBelt.trim() || null
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      const updatedModalities = userModalities.map(m => m.id === id ? data : m);
+      setUserModalities(updatedModalities);
+      setNewModality('');
+      setNewModalityBelt('');
+      setEditingModalityId(null);
+
+      // Update main profile if this is the first modality
+      if (updatedModalities[0]?.id === id) {
+        await supabase
+          .from('profiles')
+          .update({
+            modality: data.modality.toUpperCase(),
+            graduation: data.belt?.toUpperCase() || null
+          })
+          .eq('id', profile.id);
+        
+        const updatedProfile = {
+          ...profile,
+          modality: data.modality.toUpperCase(),
+          graduation: data.belt?.toUpperCase() || null
+        };
+        setProfile(updatedProfile);
+        setEditData(prev => ({
+          ...prev,
+          modality: data.modality.toUpperCase(),
+          graduation: data.belt?.toUpperCase() || null
+        }));
+      }
+    } catch (err) {
+      console.error('Error editing modality:', err);
+    }
+  }
+
+  async function handleRemoveModality(id: string) {
+    if (userModalities.length <= 1) {
+      alert('Você deve manter pelo menos uma modalidade.');
+      return;
+    }
+
+    if (!window.confirm('Tem certeza que deseja remover esta modalidade?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_modalities')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      const updatedModalities = userModalities.filter(m => m.id !== id);
+      setUserModalities(updatedModalities);
+
+      // If we removed the first one, update main profile with the new first one
+      if (userModalities[0]?.id === id && updatedModalities.length > 0) {
+        const nextFirst = updatedModalities[0];
+        await supabase
+          .from('profiles')
+          .update({
+            modality: nextFirst.modality.toUpperCase(),
+            graduation: nextFirst.belt?.toUpperCase() || null
+          })
+          .eq('id', profile!.id);
+        
+        const updatedProfile = {
+          ...profile!,
+          modality: nextFirst.modality.toUpperCase(),
+          graduation: nextFirst.belt?.toUpperCase() || null
+        };
+        setProfile(updatedProfile);
+        setEditData(prev => ({
+          ...prev,
+          modality: nextFirst.modality.toUpperCase(),
+          graduation: nextFirst.belt?.toUpperCase() || null
+        }));
+      }
+    } catch (err) {
+      console.error('Error removing modality:', err);
     }
   }
 
@@ -270,6 +453,11 @@ export const ArenaProfileView: React.FC<{
 
       setProfile(profileData);
       setEditData(profileData || {});
+      
+      // Fetch User Modalities (with migration check)
+      if (targetId) {
+        fetchUserModalities(targetId, profileData);
+      }
 
       // Check if user is team representative
       if (profileData?.team_id && user) {
@@ -1623,35 +1811,141 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               <div className="space-y-1">
                 <div className="flex items-center space-x-2 text-[var(--text-muted)]">
                   <Trophy size={12} />
-                  <span className="text-[10px] font-black uppercase tracking-widest">Modalidade</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Modalidades</span>
                 </div>
                 {isEditing ? (
-                  <div className="space-y-2">
-                    <select 
-                      value={modalities.includes(editData.modality || '') ? editData.modality : 'Outros'} 
-                      onChange={e => {
-                        const val = e.target.value;
-                        if (val === 'Outros') {
-                          setEditData({...editData, modality: ''});
-                        } else {
-                          setEditData({...editData, modality: val});
-                        }
-                      }}
-                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
-                    >
-                      {modalities.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    {(!modalities.includes(editData.modality || '') || editData.modality === 'Outros') && (
-                      <input 
-                        value={editData.modality === 'Outros' ? '' : editData.modality} 
-                        onChange={e => setEditData({...editData, modality: e.target.value})}
-                        placeholder="Digite sua modalidade"
-                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
-                      />
-                    )}
+                  <div className="space-y-4">
+                    {/* List existing modalities */}
+                    <div className="space-y-2">
+                      {userModalities.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[var(--text-main)]">{m.modality}</span>
+                            {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button 
+                              onClick={() => {
+                                setEditingModalityId(m.id);
+                                setNewModality(m.modality);
+                                setNewModalityBelt(m.belt || '');
+                              }}
+                              className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+                              title="Editar"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button 
+                              onClick={() => handleRemoveModality(m.id)}
+                              className="p-1.5 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                              title="Remover"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Fallback to old modality if no new ones exist */}
+                      {userModalities.length === 0 && editData.modality && (
+                        <div className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3 opacity-50">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[var(--text-main)]">{editData.modality}</span>
+                            {editData.graduation && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{editData.graduation}</span>}
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Legado</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Add/Edit modality form */}
+                    <div className="bg-[var(--bg)] border border-[var(--border-ui)] p-4 rounded-xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                          {editingModalityId ? 'Editar Modalidade' : 'Adicionar Modalidade'}
+                        </h4>
+                        {editingModalityId && (
+                          <button 
+                            onClick={() => {
+                              setEditingModalityId(null);
+                              setNewModality('');
+                              setNewModalityBelt('');
+                            }}
+                            className="text-[10px] font-bold text-red-500 uppercase tracking-widest"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase">Modalidade</label>
+                          <select 
+                            value={modalities.includes(newModality) ? newModality : (newModality ? 'Outros' : '')} 
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'Outros') {
+                                setNewModality('');
+                              } else {
+                                setNewModality(val);
+                              }
+                            }}
+                            className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                          >
+                            <option value="">Selecione...</option>
+                            {modalities.map(m => <option key={m} value={m}>{m}</option>)}
+                            <option value="Outros">Outros</option>
+                          </select>
+                          {(!modalities.includes(newModality) && newModality !== '') && (
+                            <input 
+                              value={newModality} 
+                              onChange={e => setNewModality(e.target.value)}
+                              placeholder="Digite sua modalidade"
+                              className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)] mt-2"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase">Graduação / Faixa</label>
+                          <select 
+                            value={newModalityBelt} 
+                            onChange={e => setNewModalityBelt(e.target.value)}
+                            className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                          >
+                            <option value="">Selecione a faixa...</option>
+                            {belts.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+
+                        <button 
+                          onClick={() => editingModalityId ? handleEditModality(editingModalityId) : handleAddModality()}
+                          disabled={!newModality.trim()}
+                          className="w-full bg-[var(--primary)] text-white rounded-lg px-4 py-2 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                        >
+                          {editingModalityId ? <Save size={14} /> : <Plus size={14} />}
+                          <span>{editingModalityId ? 'Salvar Alterações' : 'Adicionar Modalidade'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
-                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.modality || '-'}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {userModalities.length > 0 ? (
+                      userModalities.map((m) => (
+                        <div key={m.id} className="flex flex-col bg-[var(--bg-card)] px-3 py-1.5 rounded-xl border border-[var(--border-ui)]">
+                          <span className="text-sm font-bold text-[var(--text-main)]">{m.modality}</span>
+                          {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col">
+                        <p className="text-sm font-bold text-[var(--text-main)]">{profile?.modality || '-'}</p>
+                        {profile?.graduation && <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{profile.graduation}</p>}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 

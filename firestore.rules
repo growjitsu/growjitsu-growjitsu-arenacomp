@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: featured_banners
+    // Document ID: auto-generated
+    // Fields:
+    //   - id: string
+    //   - image_url: string (required)
+    //   - mobile_image_url: string (optional)
+    //   - link: string (required)
+    //   - title: string (optional)
+    //   - display_time: number (optional)
+    //   - is_active: boolean (required)
+    //   - order: number (required)
+    //   - created_at: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "carlos.atila001@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidBanner(data) {
+      return data.keys().hasAll(['image_url', 'link', 'is_active', 'order']) &&
+             data.image_url is string && data.image_url.size() < 1000 &&
+             data.link is string && data.link.size() < 1000 &&
+             data.is_active is bool &&
+             data.order is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /featured_banners/{bannerId} {
+      allow read: if true; // Publicly readable for the landing page
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

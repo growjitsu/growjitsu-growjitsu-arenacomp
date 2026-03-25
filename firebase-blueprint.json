@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "featured_banner": {
+      "title": "Featured Banner",
+      "description": "A banner displayed on the landing page for sponsorship.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "image_url": { "type": "string" },
+        "mobile_image_url": { "type": "string" },
+        "link": { "type": "string" },
+        "title": { "type": "string" },
+        "display_time": { "type": "number" },
+        "is_active": { "type": "boolean" },
+        "order": { "type": "number" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["image_url", "link", "is_active", "order"]
+    }
+  },
+  "firestore": {
+    "/featured_banners/{bannerId}": {
+      "schema": "featured_banner",
+      "description": "Collection of featured banners for the landing page."
+    }
+  }
+}

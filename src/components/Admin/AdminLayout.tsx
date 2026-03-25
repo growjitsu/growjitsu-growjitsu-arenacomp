@@ -12,7 +12,8 @@ import {
   History,
   Download,
   Menu,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../services/supabase';
@@ -32,6 +33,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, userProfile 
     { icon: Users, label: 'Atletas', path: '/admin/athletes' },
     { icon: Shield, label: 'Equipes', path: '/admin/teams' },
     { icon: FileText, label: 'Postagens', path: '/admin/posts' },
+    { icon: Zap, label: 'Arena Ads', path: '/admin/ads' },
     { icon: History, label: 'Logs', path: '/admin/logs' },
     { icon: Download, label: 'Exportar', path: '/admin/export' },
   ];
