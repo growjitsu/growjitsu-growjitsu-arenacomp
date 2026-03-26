@@ -161,13 +161,24 @@ export default function App() {
   // Firebase Auth Listener for Profile Validation and Admin Claims
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
+    let timeoutId: any = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       
       if (user) {
+        setIsProfileChecked(false); // Reset to wait for profile
+        
+        // Timeout fallback to prevent infinite loading (5 seconds)
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          console.warn('[FIREBASE] Timeout waiting for profile snapshot');
+          setIsProfileChecked(true);
+        }, 5000);
+
         // 2. BUSCAR PERFIL NO FIRESTORE (Real-time)
         unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (doc) => {
+          if (timeoutId) clearTimeout(timeoutId);
           if (doc.exists()) {
             setFirestoreProfile(doc.data());
           } else {
@@ -175,6 +186,7 @@ export default function App() {
           }
           setIsProfileChecked(true);
         }, (error) => {
+          if (timeoutId) clearTimeout(timeoutId);
           console.error("Erro ao monitorar perfil no Firestore:", error);
           setIsProfileChecked(true);
         });
@@ -210,6 +222,7 @@ export default function App() {
     return () => {
       unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -256,10 +269,14 @@ export default function App() {
     if (!isLoggedIn) return <Navigate to="/login" replace />;
     
     // Bloqueio de Perfil Incompleto (Regra de Negócio ArenaComp)
+    // Se estivermos logados no Supabase mas o Firebase ainda não respondeu, mostramos o loading por um tempo
     if (!isProfileChecked || (isLoggedIn && !firebaseUser)) {
       return (
         <div className="h-screen w-full flex items-center justify-center bg-[var(--bg)]">
-          <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)] animate-pulse">Sincronizando Protocolo...</p>
+          </div>
         </div>
       );
     }

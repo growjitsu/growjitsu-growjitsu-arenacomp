@@ -198,14 +198,28 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         const { error: supabaseError } = await supabase.auth.signInWithPassword({ email, password });
         if (supabaseError) throw supabaseError;
 
-        // Parallel Firebase Login
+        // Parallel Firebase Login - MUST SUCCEED for profile validation
         try {
           await signInWithEmailAndPassword(auth, email, password);
-        } catch (fbError) {
+        } catch (fbError: any) {
           console.error('[FIREBASE] Erro no login paralelo:', fbError);
-          // Se o usuário não existir no Firebase mas existir no Supabase, criamos ele
-          if ((fbError as any).code === 'auth/user-not-found') {
-            await createUserWithEmailAndPassword(auth, email, password);
+          
+          // Se o usuário não existir no Firebase mas existir no Supabase, tentamos criar
+          if (fbError.code === 'auth/user-not-found' || fbError.code === 'auth/invalid-credential') {
+            try {
+              await createUserWithEmailAndPassword(auth, email, password);
+              if (auth.currentUser) {
+                await updateProfile(auth.currentUser, { displayName: fullName || email.split('@')[0] });
+              }
+            } catch (createError) {
+              console.error('[FIREBASE] Falha crítica ao sincronizar usuário:', createError);
+              await supabase.auth.signOut();
+              throw new Error('Erro de sincronização de segurança. Por favor, tente novamente.');
+            }
+          } else {
+            // Outros erros (rede, etc) - deslogamos do Supabase para evitar loop de loading
+            await supabase.auth.signOut();
+            throw new Error(`Erro de autenticação segura: ${fbError.message}`);
           }
         }
       } else {
@@ -281,8 +295,11 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           try {
             const fbUserCredential = await createUserWithEmailAndPassword(auth, email, password);
             await updateProfile(fbUserCredential.user, { displayName: fullName });
-          } catch (fbError) {
+          } catch (fbError: any) {
             console.error('[FIREBASE] Erro no signup paralelo:', fbError);
+            // Se falhar o signup no Firebase, deslogamos do Supabase para não ficar em loop
+            await supabase.auth.signOut();
+            throw new Error(`Erro ao criar conta de segurança: ${fbError.message}`);
           }
 
           let finalTeamId = selectedTeamId;
