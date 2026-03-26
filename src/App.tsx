@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { ArenaNavbar } from './components/ArenaNavbar';
 import { ArenaFeed } from './components/ArenaFeed';
 import { ArenaClips } from './components/ArenaClips';
@@ -48,19 +48,22 @@ export function isProfileComplete(profile: any) {
   );
 }
 
-const ProfileWrapper = ({ forceEdit, profile, onComplete }: { forceEdit?: boolean, profile: ArenaProfile | null, onComplete?: () => void }) => {
+const ProfileWrapper = ({ forceEdit, profile, firestoreProfile, onComplete }: { forceEdit?: boolean, profile: ArenaProfile | null, firestoreProfile?: any, onComplete?: () => void }) => {
   const { userId, username, id } = useParams();
   const location = useLocation();
   const contentType = location.pathname.split('/')[1];
   
-  if (forceEdit && profile && !isProfileComplete(profile)) {
+  // Use firestoreProfile for the mandatory check if provided, otherwise fallback to Supabase profile
+  const checkProfile = firestoreProfile || profile;
+
+  if (forceEdit && checkProfile && !isProfileComplete(checkProfile)) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-black uppercase italic text-[var(--text-main)]">Complete seu Perfil</h1>
           <p className="text-[var(--text-muted)] mt-2">Para continuar usando a ArenaComp, você precisa completar seu cadastro de atleta.</p>
         </div>
-        <AthleteProfileForm userId={profile.id} onComplete={onComplete || (() => window.location.reload())} />
+        <AthleteProfileForm userId={profile?.id || ''} onComplete={onComplete || (() => window.location.reload())} />
       </div>
     );
   }
@@ -79,6 +82,9 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState('feed');
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
+  const [firestoreProfile, setFirestoreProfile] = useState<any>(null);
+  const [isProfileChecked, setIsProfileChecked] = useState(false);
+  const [firebaseUser, setFirebaseUser] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -154,30 +160,27 @@ export default function App() {
 
   // Firebase Auth Listener for Profile Validation and Admin Claims
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeProfile: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
+      
       if (user) {
-        // 2. BUSCAR PERFIL NO FIRESTORE
-        try {
-          const profileDoc = await getDoc(doc(db, "users", user.uid));
-          
-          // 3. VALIDAR PERFIL E 4. REDIRECIONAMENTO CONDICIONAL
-          if (!profileDoc.exists() || !isProfileComplete(profileDoc.data())) {
-            if (location.pathname !== '/profile/edit') {
-              navigate("/profile/edit", { replace: true });
-            }
+        // 2. BUSCAR PERFIL NO FIRESTORE (Real-time)
+        unsubscribeProfile = onSnapshot(doc(db, "users", user.uid), (doc) => {
+          if (doc.exists()) {
+            setFirestoreProfile(doc.data());
           } else {
-            // Se o perfil estiver completo e o usuário estiver na página de login ou perfil/edit, vai para o dashboard
-            if (location.pathname === '/login' || location.pathname === '/profile/edit') {
-              navigate("/", { replace: true });
-            }
+            setFirestoreProfile(null);
           }
-        } catch (error) {
-          console.error("Erro ao validar perfil no Firestore:", error);
-        }
+          setIsProfileChecked(true);
+        }, (error) => {
+          console.error("Erro ao monitorar perfil no Firestore:", error);
+          setIsProfileChecked(true);
+        });
 
         // Admin Claims Logic (Existing)
         if (user.email === 'admin@arenacomp.com.br' || user.email === 'carlos.atila001@gmail.com') {
-          console.log('[FIREBASE] Admin detectado, verificando claims...');
           try {
             const token = await user.getIdTokenResult();
             if (!token.claims.admin) {
@@ -194,11 +197,21 @@ export default function App() {
             console.error('[FIREBASE] Erro ao processar claims de admin:', error);
           }
         }
+      } else {
+        setFirestoreProfile(null);
+        setIsProfileChecked(true);
+        if (unsubscribeProfile) {
+          unsubscribeProfile();
+          unsubscribeProfile = null;
+        }
       }
     });
 
-    return () => unsubscribe();
-  }, [location.pathname, navigate]);
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) unsubscribeProfile();
+    };
+  }, []);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -241,6 +254,20 @@ export default function App() {
 
   const renderLayout = (content: React.ReactNode, tabId: string) => {
     if (!isLoggedIn) return <Navigate to="/login" replace />;
+    
+    // Bloqueio de Perfil Incompleto (Regra de Negócio ArenaComp)
+    if (!isProfileChecked || (isLoggedIn && !firebaseUser)) {
+      return (
+        <div className="h-screen w-full flex items-center justify-center bg-[var(--bg)]">
+          <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
+
+    const complete = isProfileComplete(firestoreProfile);
+    if (!complete && location.pathname !== '/profile/edit') {
+      return <Navigate to="/profile/edit" replace />;
+    }
     
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-24 transition-all duration-500">
@@ -418,10 +445,10 @@ export default function App() {
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
-      <Route path="/profile" element={renderLayout(<ProfileWrapper profile={profile} />, 'profile')} />
-      <Route path="/profile/edit" element={renderLayout(<ProfileWrapper forceEdit profile={profile} onComplete={() => window.location.reload()} />, 'profile/edit')} />
-      <Route path="/profile/:userId" element={renderLayout(<ProfileWrapper profile={profile} />, 'profile')} />
-      <Route path="/user/:username" element={renderLayout(<ProfileWrapper profile={profile} />, 'profile')} />
+      <Route path="/profile" element={renderLayout(<ProfileWrapper profile={profile} firestoreProfile={firestoreProfile} />, 'profile')} />
+      <Route path="/profile/edit" element={renderLayout(<ProfileWrapper forceEdit profile={profile} firestoreProfile={firestoreProfile} onComplete={() => window.location.reload()} />, 'profile/edit')} />
+      <Route path="/profile/:userId" element={renderLayout(<ProfileWrapper profile={profile} firestoreProfile={firestoreProfile} />, 'profile')} />
+      <Route path="/user/:username" element={renderLayout(<ProfileWrapper profile={profile} firestoreProfile={firestoreProfile} />, 'profile')} />
       <Route path="/notifications" element={renderLayout(<ArenaNotifications />, 'notifications')} />
       <Route path="/settings" element={renderLayout(<ArenaSettings />, 'settings')} />
       <Route path="/gyms" element={renderLayout(<div className="flex items-center justify-center h-screen text-[var(--text-muted)] uppercase font-black tracking-widest">Módulo de Academias em Breve</div>, 'gyms')} />
