@@ -18,6 +18,7 @@ import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { getAthleteRankings, searchTeams, getTeams, CardData } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
+import { isProfileComplete } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
 import { ShareModal } from './ShareModal';
 
@@ -51,7 +52,7 @@ export const ArenaProfileView: React.FC<{
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [modalInitialEditMode, setModalInitialEditMode] = useState(false);
-  const { checkProfile } = useProfile();
+  const { checkProfile, isProfileValid } = useProfile();
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isEditingPost, setIsEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -65,6 +66,7 @@ export const ArenaProfileView: React.FC<{
   const [newModality, setNewModality] = useState('');
   const [newModalityBelt, setNewModalityBelt] = useState('');
   const [editingModalityId, setEditingModalityId] = useState<string | null>(null);
+  const [isCustomModality, setIsCustomModality] = useState(false);
   
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -223,6 +225,7 @@ export const ArenaProfileView: React.FC<{
       setUserModalities(updatedModalities);
       setNewModality('');
       setNewModalityBelt('');
+      setIsCustomModality(false);
 
       // Synchronize with Firestore for validation
       await syncModalitiesToFirestore(updatedModalities);
@@ -275,6 +278,7 @@ export const ArenaProfileView: React.FC<{
       setNewModality('');
       setNewModalityBelt('');
       setEditingModalityId(null);
+      setIsCustomModality(false);
 
       // Synchronize with Firestore for validation
       await syncModalitiesToFirestore(updatedModalities);
@@ -725,6 +729,18 @@ export const ArenaProfileView: React.FC<{
 
   const handleSave = async () => {
     if (!profile) return;
+
+    // Validation
+    const currentProfileData = {
+      ...editData,
+      modalidades: userModalities
+    };
+
+    if (!isProfileComplete(currentProfileData)) {
+      alert('Por favor, preencha todos os campos obrigatórios marcados com (*).');
+      return;
+    }
+
     setSaving(true);
     try {
       // Create a clean object with only the fields we want to update
@@ -1427,6 +1443,33 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
   return (
     <div className="w-full max-w-4xl mx-auto py-4 md:py-8 px-4 space-y-12 md:space-y-16 overflow-x-hidden">
+      {/* Profile Incomplete Warning */}
+      {isOwnProfile && isProfileValid === false && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center justify-between gap-4"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-amber-500/20 rounded-full flex items-center justify-center text-amber-500 shrink-0">
+              <Info size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-500">Perfil Incompleto</p>
+              <p className="text-xs text-amber-500/80">Preencha todos os campos obrigatórios para liberar todas as funcionalidades do sistema.</p>
+            </div>
+          </div>
+          {!isEditing && (
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-amber-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-colors shrink-0"
+            >
+              Completar Agora
+            </button>
+          )}
+        </motion.div>
+      )}
+
       {/* Profile Header */}
       <div className="relative">
         <div className="h-40 md:h-64 bg-[var(--surface)] rounded-3xl overflow-hidden border border-[var(--border-ui)] transition-colors duration-300 relative">
@@ -1894,6 +1937,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                 setEditingModalityId(m.id);
                                 setNewModality(m.modality);
                                 setNewModalityBelt(m.belt || '');
+                                setIsCustomModality(!modalities.includes(m.modality));
                               }}
                               className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                               title="Editar"
@@ -1945,35 +1989,42 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       
                       <div className="space-y-3">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase">Modalidade</label>
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
+                            Modalidade <span className="text-red-500">*</span>
+                          </label>
                           <select 
-                            value={modalities.includes(newModality) ? newModality : (newModality ? 'Outros' : '')} 
+                            value={isCustomModality ? 'Outros' : (modalities.includes(newModality) ? newModality : '')} 
                             onChange={e => {
                               const val = e.target.value;
                               if (val === 'Outros') {
+                                setIsCustomModality(true);
                                 setNewModality('');
                               } else {
+                                setIsCustomModality(false);
                                 setNewModality(val);
                               }
                             }}
                             className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
                           >
                             <option value="">Selecione...</option>
-                            {modalities.map(m => <option key={m} value={m}>{m}</option>)}
+                            {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
                             <option value="Outros">Outros</option>
                           </select>
-                          {(!modalities.includes(newModality) && newModality !== '') && (
+                          {isCustomModality && (
                             <input 
                               value={newModality} 
                               onChange={e => setNewModality(e.target.value)}
                               placeholder="Digite sua modalidade"
                               className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)] mt-2"
+                              autoFocus
                             />
                           )}
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase">Graduação / Faixa</label>
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
+                            Graduação / Faixa <span className="text-red-500">*</span>
+                          </label>
                           <select 
                             value={newModalityBelt} 
                             onChange={e => setNewModalityBelt(e.target.value)}
@@ -2015,20 +2066,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </div>
 
               {[
-                { label: 'Equipe / Team', value: profile.team, icon: Award, key: 'team' },
-                { label: 'Sexo / Gênero', value: profile.genero, icon: VenusAndMars, key: 'genero' },
-                { label: 'Nascimento', value: profile.birth_date ? new Date(profile.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-', icon: Calendar, key: 'birth_date' },
-                { label: 'Categoria', value: profile.category, icon: Target, key: 'category' },
-                { label: 'Peso', value: profile.weight ? `${String(profile.weight).replace('.', ',')}kg` : '-', icon: Scale, key: 'weight' },
-                { label: 'Altura', value: profile.height ? `${String(profile.height).replace('.', ',')}m` : '-', icon: Ruler, key: 'height' },
-                { label: 'Graduação', value: profile.graduation, icon: GraduationCap, key: 'graduation' },
-                { label: 'Professor', value: profile.professor, icon: User, key: 'professor' },
-                { label: 'Academia', value: profile.gym_name, icon: Dumbbell, key: 'gym_name' },
+                { label: 'Equipe / Team', value: profile.team, icon: Award, key: 'team', mandatory: true },
+                { label: 'Sexo / Gênero', value: profile.genero, icon: VenusAndMars, key: 'genero', mandatory: true },
+                { label: 'Nascimento', value: profile.birth_date ? new Date(profile.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-', icon: Calendar, key: 'birth_date', mandatory: true },
+                { label: 'Categoria', value: profile.category, icon: Target, key: 'category', mandatory: true },
+                { label: 'Peso', value: profile.weight ? `${String(profile.weight).replace('.', ',')}kg` : '-', icon: Scale, key: 'weight', mandatory: true },
+                { label: 'Altura', value: profile.height ? `${String(profile.height).replace('.', ',')}m` : '-', icon: Ruler, key: 'height', mandatory: true },
+                { label: 'Graduação', value: profile.graduation, icon: GraduationCap, key: 'graduation', mandatory: true },
+                { label: 'Professor', value: profile.professor, icon: User, key: 'professor', mandatory: false },
+                { label: 'Academia', value: profile.gym_name, icon: Dumbbell, key: 'gym_name', mandatory: true },
               ].map((info, i) => (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center space-x-2 text-[var(--text-muted)]">
                     <info.icon size={12} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">{info.label}</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
+                      {info.label} {info.mandatory && <span className="text-red-500">*</span>}
+                    </span>
                   </div>
                   {isEditing ? (
                     info.key === 'team' ? (
