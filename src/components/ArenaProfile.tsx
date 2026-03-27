@@ -18,7 +18,7 @@ import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { getAthleteRankings, searchTeams, getTeams, CardData } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
-import { isProfileComplete } from '../utils/profileValidation';
+import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
 import { ShareModal } from './ShareModal';
 
@@ -70,6 +70,7 @@ export const ArenaProfileView: React.FC<{
   
   const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [shareModalData, setShareModalData] = useState<{
     title: string;
     subtitle: string;
@@ -773,6 +774,16 @@ export const ArenaProfileView: React.FC<{
     }
   };
 
+  const missingFields = profile ? getMissingProfileFields({ ...editData, modalidades: userModalities }) : [];
+  const isFieldMissing = (fieldName: string) => {
+    if (!showValidationErrors) return false;
+    return missingFields.some(m => 
+      m === fieldName || 
+      fieldName.includes(m) || 
+      m.includes(fieldName)
+    );
+  };
+
   const handleSave = async () => {
     if (!profile) return;
 
@@ -782,8 +793,20 @@ export const ArenaProfileView: React.FC<{
       modalidades: userModalities
     };
 
-    if (!isProfileComplete(currentProfileData)) {
-      alert('Por favor, preencha todos os campos obrigatórios marcados com (*).');
+    const missing = getMissingProfileFields(currentProfileData);
+    console.log('[ARENACOMP] Campos faltantes:', missing);
+
+    if (missing.length > 0) {
+      setShowValidationErrors(true);
+      alert(`Complete os seguintes campos obrigatórios: ${missing.join(', ')}`);
+      
+      // Scroll to first error
+      setTimeout(() => {
+        const firstError = document.querySelector('.border-red-500');
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
       return;
     }
 
@@ -1502,7 +1525,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             </div>
             <div>
               <p className="text-sm font-bold text-amber-500">Perfil Incompleto</p>
-              <p className="text-xs text-amber-500/80">Preencha todos os campos obrigatórios para liberar todas as funcionalidades do sistema.</p>
+              <p className="text-xs text-amber-500/80">
+                {missingFields.length > 0 
+                  ? `Campos faltando: ${missingFields.join(', ')}`
+                  : 'Preencha todos os campos obrigatórios para liberar todas as funcionalidades do sistema.'}
+              </p>
             </div>
           </div>
           {!isEditing && (
@@ -1810,7 +1837,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         });
                         if (country) fetchStates(country.id);
                       }}
-                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      className={`w-full bg-[var(--bg)] border ${isFieldMissing('País') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                     >
                       <option value="">Selecionar País</option>
                       {dbCountries.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -1868,7 +1895,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     <select 
                       value={editData.genero || ''} 
                       onChange={e => setEditData({...editData, genero: e.target.value as any})}
-                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      className={`w-full bg-[var(--bg)] border ${isFieldMissing('Sexo / Gênero') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                     >
                       <option value="">Selecionar</option>
                       <option value="Masculino">Masculino</option>
@@ -2016,11 +2043,13 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     </div>
 
                     {/* Add/Edit modality form */}
-                    <div className="bg-[var(--bg)] border border-[var(--border-ui)] p-4 rounded-xl space-y-4">
+                    <div className={`bg-[var(--bg)] border ${isFieldMissing('Modalidade') || isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} p-4 rounded-xl space-y-4`}>
                       <div className="flex items-center justify-between">
                         <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
                           {editingModalityId ? 'Editar Modalidade' : 'Adicionar Modalidade'}
                         </h4>
+                        {isFieldMissing('Modalidade') && <span className="text-[8px] font-bold text-red-500 uppercase">Modalidade Obrigatória</span>}
+                        {isFieldMissing('Graduação') && <span className="text-[8px] font-bold text-red-500 uppercase">Graduação Obrigatória</span>}
                         {editingModalityId && (
                           <button 
                             type="button"
@@ -2053,7 +2082,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                 setNewModality(val);
                               }
                             }}
-                            className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                            className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Modalidade') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                           >
                             <option value="">Selecione...</option>
                             {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
@@ -2077,7 +2106,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                           <select 
                             value={newModalityBelt} 
                             onChange={e => setNewModalityBelt(e.target.value)}
-                            className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                            className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                           >
                             <option value="">Selecione a faixa...</option>
                             {belts.map(b => <option key={b} value={b}>{b}</option>)}
@@ -2162,7 +2191,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                               });
                             }
                           }}
-                          className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                          className={`w-full bg-[var(--bg)] border ${isFieldMissing('Equipe') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                         >
                           <option value="">Selecionar Equipe</option>
                           {allTeams.map(team => (
@@ -2185,7 +2214,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       <select 
                         value={editData.genero || ''} 
                         onChange={e => setEditData({...editData, genero: e.target.value as any})}
-                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                        className={`w-full bg-[var(--bg)] border ${isFieldMissing('Sexo / Gênero') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                       >
                         <option value="">Selecionar</option>
                         <option value="Masculino">Masculino</option>
@@ -2196,13 +2225,13 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         type="date"
                         value={editData.birth_date || ''} 
                         onChange={e => setEditData({...editData, birth_date: e.target.value})}
-                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                        className={`w-full bg-[var(--bg)] border ${isFieldMissing('Nascimento') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                       />
                     ) : info.key === 'graduation' ? (
                       <select 
                         value={editData.graduation || ''} 
                         onChange={e => setEditData({...editData, graduation: e.target.value})}
-                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                        className={`w-full bg-[var(--bg)] border ${isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                       >
                         <option value="">Selecionar Graduação</option>
                         {belts.map(b => <option key={b} value={b}>{b}</option>)}
@@ -2213,7 +2242,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         step="0.01"
                         value={(editData[info.key as keyof ArenaProfile] as string) || ''} 
                         onChange={e => setEditData({...editData, [info.key]: e.target.value})}
-                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                        className={`w-full bg-[var(--bg)] border ${isFieldMissing(info.label.split(' / ')[0]) ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
                       />
                     )
                   ) : (

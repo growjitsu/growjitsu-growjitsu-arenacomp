@@ -12,52 +12,65 @@
  * - Altura
  * - Academia
  */
-export function isProfileComplete(profile: any) {
-  if (!profile) return false;
-  
+export function getMissingProfileFields(profile: any): string[] {
+  const missingFields: string[] = [];
+  if (!profile) return ["Perfil não encontrado"];
+
   // 1. Modalidades (Pelo menos 1 válida)
-  // Aceitamos tanto o array 'modalidades' quanto o campo legado 'modality'.
   const modalidades = profile.modalidades || [];
   const hasValidModalityInList = modalidades.some((m: any) => !!m.modality && String(m.modality).trim() !== '');
   const hasLegacyModality = !!profile.modality && String(profile.modality).trim() !== '';
-  const hasModalities = hasValidModalityInList || hasLegacyModality;
-  
+  if (!hasValidModalityInList && !hasLegacyModality) {
+    missingFields.push("Modalidade");
+  }
+
   // 2. Graduação (Pode estar no perfil ou em qualquer uma das modalidades da lista)
   const hasGraduationInModalities = modalidades.some((m: any) => !!m.belt && String(m.belt).trim() !== '');
   const hasLegacyGraduation = !!(profile.graduation || profile.graduacao);
-  const hasGraduation = hasGraduationInModalities || hasLegacyGraduation;
-  
+  if (!hasGraduationInModalities && !hasLegacyGraduation) {
+    missingFields.push("Graduação");
+  }
+
   // 3. Equipe
-  const hasTeam = !!(profile.team || profile.team_id || profile.equipe);
-  
+  if (!(profile.team || profile.team_id || profile.equipe)) {
+    missingFields.push("Equipe");
+  }
+
   // 4. Gênero
-  const hasGender = !!(profile.genero);
-  
+  if (!profile.genero) {
+    missingFields.push("Sexo / Gênero");
+  }
+
   // 5. Data de Nascimento
-  const hasBirthDate = !!(profile.birth_date || profile.dataNascimento || profile.nascimento);
-  
+  if (!(profile.birth_date || profile.dataNascimento || profile.nascimento)) {
+    missingFields.push("Nascimento");
+  }
+
   // 6. Categoria
-  const hasCategory = !!(profile.category || profile.categoria);
-  
+  if (!(profile.category || profile.categoria)) {
+    missingFields.push("Categoria");
+  }
+
   // 7. Peso (Pode ser 0, então verificamos se não é nulo/vazio)
   const hasWeight = profile.weight !== undefined && profile.weight !== null && String(profile.weight).trim() !== '';
-  
+  if (!hasWeight) {
+    missingFields.push("Peso");
+  }
+
   // 8. Altura (Pode ser 0, então verificamos se não é nulo/vazio)
   const hasHeight = profile.height !== undefined && profile.height !== null && String(profile.height).trim() !== '';
-  
-  // 9. Academia
-  const hasGym = !!(profile.gym_name || profile.academia);
+  if (!hasHeight) {
+    missingFields.push("Altura");
+  }
 
-  // O perfil é considerado completo se todos os critérios obrigatórios forem atendidos
-  return !!(
-    hasModalities &&
-    hasGraduation &&
-    hasTeam &&
-    hasGender &&
-    hasBirthDate &&
-    hasCategory &&
-    hasWeight &&
-    hasHeight &&
-    hasGym
-  );
+  // 9. Academia
+  if (!(profile.gym_name || profile.academia)) {
+    missingFields.push("Academia");
+  }
+
+  return missingFields;
+}
+
+export function isProfileComplete(profile: any) {
+  return getMissingProfileFields(profile).length === 0;
 }
