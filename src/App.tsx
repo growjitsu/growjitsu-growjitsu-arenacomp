@@ -56,10 +56,9 @@ export default function App() {
 }
 
 function AppContent() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
-  const { isProfileValid, isLoading: isProfileLoading } = useProfile();
   const [isInitializing, setIsInitializing] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -95,7 +94,6 @@ function AppContent() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          setIsLoggedIn(true);
           // Fetch profile but don't strictly block initialization if it's slow
           // We'll wait a bit, but if it takes too long, we'll proceed
           const profilePromise = fetchProfile(session.user.id);
@@ -115,13 +113,11 @@ function AppContent() {
 
     initAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes to fetch profile
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        setIsLoggedIn(true);
         fetchProfile(session.user.id);
       } else {
-        setIsLoggedIn(false);
         setProfile(null);
       }
     });
@@ -171,10 +167,11 @@ function AppContent() {
   // Global Profile Redirection
   useEffect(() => {
     if (isLoggedIn && isProfileValid === false && location.pathname !== '/perfil') {
-      console.log('[ARENACOMP] Perfil incompleto detectado. Redirecionando para /perfil');
+      console.log('[ARENACOMP] Perfil incompleto detectado. Redirecionando para /perfil. Path:', location.pathname);
       navigate('/perfil');
     } else if (isLoggedIn && isProfileValid === true && location.pathname === '/perfil') {
       if (!location.pathname.includes('edit')) {
+        console.log('[ARENACOMP] Perfil completo detectado. Redirecionando para /');
         navigate('/');
       }
     }
@@ -211,10 +208,13 @@ function AppContent() {
     }
   };
 
-  if (isInitializing) {
+  if (isInitializing || (isLoggedIn && isProfileLoading)) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-[var(--bg)]">
-        <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          {isProfileLoading && <p className="text-sm text-muted-foreground animate-pulse">Validando perfil...</p>}
+        </div>
       </div>
     );
   }
@@ -224,6 +224,7 @@ function AppContent() {
     
     // Global Profile Protection
     if (isProfileValid === false && tabId !== 'perfil') {
+      console.log('[ARENACOMP] renderLayout: Perfil inválido, redirecionando para /perfil');
       return <Navigate to="/perfil" replace />;
     }
     

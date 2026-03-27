@@ -3,7 +3,7 @@ export function isProfileComplete(profile: any) {
   
   return (
     (profile.modalidades?.length > 0 || profile.modality) &&
-    profile.equipe &&
+    (profile.equipe || profile.team) &&
     profile.genero &&
     (profile.dataNascimento || profile.birth_date) &&
     (profile.graduacao || profile.graduation) &&
