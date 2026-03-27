@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 interface ArenaAuthProps {
   isAdminLogin?: boolean;
@@ -329,6 +331,25 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             }
           }
           console.log('[LOG] Perfil inserido com sucesso');
+
+          // Synchronize with Firestore for validation
+          try {
+            const { data: teamData } = finalTeamId ? 
+              await supabase.from('teams').select('name').eq('id', finalTeamId).single() : 
+              { data: null };
+
+            await setDoc(doc(db, "users", user.id), {
+              uid: user.id,
+              full_name: fullName.toUpperCase(),
+              nickname: username.toLowerCase(),
+              equipe: teamData?.name?.toUpperCase() || null,
+              role: 'athlete',
+              updated_at: new Date().toISOString()
+            }, { merge: true });
+            console.log('[FIREBASE] Perfil inicial sincronizado com Firestore');
+          } catch (fsError) {
+            console.error('[FIREBASE] Erro ao sincronizar perfil inicial:', fsError);
+          }
 
           // Insert Team Member relationship
           if (finalTeamId) {

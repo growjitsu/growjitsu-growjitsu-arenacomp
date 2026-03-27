@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useParams } from 'react-router-dom';
 import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X, MoreVertical, Trash2, Edit2, Archive, RotateCcw } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
 import { ArenaPost, ArenaProfile, PostType, ArenaAd } from '../types';
 import { PostModal } from './PostModal';
 import { ShareModal } from './ShareModal';
@@ -52,6 +54,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   });
   const [trendingPosts, setTrendingPosts] = useState<ArenaPost[]>([]);
   const [ads, setAds] = useState<ArenaAd[]>([]);
+  const [featuredBanners, setFeaturedBanners] = useState<any[]>([]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const { id: urlPostId } = useParams<{ id?: string }>();
 
@@ -61,6 +64,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     fetchArenaStats();
     fetchTrendingPosts();
     fetchAds();
+    fetchFeaturedBanners();
     fetchPromotedProfiles();
 
     // Check for single post in URL (query param or route param)
@@ -415,6 +419,59 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     } catch (error) {
       console.error('Error fetching ads:', error);
     }
+  };
+
+  const fetchFeaturedBanners = () => {
+    const q = query(collection(db, 'featured_banners'), where('is_active', '==', true), orderBy('order', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = new Date();
+      const bannersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Filter by date and geographic location
+      const filteredBanners = bannersData.filter((banner: any) => {
+        const start = banner.start_date ? new Date(banner.start_date.seconds * 1000) : null;
+        const end = banner.end_date ? new Date(banner.end_date.seconds * 1000) : null;
+
+        if (start && start > now) return false;
+        if (end && end < now) return false;
+
+        // Geographic segmentation
+        if (userProfile) {
+          // Priority 1: Match by ID if both have it
+          // Priority 2: Fallback to name if ID is missing on either side
+          
+          if (banner.country_id && userProfile.country_id) {
+            if (banner.country_id !== userProfile.country_id) return false;
+          } else if (banner.country && banner.country !== userProfile.country) {
+            return false;
+          }
+
+          if (banner.state_id && userProfile.state_id) {
+            if (banner.state_id !== userProfile.state_id) return false;
+          } else if (banner.state && banner.state !== userProfile.state) {
+            return false;
+          }
+
+          if (banner.city_id && userProfile.city_id) {
+            if (banner.city_id !== userProfile.city_id) return false;
+          } else if (banner.city && banner.city !== userProfile.city) {
+            return false;
+          }
+        } else {
+          // If not logged in, hide banners that have specific location constraints
+          if (banner.country || banner.state || banner.city || banner.country_id || banner.state_id || banner.city_id) return false;
+        }
+
+        return true;
+      });
+
+      setFeaturedBanners(filteredBanners);
+    });
+
+    return unsubscribe;
   };
 
   const fetchPromotedProfiles = async () => {
@@ -821,6 +878,34 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
               </div>
             ) : (
               <div className="space-y-8">
+                {/* Featured Banners (Firestore) */}
+                {featuredBanners.length > 0 && (
+                  <div className="relative w-full h-48 md:h-64 rounded-[2rem] overflow-hidden group/banners">
+                    <div className="flex h-full transition-transform duration-500 ease-out" style={{ transform: `translateX(-${(Math.floor(Date.now() / 5000) % featuredBanners.length) * 100}%)` }}>
+                      {featuredBanners.map((banner) => (
+                        <a 
+                          key={banner.id}
+                          href={banner.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full h-full flex-shrink-0 relative"
+                        >
+                          <img 
+                            src={banner.image_url} 
+                            alt={banner.title}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-8">
+                            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-2">Destaque Arena</span>
+                            <h3 className="text-xl md:text-2xl font-black uppercase italic tracking-tighter text-white">{banner.title}</h3>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Top Ad */}
                 {ads.filter(ad => ad.placement === 'feed_top').map(ad => (
                   <div key={ad.id} className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6">

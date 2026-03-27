@@ -20,9 +20,15 @@ interface Banner {
   order: number;
   start_date?: any;
   end_date?: any;
+  country?: string;
+  state?: string;
+  city?: string;
+  country_id?: string;
+  state_id?: string;
+  city_id?: string;
 }
 
-export const LandingPage: React.FC = () => {
+export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
   const navigate = useNavigate();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -40,13 +46,41 @@ export const LandingPage: React.FC = () => {
         ...doc.data()
       })) as Banner[];
 
-      // Filter by date
+      // Filter by date and geographic location
       const filteredBanners = bannersData.filter(banner => {
         const start = banner.start_date ? new Date(banner.start_date.seconds * 1000) : null;
         const end = banner.end_date ? new Date(banner.end_date.seconds * 1000) : null;
 
         if (start && start > now) return false;
         if (end && end < now) return false;
+
+        // Geographic segmentation
+        if (userProfile) {
+          // Priority 1: Match by ID if both have it
+          // Priority 2: Fallback to name if ID is missing on either side
+          
+          if (banner.country_id && userProfile.country_id) {
+            if (banner.country_id !== userProfile.country_id) return false;
+          } else if (banner.country && banner.country !== userProfile.country) {
+            return false;
+          }
+
+          if (banner.state_id && userProfile.state_id) {
+            if (banner.state_id !== userProfile.state_id) return false;
+          } else if (banner.state && banner.state !== userProfile.state) {
+            return false;
+          }
+
+          if (banner.city_id && userProfile.city_id) {
+            if (banner.city_id !== userProfile.city_id) return false;
+          } else if (banner.city && banner.city !== userProfile.city) {
+            return false;
+          }
+        } else {
+          // If not logged in, hide banners that have specific location constraints
+          if (banner.country || banner.state || banner.city || banner.country_id || banner.state_id || banner.city_id) return false;
+        }
+
         return true;
       });
 

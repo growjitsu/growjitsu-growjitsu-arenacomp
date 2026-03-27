@@ -152,23 +152,23 @@ export const AdminDashboard: React.FC = () => {
         { count: postsPrevious },
         { count: likesPrevious }
       ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete'),
         supabase.from('teams').select('*', { count: 'exact', head: true }),
         supabase.from('posts').select('*', { count: 'exact', head: true }),
         supabase.from('eventos').select('*', { count: 'exact', head: true }),
         supabase.from('likes').select('*', { count: 'exact', head: true }),
         supabase.from('comments').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('created_at, modality, team_id').limit(1000),
+        supabase.from('profiles').select('created_at, graduation, modality, team_id').eq('role', 'athlete').limit(2000),
         supabase.from('teams').select('id, name').limit(100),
         
         // Recent
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', thirtyDaysAgo),
         supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
         supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
         supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
 
         // Previous
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
         supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
         supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
         supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo)
@@ -216,7 +216,7 @@ export const AdminDashboard: React.FC = () => {
 
         // Count new users per month
         profilesData.forEach(p => {
-          const d = new Date(p.created_at);
+          const d = new Date(p.created_at || now);
           const key = `${months[d.getMonth()]}`;
           if (growthMap[key] !== undefined) {
             growthMap[key]++;
@@ -236,7 +236,7 @@ export const AdminDashboard: React.FC = () => {
         // Process Modality Data
         const modalityMap: Record<string, number> = {};
         profilesData.forEach(p => {
-          const m = p.modality || 'Outros';
+          const m = p.modality || p.graduation || 'Outros';
           modalityMap[m] = (modalityMap[m] || 0) + 1;
         });
         

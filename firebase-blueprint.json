@@ -15,15 +15,61 @@
         "order": { "type": "number" },
         "start_date": { "type": "string", "format": "date-time" },
         "end_date": { "type": "string", "format": "date-time" },
+        "country": { "type": "string" },
+        "state": { "type": "string" },
+        "city": { "type": "string" },
+        "country_id": { "type": "string" },
+        "state_id": { "type": "string" },
+        "city_id": { "type": "string" },
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["image_url", "link", "is_active", "order"]
+    },
+    "admin_log": {
+      "title": "Admin Log",
+      "description": "Logs of actions performed by administrators.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "admin_id": { "type": "string" },
+        "admin_name": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["admin_id", "admin_name", "action", "timestamp"]
+    },
+    "user": {
+      "title": "User Profile",
+      "description": "User profile data for mandatory completion check.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "modalidades": { "type": "array", "items": { "type": "string" } },
+        "equipe": { "type": "string" },
+        "genero": { "type": "string" },
+        "dataNascimento": { "type": "string" },
+        "graduacao": { "type": "string" },
+        "academia": { "type": "string" },
+        "pais": { "type": "string" },
+        "estado": { "type": "string" },
+        "cidade": { "type": "string" },
+        "foto": { "type": "string" }
+      }
     }
   },
   "firestore": {
     "/featured_banners/{bannerId}": {
       "schema": "featured_banner",
       "description": "Collection of featured banners for the landing page."
+    },
+    "/admin_logs/{logId}": {
+      "schema": "admin_log",
+      "description": "Collection of administrative action logs."
+    },
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "Collection of user profiles for mandatory completion check."
     }
   }
 }

@@ -50,9 +50,16 @@ export const ageCategories = [
 ];
 
 export const belts = [
-  'Branca',
-  'Azul',
-  'Roxa',
-  'Marrom',
-  'Preta'
+  'Faixa Branca',
+  'Faixa Cinza',
+  'Faixa Amarela',
+  'Faixa Laranja',
+  'Faixa Verde',
+  'Faixa Azul',
+  'Faixa Roxa',
+  'Faixa Marrom',
+  'Faixa Preta',
+  'Faixa Coral (Vermelha e Preta)',
+  'Faixa Coral (Vermelha e Branca)',
+  'Faixa Vermelha'
 ];

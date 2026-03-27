@@ -39,7 +39,7 @@ service cloud.firestore {
 
     function isValidBanner(data) {
       let requiredFields = ['image_url', 'link', 'is_active', 'order'];
-      let allowedFields = ['image_url', 'mobile_image_url', 'link', 'title', 'display_time', 'is_active', 'order', 'start_date', 'end_date', 'created_at', 'updated_at'];
+      let allowedFields = ['image_url', 'mobile_image_url', 'link', 'title', 'display_time', 'is_active', 'order', 'start_date', 'end_date', 'created_at', 'updated_at', 'country', 'state', 'city'];
       
       return data.keys().hasAll(requiredFields) &&
              data.keys().hasOnly(allowedFields) &&
@@ -51,7 +51,20 @@ service cloud.firestore {
              (!('display_time' in data) || data.display_time is number) &&
              (!('mobile_image_url' in data) || data.mobile_image_url is string) &&
              (!('start_date' in data) || data.start_date is timestamp || data.start_date == null) &&
-             (!('end_date' in data) || data.end_date is timestamp || data.end_date == null);
+             (!('end_date' in data) || data.end_date is timestamp || data.end_date == null) &&
+             (!('country' in data) || data.country is string) &&
+             (!('state' in data) || data.state is string) &&
+             (!('city' in data) || data.city is string);
+    }
+
+    function isValidLog(data) {
+      let requiredFields = ['action', 'target_type', 'target_id', 'admin_id', 'created_at'];
+      return data.keys().hasAll(requiredFields) &&
+             data.action is string &&
+             data.target_type is string &&
+             data.target_id is string &&
+             data.admin_id is string &&
+             data.created_at is timestamp;
     }
 
     // ===============================================================
@@ -60,6 +73,16 @@ service cloud.firestore {
 
     match /featured_banners/{bannerId} {
       allow read: if true; // Publicly readable for the landing page
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /admin_logs/{logId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    match /posts/{postId} {
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
   }

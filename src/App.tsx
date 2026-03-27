@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase, isSupabaseConfigured } from './services/supabase';
-import { auth } from './firebase';
+import { auth, db } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { isProfileComplete } from './utils/profileValidation';
 import { ArenaNavbar } from './components/ArenaNavbar';
 import { ArenaFeed } from './components/ArenaFeed';
 import { ArenaClips } from './components/ArenaClips';
@@ -27,7 +29,7 @@ import { LandingPage } from './pages/LandingPage';
 import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
-
+import { ProfileProvider, useProfile } from './context/ProfileContext';
 import { Toaster } from 'sonner';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
@@ -46,9 +48,18 @@ const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
 };
 
 export default function App() {
+  return (
+    <ProfileProvider>
+      <AppContent />
+    </ProfileProvider>
+  );
+}
+
+function AppContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState('feed');
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
+  const { isProfileValid, isLoading: isProfileLoading } = useProfile();
   const [isInitializing, setIsInitializing] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -121,36 +132,53 @@ export default function App() {
   // Firebase Auth Listener for Admin Claims
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user && (user.email === 'admin@arenacomp.com.br' || user.email === 'carlos.atila001@gmail.com')) {
-        console.log('[FIREBASE] Admin detectado, verificando claims...');
+      if (user) {
+        console.log('[FIREBASE] Usuário detectado:', user.email);
         
-        try {
-          const token = await user.getIdTokenResult();
+        // Admin Claims
+        if (user.email === 'admin@arenacomp.com.br' || user.email === 'carlos.atila001@gmail.com') {
+          console.log('[FIREBASE] Admin detectado, verificando claims...');
           
-          if (!token.claims.admin) {
-            console.log('[FIREBASE] Claim de admin não encontrado. Solicitando ao servidor...');
-            const response = await fetch('/api/admin/set-admin-claim', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: user.email })
-            });
+          try {
+            const token = await user.getIdTokenResult();
             
-            if (response.ok) {
-              console.log('[FIREBASE] Claim de admin solicitado com sucesso. Atualizando token...');
-              await user.getIdToken(true);
-              console.log('[FIREBASE] Token atualizado com novos claims.');
+            if (!token.claims.admin) {
+              console.log('[FIREBASE] Claim de admin não encontrado. Solicitando ao servidor...');
+              const response = await fetch('/api/admin/set-admin-claim', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: user.email })
+              });
+              
+              if (response.ok) {
+                console.log('[FIREBASE] Claim de admin solicitado com sucesso. Atualizando token...');
+                await user.getIdToken(true);
+                console.log('[FIREBASE] Token atualizado com novos claims.');
+              }
+            } else {
+              console.log('[FIREBASE] Claim de admin já está ativo.');
             }
-          } else {
-            console.log('[FIREBASE] Claim de admin já está ativo.');
+          } catch (error) {
+            console.error('[FIREBASE] Erro ao processar claims de admin:', error);
           }
-        } catch (error) {
-          console.error('[FIREBASE] Erro ao processar claims de admin:', error);
         }
       }
     });
 
     return () => unsubscribe();
   }, []);
+
+  // Global Profile Redirection
+  useEffect(() => {
+    if (isLoggedIn && isProfileValid === false && location.pathname !== '/perfil') {
+      console.log('[ARENACOMP] Perfil incompleto detectado. Redirecionando para /perfil');
+      navigate('/perfil');
+    } else if (isLoggedIn && isProfileValid === true && location.pathname === '/perfil') {
+      if (!location.pathname.includes('edit')) {
+        navigate('/');
+      }
+    }
+  }, [isLoggedIn, isProfileValid, location.pathname, navigate]);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -193,6 +221,11 @@ export default function App() {
 
   const renderLayout = (content: React.ReactNode, tabId: string) => {
     if (!isLoggedIn) return <Navigate to="/login" replace />;
+    
+    // Global Profile Protection
+    if (isProfileValid === false && tabId !== 'perfil') {
+      return <Navigate to="/perfil" replace />;
+    }
     
     return (
       <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-24 transition-all duration-500">
@@ -371,6 +404,7 @@ export default function App() {
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
       <Route path="/profile" element={renderLayout(<ProfileWrapper />, 'profile')} />
+      <Route path="/perfil" element={renderLayout(<ProfileWrapper forceEdit />, 'perfil')} />
       <Route path="/profile/edit" element={renderLayout(<ProfileWrapper forceEdit />, 'profile/edit')} />
       <Route path="/profile/:userId" element={renderLayout(<ProfileWrapper />, 'profile')} />
       <Route path="/user/:username" element={renderLayout(<ProfileWrapper />, 'profile')} />

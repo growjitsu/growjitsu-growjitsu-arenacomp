@@ -19,6 +19,12 @@ interface Banner {
   start_date?: any;
   end_date?: any;
   created_at: any;
+  country?: string;
+  state?: string;
+  city?: string;
+  country_id?: string;
+  state_id?: string;
+  city_id?: string;
 }
 
 export const AdminAds: React.FC = () => {
@@ -35,8 +41,18 @@ export const AdminAds: React.FC = () => {
     is_active: true,
     order: 0,
     start_date: '',
-    end_date: ''
+    end_date: '',
+    country: '',
+    state: '',
+    city: '',
+    country_id: '',
+    state_id: '',
+    city_id: ''
   });
+
+  const [countries, setCountries] = useState<any[]>([]);
+  const [states, setStates] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
 
   const [desktopFile, setDesktopFile] = useState<File | null>(null);
   const [mobileFile, setMobileFile] = useState<File | null>(null);
@@ -85,8 +101,26 @@ export const AdminAds: React.FC = () => {
       handleFirestoreError(error, OperationType.LIST, 'featured_banners');
     });
 
+    fetchCountries();
+
     return () => unsubscribe();
   }, []);
+
+  const fetchCountries = async () => {
+    const { data } = await supabase.from('countries').select('*').order('name');
+    if (data) setCountries(data);
+  };
+
+  const fetchStates = async (countryId: string) => {
+    const { data } = await supabase.from('states').select('*').eq('country_id', countryId).order('name');
+    if (data) setStates(data);
+    setCities([]);
+  };
+
+  const fetchCities = async (stateId: string) => {
+    const { data } = await supabase.from('cities').select('*').eq('state_id', stateId).order('name');
+    if (data) setCities(data);
+  };
 
   const handleOpenModal = (banner?: Banner) => {
     setDesktopFile(null);
@@ -104,8 +138,16 @@ export const AdminAds: React.FC = () => {
         is_active: banner.is_active,
         order: banner.order,
         start_date: banner.start_date ? new Date(banner.start_date.seconds * 1000).toISOString().slice(0, 16) : '',
-        end_date: banner.end_date ? new Date(banner.end_date.seconds * 1000).toISOString().slice(0, 16) : ''
+        end_date: banner.end_date ? new Date(banner.end_date.seconds * 1000).toISOString().slice(0, 16) : '',
+        country: banner.country || '',
+        state: banner.state || '',
+        city: banner.city || '',
+        country_id: banner.country_id || '',
+        state_id: banner.state_id || '',
+        city_id: banner.city_id || ''
       });
+      if (banner.country_id) fetchStates(banner.country_id);
+      if (banner.state_id) fetchCities(banner.state_id);
     } else {
       setEditingBanner(null);
       setDesktopPreview('');
@@ -119,8 +161,16 @@ export const AdminAds: React.FC = () => {
         is_active: true,
         order: banners.length > 0 ? Math.max(...banners.map(b => b.order)) + 1 : 0,
         start_date: '',
-        end_date: ''
+        end_date: '',
+        country: '',
+        state: '',
+        city: '',
+        country_id: '',
+        state_id: '',
+        city_id: ''
       });
+      setStates([]);
+      setCities([]);
     }
     setIsModalOpen(true);
   };
@@ -260,6 +310,18 @@ export const AdminAds: React.FC = () => {
             ...dataToSave,
             updated_at: serverTimestamp()
           });
+          
+          // Log action
+          await addDoc(collection(db, 'admin_logs'), {
+            admin_id: auth.currentUser.uid,
+            admin_email: auth.currentUser.email,
+            action: 'editar_banner',
+            target_type: 'banner',
+            target_id: editingBanner.id,
+            details: { title: dataToSave.title, link: dataToSave.link },
+            created_at: serverTimestamp()
+          });
+
           toast.success('Banner atualizado com sucesso!', { id: toastId });
         } catch (err) {
           handleFirestoreError(err, OperationType.UPDATE, path);
@@ -268,10 +330,22 @@ export const AdminAds: React.FC = () => {
         console.log('Criando novo documento...');
         const path = 'featured_banners';
         try {
-          await addDoc(collection(db, 'featured_banners'), {
+          const docRef = await addDoc(collection(db, 'featured_banners'), {
             ...dataToSave,
             created_at: serverTimestamp()
           });
+
+          // Log action
+          await addDoc(collection(db, 'admin_logs'), {
+            admin_id: auth.currentUser.uid,
+            admin_email: auth.currentUser.email,
+            action: 'criar_banner',
+            target_type: 'banner',
+            target_id: docRef.id,
+            details: { title: dataToSave.title, link: dataToSave.link },
+            created_at: serverTimestamp()
+          });
+
           toast.success('Banner criado com sucesso!', { id: toastId });
         } catch (err) {
           handleFirestoreError(err, OperationType.CREATE, path);
@@ -303,6 +377,20 @@ export const AdminAds: React.FC = () => {
     if (!confirm('Tem certeza que deseja excluir este banner?')) return;
     try {
       await deleteDoc(doc(db, 'featured_banners', id));
+      
+      // Log action
+      if (auth.currentUser) {
+        await addDoc(collection(db, 'admin_logs'), {
+          admin_id: auth.currentUser.uid,
+          admin_email: auth.currentUser.email,
+          action: 'excluir_banner',
+          target_type: 'banner',
+          target_id: id,
+          details: { id },
+          created_at: serverTimestamp()
+        });
+      }
+
       toast.success('Banner excluído com sucesso!');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, 'featured_banners');
@@ -629,6 +717,90 @@ export const AdminAds: React.FC = () => {
                         onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
                       />
+                    </div>
+                  </div>
+
+                  {/* Segmentation */}
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-500 italic">Segmentação Geográfica (Opcional)</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">País</label>
+                        <select
+                          value={formData.country_id}
+                          onChange={(e) => {
+                            const country = countries.find(c => c.id === e.target.value);
+                            setFormData({ 
+                              ...formData, 
+                              country_id: e.target.value, 
+                              country: country?.name || '',
+                              state_id: '',
+                              state: '',
+                              city_id: '',
+                              city: ''
+                            });
+                            if (e.target.value) fetchStates(e.target.value);
+                            else {
+                              setStates([]);
+                              setCities([]);
+                            }
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                        >
+                          <option value="">Todos os Países</option>
+                          {countries.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Estado</label>
+                          <select
+                            value={formData.state_id}
+                            disabled={!formData.country_id}
+                            onChange={(e) => {
+                              const state = states.find(s => s.id === e.target.value);
+                              setFormData({ 
+                                ...formData, 
+                                state_id: e.target.value, 
+                                state: state?.name || '',
+                                city_id: '',
+                                city: ''
+                              });
+                              if (e.target.value) fetchCities(e.target.value);
+                              else setCities([]);
+                            }}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Todos os Estados</option>
+                            {states.map(s => (
+                              <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Cidade</label>
+                          <select
+                            value={formData.city_id}
+                            disabled={!formData.state_id}
+                            onChange={(e) => {
+                              const city = cities.find(c => c.id === e.target.value);
+                              setFormData({ 
+                                ...formData, 
+                                city_id: e.target.value, 
+                                city: city?.name || ''
+                              });
+                            }}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <option value="">Todas as Cidades</option>
+                            {cities.map(c => (
+                              <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

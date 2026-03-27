@@ -11,47 +11,65 @@ import {
   ChevronRight,
   Clock
 } from 'lucide-react';
-import { supabase } from '../../services/supabase';
+import { collection, query, orderBy, limit, startAfter, getDocs, onSnapshot } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const AdminLogs: React.FC = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const pageSize = 15;
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 20;
 
   useEffect(() => {
-    fetchLogs();
-  }, [page]);
+    const q = query(
+      collection(db, 'admin_logs'),
+      orderBy('created_at', 'desc'),
+      limit(pageSize)
+    );
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      // Note: This table might not exist yet if the SQL wasn't run
-      const { data, count, error } = await supabase
-        .from('admin_logs')
-        .select('*, profiles(full_name, username)', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range((page - 1) * pageSize, page * pageSize - 1);
-
-      if (error) {
-        if (error.code === '42P01') {
-          // Table doesn't exist, show empty state or instructions
-          setLogs([]);
-          setTotalCount(0);
-        } else {
-          throw error;
-        }
-      } else {
-        setLogs(data || []);
-        setTotalCount(count || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching admin logs:', error);
-    } finally {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        created_at: doc.data().created_at?.toDate() || new Date()
+      }));
+      setLogs(logsData);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === pageSize);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'admin_logs');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const loadMore = async () => {
+    if (!lastDoc || !hasMore) return;
+
+    const q = query(
+      collection(db, 'admin_logs'),
+      orderBy('created_at', 'desc'),
+      startAfter(lastDoc),
+      limit(pageSize)
+    );
+
+    try {
+      const snapshot = await getDocs(q);
+      const newLogs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        created_at: doc.data().created_at?.toDate() || new Date()
+      }));
+      setLogs(prev => [...prev, ...newLogs]);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setHasMore(snapshot.docs.length === pageSize);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, 'admin_logs');
     }
   };
 
@@ -138,29 +156,15 @@ export const AdminLogs: React.FC = () => {
           </table>
         </div>
 
-        {/* Pagination */}
-        {totalCount > pageSize && (
-          <div className="px-6 py-4 border-t border-white/10 flex items-center justify-between">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-              Mostrando {logs.length} de {totalCount} registros
-            </p>
-            <div className="flex items-center space-x-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(page - 1)}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 disabled:opacity-30 hover:text-white transition-all"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <span className="text-xs font-black px-4">{page}</span>
-              <button
-                disabled={page * pageSize >= totalCount}
-                onClick={() => setPage(page + 1)}
-                className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-400 disabled:opacity-30 hover:text-white transition-all"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
+        {/* Load More */}
+        {hasMore && logs.length > 0 && (
+          <div className="px-6 py-8 border-t border-white/10 flex justify-center">
+            <button
+              onClick={loadMore}
+              className="px-8 py-3 bg-blue-600/10 border border-blue-600/20 text-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-lg shadow-blue-600/5"
+            >
+              Carregar Mais Atividades
+            </button>
           </div>
         )}
       </div>

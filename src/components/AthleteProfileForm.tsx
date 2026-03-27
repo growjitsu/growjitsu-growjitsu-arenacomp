@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { User, Calendar, Weight, Users, ShieldCheck, ExternalLink, AlertCircle, Save, Loader2, VenusAndMars, Award } from 'lucide-react';
+import { User, Calendar, Weight, Users, ShieldCheck, ExternalLink, AlertCircle, Save, Loader2, VenusAndMars, Award, Camera, Upload } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { db } from '../firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { AthleteProfile, Belt, Gender, Equipe } from '../types';
 import { getAutomaticCategorization } from '../services/categorization';
 
@@ -32,8 +34,11 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     country_id: '',
     state_id: '',
     city_id: '',
+    foto_perfil: '',
     perfil_completo: false
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
 
   const [autoCategory, setAutoCategory] = useState({
     ageCategory: '',
@@ -107,6 +112,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
       
       if (data) {
         setProfile(data);
+        if (data.foto_perfil) setPhotoPreview(data.foto_perfil);
         if (data.country_id) fetchStates(data.country_id);
         if (data.state_id) fetchCities(data.state_id);
       }
@@ -116,6 +122,41 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('A foto deve ter no máximo 2MB.');
+      return;
+    }
+
+    setPhotoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadPhoto = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${userId}-${Math.random()}.${fileExt}`;
+    const filePath = `avatars/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('profiles')
+      .upload(filePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('profiles')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -147,11 +188,22 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
       setError('País, Estado e Cidade são obrigatórios.');
       return;
     }
+    if (!photoPreview && !photoFile) {
+      setError('A Foto de Perfil é obrigatória.');
+      return;
+    }
 
     setSaving(true);
     try {
+      let foto_perfil = profile.foto_perfil;
+
+      if (photoFile) {
+        foto_perfil = await uploadPhoto(photoFile);
+      }
+
       const payload = {
         ...profile,
+        foto_perfil,
         categoria_idade: autoCategory.ageCategory,
         categoria_peso: autoCategory.weightCategory,
         usuario_id: userId,
@@ -159,17 +211,54 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
         atualizado_em: new Date().toISOString()
       };
 
-      // 1. Salvar no Supabase
+      // 1. Salvar no Supabase (Atletas)
       const { error: upsertError } = await supabase
         .from('atletas')
         .upsert(payload);
 
       if (upsertError) throw upsertError;
 
-      // 2. Pequeno delay para garantir que o banco processou (opcional mas seguro para RLS/Cache)
+      // 2. Salvar no Supabase (Profiles) para manter consistência
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profile.nome_completo,
+          genero: profile.genero,
+          birth_date: profile.data_nascimento,
+          weight: profile.peso_kg,
+          team: profile.equipe,
+          team_id: profile.equipe_id,
+          country_id: profile.country_id,
+          state_id: profile.state_id,
+          city_id: profile.city_id,
+          profile_photo: foto_perfil,
+          perfil_completo: true
+        })
+        .eq('id', userId);
+
+      if (profileUpdateError) throw profileUpdateError;
+      
+      // 3. Salvar no Firestore para validação de redirecionamento (ArenaComp Requirement)
+      const firestorePayload = {
+        uid: userId,
+        modalidades: ['BJJ'], // Default para BJJ, pode ser expandido
+        equipe: profile.equipe,
+        genero: profile.genero,
+        dataNascimento: profile.data_nascimento,
+        graduacao: profile.graduacao,
+        academia: profile.equipe, // Usando equipe como academia
+        pais: (countries.find(c => c.id === profile.country_id))?.name || '',
+        estado: (states.find(s => s.id === profile.state_id))?.name || '',
+        cidade: (cities.find(c => c.id === profile.city_id))?.name || '',
+        foto: foto_perfil
+      };
+      
+      await setDoc(doc(db, "users", userId), firestorePayload);
+
+      // 4. Pequeno delay para garantir que o banco processou (opcional mas seguro para RLS/Cache)
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3. Notificar sucesso e disparar callback de conclusão
+      // 4. Notificar sucesso e disparar callback de conclusão
       onComplete();
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
@@ -224,6 +313,33 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Foto de Perfil */}
+          <div className="flex flex-col items-center space-y-4 mb-8">
+            <div className="relative group">
+              <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-bjj-blue/20 bg-white/5 flex items-center justify-center">
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera size={40} className="text-gray-500" />
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoChange}
+                className="hidden"
+                id="photo-upload"
+              />
+              <label
+                htmlFor="photo-upload"
+                className="absolute bottom-0 right-0 w-10 h-10 bg-bjj-blue text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg hover:bg-blue-600 transition-all"
+              >
+                <Upload size={18} />
+              </label>
+            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Foto de Perfil Obrigatória</p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Nome Completo */}
             <div className="md:col-span-2">

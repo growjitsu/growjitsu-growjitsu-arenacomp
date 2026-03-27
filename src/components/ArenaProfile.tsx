@@ -8,6 +8,9 @@ import {
   Brain, Zap, Cpu, BarChart3, Shield, Info, Wallet, FileText, Eye
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { auth, db } from '../firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useProfile } from '../context/ProfileContext';
 import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality } from '../types';
 import { countries, modalities, belts } from '../utils/data';
 import { PostModal } from './PostModal';
@@ -48,6 +51,7 @@ export const ArenaProfileView: React.FC<{
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [modalInitialEditMode, setModalInitialEditMode] = useState(false);
+  const { checkProfile } = useProfile();
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isEditingPost, setIsEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -182,6 +186,24 @@ export const ArenaProfileView: React.FC<{
     }
   }
 
+  const syncModalitiesToFirestore = async (modalities: any[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await setDoc(doc(db, "users", user.id), {
+          modalidades: modalities.map(m => ({
+            modality: m.modality,
+            belt: m.belt
+          }))
+        }, { merge: true });
+        console.log('[FIREBASE] Modalidades sincronizadas com Firestore');
+        await checkProfile();
+      }
+    } catch (err) {
+      console.error('[FIREBASE] Erro ao sincronizar modalidades:', err);
+    }
+  };
+
   async function handleAddModality() {
     if (!newModality.trim() || !profile) return;
     
@@ -201,6 +223,9 @@ export const ArenaProfileView: React.FC<{
       setUserModalities(updatedModalities);
       setNewModality('');
       setNewModalityBelt('');
+
+      // Synchronize with Firestore for validation
+      await syncModalitiesToFirestore(updatedModalities);
 
       // Update main profile if this is the first modality
       if (updatedModalities.length === 1) {
@@ -251,6 +276,9 @@ export const ArenaProfileView: React.FC<{
       setNewModalityBelt('');
       setEditingModalityId(null);
 
+      // Synchronize with Firestore for validation
+      await syncModalitiesToFirestore(updatedModalities);
+
       // Update main profile if this is the first modality
       if (updatedModalities[0]?.id === id) {
         await supabase
@@ -296,6 +324,9 @@ export const ArenaProfileView: React.FC<{
       
       const updatedModalities = userModalities.filter(m => m.id !== id);
       setUserModalities(updatedModalities);
+
+      // Synchronize with Firestore for validation
+      await syncModalitiesToFirestore(updatedModalities);
 
       // If we removed the first one, update main profile with the new first one
       if (userModalities[0]?.id === id && updatedModalities.length > 0) {
@@ -732,6 +763,40 @@ export const ArenaProfileView: React.FC<{
         .eq('id', profile.id);
 
       if (error) throw error;
+
+      // 2. Save to Firestore for validation
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const firestorePayload = {
+            uid: user.id,
+            full_name: updatePayload.full_name,
+            nickname: updatePayload.nickname,
+            modalidades: userModalities.map(m => ({
+              modality: m.modality,
+              belt: m.belt
+            })),
+            equipe: updatePayload.team,
+            genero: updatePayload.genero,
+            dataNascimento: updatePayload.birth_date,
+            graduacao: updatePayload.graduation,
+            pais: updatePayload.country,
+            estado: updatePayload.state,
+            cidade: updatePayload.city,
+            foto: profile.profile_photo || profile.avatar_url,
+            updated_at: updatePayload.updated_at
+          };
+
+          await setDoc(doc(db, "users", user.id), firestorePayload, { merge: true });
+          console.log('[FIREBASE] Perfil sincronizado com Firestore');
+          
+          // Re-validate profile globally
+          await checkProfile();
+        }
+      } catch (fsError) {
+        console.error('[FIREBASE] Erro ao sincronizar com Firestore:', fsError);
+      }
+
       setProfile({ ...profile, ...editData });
       setIsEditing(false);
     } catch (error: any) {
@@ -2030,6 +2095,15 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         onChange={e => setEditData({...editData, birth_date: e.target.value})}
                         className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
                       />
+                    ) : info.key === 'graduation' ? (
+                      <select 
+                        value={editData.graduation || ''} 
+                        onChange={e => setEditData({...editData, graduation: e.target.value})}
+                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      >
+                        <option value="">Selecionar Graduação</option>
+                        {belts.map(b => <option key={b} value={b}>{b}</option>)}
+                      </select>
                     ) : (
                       <input 
                         type={info.key === 'weight' || info.key === 'height' ? 'number' : 'text'}
