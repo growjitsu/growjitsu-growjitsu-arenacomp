@@ -207,20 +207,39 @@ export const ArenaProfileView: React.FC<{
   };
 
   async function handleAddModalidade() {
-    if (!newModality.trim() || !newModalityBelt.trim() || !profile) return;
+    if (!newModality.trim() || !newModalityBelt.trim() || !profile || !profile.id) {
+      console.warn('[ARENACOMP] Tentativa de adicionar modalidade com campos vazios ou perfil inválido');
+      return;
+    }
     
     try {
-      const { data, error } = await supabase
+      console.log('[ARENACOMP] Iniciando inserção de modalidade:', {
+        user_id: profile.id,
+        modality: newModality.trim(),
+        belt: newModalityBelt.trim()
+      });
+
+      const { data: insertedData, error: insertError } = await supabase
         .from('user_modalities')
         .insert({
           user_id: profile.id,
           modality: newModality.trim(),
           belt: newModalityBelt.trim() || null
         })
-        .select()
-        .single();
+        .select();
       
-      if (error) throw error;
+      if (insertError) {
+        console.error('[SUPABASE] Erro na inserção:', insertError);
+        throw insertError;
+      }
+
+      if (!insertedData || insertedData.length === 0) {
+        throw new Error('A inserção foi concluída mas nenhum dado foi retornado pelo banco.');
+      }
+
+      const data = insertedData[0];
+      console.log('[SUPABASE] Modalidade inserida com sucesso:', data);
+
       const updatedModalities = [...userModalities, data];
       setUserModalities(updatedModalities);
       setNewModality('');
@@ -228,11 +247,15 @@ export const ArenaProfileView: React.FC<{
       setIsCustomModality(false);
 
       // Synchronize with Firestore for validation
-      await syncModalitiesToFirestore(updatedModalities);
+      try {
+        await syncModalitiesToFirestore(updatedModalities);
+      } catch (fsError) {
+        console.error('[FIREBASE] Erro ao sincronizar modalidades (não crítico):', fsError);
+      }
 
       // Update main profile if this is the first modality
       if (updatedModalities.length === 1) {
-        await supabase
+        const { error: profileUpdateError } = await supabase
           .from('profiles')
           .update({
             modality: data.modality.toUpperCase(),
@@ -240,53 +263,67 @@ export const ArenaProfileView: React.FC<{
           })
           .eq('id', profile.id);
         
-        const updatedProfile = {
-          ...profile,
-          modality: data.modality.toUpperCase(),
-          graduation: data.belt?.toUpperCase() || null
-        };
-        setProfile(updatedProfile);
-        setEditData(prev => ({
-          ...prev,
-          modality: data.modality.toUpperCase(),
-          graduation: data.belt?.toUpperCase() || null
-        }));
+        if (profileUpdateError) {
+          console.error('[SUPABASE] Erro ao atualizar perfil principal:', profileUpdateError);
+        } else {
+          const updatedProfile = {
+            ...profile,
+            modality: data.modality.toUpperCase(),
+            graduation: data.belt?.toUpperCase() || null
+          };
+          setProfile(updatedProfile);
+          setEditData(prev => ({
+            ...prev,
+            modality: data.modality.toUpperCase(),
+            graduation: data.belt?.toUpperCase() || null
+          }));
+        }
       }
-    } catch (err) {
-      console.error('Error adding modality:', err);
-      alert('Erro ao adicionar modalidade. Por favor, tente novamente.');
+    } catch (err: any) {
+      console.error('[ARENACOMP] Erro crítico ao adicionar modalidade:', err);
+      const errorMsg = err?.message || err?.details || (typeof err === 'string' ? err : JSON.stringify(err));
+      console.error('[ARENACOMP] Detalhes do erro para suporte:', errorMsg);
+      
+      alert(`Erro ao adicionar modalidade: ${errorMsg}. Por favor, verifique sua conexão e tente novamente.`);
     }
   }
 
   async function handleEditModality(id: string) {
-    if (!newModality.trim() || !profile) return;
+    if (!newModality.trim() || !newModalityBelt.trim() || !profile) return;
     
     try {
-      const { data, error } = await supabase
+      console.log('[ARENACOMP] Editando modalidade:', id);
+      const { data: updatedData, error: updateError } = await supabase
         .from('user_modalities')
         .update({
           modality: newModality.trim(),
           belt: newModalityBelt.trim() || null
         })
         .eq('id', id)
-        .select()
-        .single();
+        .select();
       
-      if (error) throw error;
-      
+      if (updateError) throw updateError;
+      if (!updatedData || updatedData.length === 0) throw new Error('Nenhum dado retornado após atualização.');
+
+      const data = updatedData[0];
       const updatedModalities = userModalities.map(m => m.id === id ? data : m);
       setUserModalities(updatedModalities);
+      setEditingModalityId(null);
       setNewModality('');
       setNewModalityBelt('');
-      setEditingModalityId(null);
       setIsCustomModality(false);
 
-      // Synchronize with Firestore for validation
-      await syncModalitiesToFirestore(updatedModalities);
+      // Synchronize with Firestore
+      try {
+        await syncModalitiesToFirestore(updatedModalities);
+      } catch (fsError) {
+        console.error('[FIREBASE] Erro ao sincronizar edição (não crítico):', fsError);
+      }
 
-      // Update main profile if this is the first modality
-      if (updatedModalities[0]?.id === id) {
-        await supabase
+      // Update main profile if this is the primary modality
+      const isPrimary = profile.modality === userModalities.find(m => m.id === id)?.modality;
+      if (isPrimary) {
+        const { error: profileUpdateError } = await supabase
           .from('profiles')
           .update({
             modality: data.modality.toUpperCase(),
@@ -294,20 +331,20 @@ export const ArenaProfileView: React.FC<{
           })
           .eq('id', profile.id);
         
-        const updatedProfile = {
-          ...profile,
-          modality: data.modality.toUpperCase(),
-          graduation: data.belt?.toUpperCase() || null
-        };
-        setProfile(updatedProfile);
-        setEditData(prev => ({
-          ...prev,
-          modality: data.modality.toUpperCase(),
-          graduation: data.belt?.toUpperCase() || null
-        }));
+        if (profileUpdateError) {
+          console.error('[SUPABASE] Erro ao atualizar perfil principal na edição:', profileUpdateError);
+        } else {
+          setProfile({
+            ...profile,
+            modality: data.modality.toUpperCase(),
+            graduation: data.belt?.toUpperCase() || null
+          });
+        }
       }
-    } catch (err) {
-      console.error('Error editing modality:', err);
+    } catch (err: any) {
+      console.error('[ARENACOMP] Erro ao editar modalidade:', err);
+      const errorMsg = err?.message || (typeof err === 'string' ? err : JSON.stringify(err));
+      alert(`Erro ao editar modalidade: ${errorMsg}. Por favor, tente novamente.`);
     }
   }
 
