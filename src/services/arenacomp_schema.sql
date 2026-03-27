@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     profile_photo TEXT,
     team TEXT,
     team_id UUID, -- References teams(id) later
+    team_leader TEXT DEFAULT 'false',
     genero TEXT,
     birth_date DATE,
     bio TEXT,
@@ -198,6 +199,16 @@ CREATE TABLE IF NOT EXISTS user_modalities (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3.12 Team Members
+CREATE TABLE IF NOT EXISTS team_members (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    team_id UUID REFERENCES teams(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT CHECK (role IN ('representative', 'member')) NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(team_id, user_id)
+);
+
 -- 4. Arena Score Algorithm Logic
 
 CREATE OR REPLACE FUNCTION calculate_result_points(p_placement INTEGER, p_level event_level)
@@ -280,6 +291,13 @@ CREATE POLICY "Users can unfollow" ON follows FOR DELETE USING (auth.uid() = fol
 ALTER TABLE user_modalities ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Modalities are viewable by everyone" ON user_modalities FOR SELECT USING (true);
 CREATE POLICY "Users can manage their own modalities" ON user_modalities FOR ALL USING (auth.uid() = user_id);
+
+-- 3.12 Team Members Policies
+ALTER TABLE team_members ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "team_members_select_policy" ON team_members FOR SELECT USING (true);
+CREATE POLICY "team_members_insert_policy" ON team_members FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "team_members_update_policy" ON team_members FOR UPDATE USING (auth.uid() IS NOT NULL);
+CREATE POLICY "team_members_delete_policy" ON team_members FOR DELETE USING (auth.uid() IS NOT NULL);
 
 -- Phase 1: Enable RLS with permissive policies for production safety (Zero Downtime)
 -- These policies ensure that RLS is active but does not block existing traffic.

@@ -183,8 +183,12 @@ export const ArenaProfileView: React.FC<{
       }
       
       setUserModalities(modalities);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching user modalities:', err);
+      const errorMsg = err?.message || '';
+      if (errorMsg.includes('Could not find the table') || errorMsg.includes('relation "user_modalities" does not exist')) {
+        console.error('[ARENACOMP] A tabela user_modalities não existe no banco de dados.');
+      }
     }
   }
 
@@ -284,7 +288,11 @@ export const ArenaProfileView: React.FC<{
       const errorMsg = err?.message || err?.details || (typeof err === 'string' ? err : JSON.stringify(err));
       console.error('[ARENACOMP] Detalhes do erro para suporte:', errorMsg);
       
-      alert(`Erro ao adicionar modalidade: ${errorMsg}. Por favor, verifique sua conexão e tente novamente.`);
+      if (errorMsg.includes('Could not find the table') || errorMsg.includes('relation "user_modalities" does not exist')) {
+        alert(`Erro: A tabela 'user_modalities' não foi encontrada no banco de dados. \n\nPor favor, execute o script de reparo em 'src/services/repair_schema.sql' no seu SQL Editor do Supabase.`);
+      } else {
+        alert(`Erro ao adicionar modalidade: ${errorMsg}. Por favor, verifique sua conexão e tente novamente.`);
+      }
     }
   }
 
