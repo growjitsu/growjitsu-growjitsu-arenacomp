@@ -136,16 +136,27 @@ async function startServer() {
   app.get("/api/eliteArena", async (req, res) => {
     try {
       console.log('[API] Buscando Elite Arena (atletas)...');
-      // Tentamos buscar da tabela 'atletas' conforme solicitado
+      
+      if (!supabaseSecretKey) {
+        console.warn('[API] SUPABASE_SECRET_KEY não configurada. Usando chave anônima (pode falhar se RLS for restrito).');
+      }
+
+      // Tentamos buscar da tabela 'atletas'
       const { data, error } = await supabaseAdmin
         .from('atletas')
         .select('*')
         .order('ranking', { ascending: false })
         .limit(5);
       
-      if (error) {
-        console.warn('[API] Erro ao buscar da tabela atletas, tentando fallback para profiles:', error.message);
-        // Fallback para profiles se atletas falhar
+      // Se houver erro OU se a lista estiver vazia, tentamos o fallback para 'profiles'
+      if (error || !data || data.length === 0) {
+        if (error) {
+          console.warn('[API] Erro ao buscar da tabela atletas, tentando fallback para profiles:', error.message);
+        } else {
+          console.log('[API] Tabela atletas vazia, tentando fallback para profiles...');
+        }
+
+        // Fallback para profiles
         const { data: profileData, error: profileError } = await supabaseAdmin
           .from('profiles')
           .select('*')
@@ -155,22 +166,29 @@ async function startServer() {
           .order('arena_score', { ascending: false, nullsFirst: false })
           .limit(5);
         
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error('[API] Erro no fallback para profiles:', profileError);
+          throw profileError;
+        }
+
+        console.log(`[API] Sucesso no fallback: ${profileData?.length || 0} atletas encontrados em profiles.`);
         return res.json(profileData || []);
       }
       
+      console.log(`[API] Sucesso: ${data.length} atletas encontrados na tabela atletas.`);
+
       // Normalizar dados da tabela 'atletas' para o formato esperado pelo frontend
       const normalizedData = (data || []).map(atleta => ({
         id: atleta.usuario_id || atleta.id,
         full_name: atleta.nome_completo || atleta.full_name,
         profile_photo: atleta.foto_perfil || atleta.profile_photo,
         arena_score: atleta.ranking || atleta.arena_score,
-        username: atleta.username || atleta.nome_completo?.split(' ')[0]
+        username: atleta.username || (atleta.nome_completo ? atleta.nome_completo.split(' ')[0] : 'atleta')
       }));
       
       res.json(normalizedData);
     } catch (error: any) {
-      console.error('[API] Erro em /api/eliteArena:', error);
+      console.error('[API] Erro crítico em /api/eliteArena:', error);
       res.status(500).json({ error: error.message });
     }
   });

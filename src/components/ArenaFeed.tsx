@@ -13,6 +13,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [topAthletes, setTopAthletes] = useState<ArenaProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingTopAthletes, setLoadingTopAthletes] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -312,6 +313,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   const fetchTopAthletes = async () => {
+    setLoadingTopAthletes(true);
     try {
       console.log('[ArenaFeed] Buscando Elite Arena via API...');
       const response = await fetch('/api/eliteArena');
@@ -321,20 +323,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         console.log('[ArenaFeed] Elite Arena carregada via API:', data?.length);
         if (data && data.length > 0) {
           setTopAthletes(data);
-          return;
         } else {
           console.warn('[ArenaFeed] API retornou lista vazia de atletas elite');
+          setTopAthletes([]); // Ensure it's empty to show placeholders
         }
       } else {
         console.error('[ArenaFeed] Falha na resposta da API:', response.status);
+        setTopAthletes([]); // Fallback to empty list for placeholders
       }
-      
-      // Se falhar, mantemos o estado anterior ou vazio, mas NÃO fazemos chamada direta ao Supabase
-      // para evitar erro de Secret Key no navegador
-      console.warn('[ArenaFeed] Fallback Supabase direto removido por segurança (Secret Key).');
-      
     } catch (error) {
-      console.error('Error fetching top athletes:', error);
+      console.error('[ArenaFeed] Error fetching top athletes:', error);
+      setTopAthletes([]); // Fallback to empty list for placeholders
+    } finally {
+      setLoadingTopAthletes(false);
     }
   };
 
@@ -778,7 +779,15 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             </Link>
           </div>
           <div className="flex space-x-6 overflow-x-auto pb-2 hide-scrollbar snap-x">
-            {topAthletes.length > 0 ? (
+            {loadingTopAthletes ? (
+              // Loading Skeleton
+              [1, 2, 3, 4, 5].map((i) => (
+                <div key={`skeleton-${i}`} className="flex-shrink-0 flex flex-col items-center space-y-2 snap-start animate-pulse">
+                  <div className="w-14 h-14 rounded-full bg-[var(--surface)] border border-[var(--border-ui)]" />
+                  <div className="w-10 h-2 bg-[var(--surface)] rounded" />
+                </div>
+              ))
+            ) : topAthletes.length > 0 ? (
               topAthletes.map((athlete, i) => (
                 <Link 
                   key={athlete.id} 
