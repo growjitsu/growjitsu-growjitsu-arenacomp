@@ -322,11 +322,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if (data && data.length > 0) {
           setTopAthletes(data);
           return;
+        } else {
+          console.warn('[ArenaFeed] API retornou lista vazia de atletas elite');
         }
       }
       
       console.warn('[ArenaFeed] Falha na API ou dados vazios, tentando fallback Supabase direto...');
       // Fallback para Supabase direto (caso a API falhe)
+      console.log('[ArenaFeed] Executando fallback Supabase para Elite Arena...');
       const { data, error } = await supabase
         .from('profiles')
         .select('*')

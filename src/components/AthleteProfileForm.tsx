@@ -22,13 +22,14 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
   const [countries, setCountries] = useState<any[]>([]);
   const [states, setStates] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
-  const [profile, setProfile] = useState<Partial<AthleteProfile>>({
+  const [profile, setProfile] = useState<any>({
     usuario_id: userId,
     nome_completo: '',
     genero: 'Masculino',
     graduacao: 'Branca',
     data_nascimento: '',
     peso_kg: 0,
+    altura_cm: 0,
     equipe: '',
     equipe_id: '',
     country_id: '',
@@ -180,6 +181,10 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
       setError('O Peso deve ser um número positivo.');
       return;
     }
+    if (!profile.altura_cm || profile.altura_cm <= 0) {
+      setError('A Altura é obrigatória.');
+      return;
+    }
     if (!profile.equipe?.trim()) {
       setError('A Equipe é obrigatória.');
       return;
@@ -226,17 +231,42 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
           genero: profile.genero,
           birth_date: profile.data_nascimento,
           weight: profile.peso_kg,
+          height: profile.altura_cm,
+          category: autoCategory.fullCategory || '-',
           team: profile.equipe,
           team_id: profile.equipe_id,
           country_id: profile.country_id,
           state_id: profile.state_id,
           city_id: profile.city_id,
           profile_photo: foto_perfil,
-          perfil_completo: true
+          perfil_completo: true,
+          modality: 'BJJ', // Default para BJJ
+          graduation: profile.graduacao,
+          gym_name: profile.equipe, // Usando equipe como academia para consistência
+          academia: profile.equipe // Usando equipe como academia para consistência
         })
         .eq('id', userId);
 
       if (profileUpdateError) throw profileUpdateError;
+
+      // 2.5. Garantir que existe pelo menos uma modalidade na tabela user_modalities
+      try {
+        const { data: existingModalities } = await supabase
+          .from('user_modalities')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+        
+        if (!existingModalities || existingModalities.length === 0) {
+          await supabase.from('user_modalities').insert({
+            user_id: userId,
+            modality: 'BJJ',
+            belt: profile.graduacao
+          });
+        }
+      } catch (modError) {
+        console.error('[ARENACOMP] Erro ao garantir modalidade (não crítico):', modError);
+      }
       
       // 3. Salvar no Firestore para validação de redirecionamento (ArenaComp Requirement)
       const firestorePayload = {
@@ -256,10 +286,12 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
       await setDoc(doc(db, "users", userId), firestorePayload);
 
       // 4. Pequeno delay para garantir que o banco processou (opcional mas seguro para RLS/Cache)
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // 4. Notificar sucesso e disparar callback de conclusão
-      onComplete();
+      if (onComplete) {
+        await onComplete();
+      }
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);
       setError(err.message || 'Erro ao salvar os dados. Tente novamente.');
@@ -432,6 +464,24 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
                   onChange={(e) => setProfile({ ...profile, peso_kg: parseFloat(e.target.value) || 0 })}
                   className="input-standard pl-12"
                   placeholder="0.0"
+                />
+              </div>
+            </div>
+
+            {/* Altura */}
+            <div>
+              <label className="label-standard">
+                Altura (cm) <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] font-bold text-xs">CM</div>
+                <input
+                  required
+                  type="number"
+                  value={profile.altura_cm || ''}
+                  onChange={(e) => setProfile({ ...profile, altura_cm: parseInt(e.target.value) || 0 })}
+                  className="input-standard pl-12"
+                  placeholder="170"
                 />
               </div>
             </div>

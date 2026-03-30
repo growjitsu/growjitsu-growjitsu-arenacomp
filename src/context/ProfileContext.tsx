@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
-import { isProfileComplete } from '../utils/profileValidation';
+import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 
 interface ProfileContextType {
   isProfileValid: boolean | null;
@@ -19,6 +19,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const checkProfile = useCallback(async () => {
     try {
       setIsLoading(true);
+      
+      // Small delay to ensure DB propagation if called immediately after save
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -52,12 +56,19 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .select('*')
         .eq('user_id', user.id);
 
-      const isValid = isProfileComplete({
+      const missingFields = getMissingProfileFields({
         ...profile,
         modalidades: modalities || []
       });
 
-      console.log('[PROFILE CONTEXT] Profile validity:', isValid);
+      const isValid = missingFields.length === 0;
+
+      if (!isValid) {
+        console.warn('[PROFILE CONTEXT] Profile incomplete. Missing fields:', missingFields);
+      } else {
+        console.log('[PROFILE CONTEXT] Profile is complete!');
+      }
+
       setIsProfileValid(isValid);
       setIsLoading(false);
       return isValid;

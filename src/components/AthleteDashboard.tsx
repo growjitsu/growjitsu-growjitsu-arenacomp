@@ -7,6 +7,8 @@ import { supabase } from '../services/supabase';
 import { useRouter } from '../hooks/useRouter';
 import AthleteProfileForm from './AthleteProfileForm';
 
+import { useProfile } from '../context/ProfileContext';
+
 export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: () => void }) {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -19,6 +21,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { checkProfile } = useProfile();
   
   const [stats, setStats] = useState({
     competitiveAge: 0,
@@ -380,9 +383,10 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
               </button>
               <AthleteProfileForm 
                 userId={profile?.id || ''} 
-                onComplete={() => {
+                onComplete={async () => {
                   setIsEditingProfile(false);
-                  fetchData();
+                  await checkProfile();
+                  await fetchData();
                 }} 
               />
             </motion.div>
