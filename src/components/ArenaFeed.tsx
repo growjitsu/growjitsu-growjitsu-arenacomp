@@ -313,39 +313,26 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchTopAthletes = async () => {
     try {
-      console.log('[ArenaFeed] Buscando melhores atletas via API...');
-      const response = await fetch('/api/getTopAtletas');
+      console.log('[ArenaFeed] Buscando Elite Arena via API...');
+      const response = await fetch('/api/eliteArena');
       
       if (response.ok) {
         const data = await response.json();
-        console.log('[ArenaFeed] Melhores atletas carregados via API:', data?.length);
+        console.log('[ArenaFeed] Elite Arena carregada via API:', data?.length);
         if (data && data.length > 0) {
           setTopAthletes(data);
           return;
         } else {
           console.warn('[ArenaFeed] API retornou lista vazia de atletas elite');
         }
+      } else {
+        console.error('[ArenaFeed] Falha na resposta da API:', response.status);
       }
       
-      console.warn('[ArenaFeed] Falha na API ou dados vazios, tentando fallback Supabase direto...');
-      // Fallback para Supabase direto (caso a API falhe)
-      console.log('[ArenaFeed] Executando fallback Supabase para Elite Arena...');
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('role', 'admin')
-        .eq('perfil_publico', true)
-        .gt('arena_score', 0)
-        .order('arena_score', { ascending: false, nullsFirst: false })
-        .limit(10);
+      // Se falhar, mantemos o estado anterior ou vazio, mas NÃO fazemos chamada direta ao Supabase
+      // para evitar erro de Secret Key no navegador
+      console.warn('[ArenaFeed] Fallback Supabase direto removido por segurança (Secret Key).');
       
-      if (error) {
-        console.error('[ArenaFeed] Erro no fallback Supabase:', error);
-        throw error;
-      }
-      
-      console.log('[ArenaFeed] Melhores atletas carregados via fallback Supabase:', data?.length);
-      setTopAthletes(data || []);
     } catch (error) {
       console.error('Error fetching top athletes:', error);
     }

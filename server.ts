@@ -132,6 +132,49 @@ async function startServer() {
     }
   });
 
+  // NEW ENDPOINT: /api/eliteArena
+  app.get("/api/eliteArena", async (req, res) => {
+    try {
+      console.log('[API] Buscando Elite Arena (atletas)...');
+      // Tentamos buscar da tabela 'atletas' conforme solicitado
+      const { data, error } = await supabaseAdmin
+        .from('atletas')
+        .select('*')
+        .order('ranking', { ascending: false })
+        .limit(5);
+      
+      if (error) {
+        console.warn('[API] Erro ao buscar da tabela atletas, tentando fallback para profiles:', error.message);
+        // Fallback para profiles se atletas falhar
+        const { data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .neq('role', 'admin')
+          .eq('perfil_publico', true)
+          .gt('arena_score', 0)
+          .order('arena_score', { ascending: false, nullsFirst: false })
+          .limit(5);
+        
+        if (profileError) throw profileError;
+        return res.json(profileData || []);
+      }
+      
+      // Normalizar dados da tabela 'atletas' para o formato esperado pelo frontend
+      const normalizedData = (data || []).map(atleta => ({
+        id: atleta.usuario_id || atleta.id,
+        full_name: atleta.nome_completo || atleta.full_name,
+        profile_photo: atleta.foto_perfil || atleta.profile_photo,
+        arena_score: atleta.ranking || atleta.arena_score,
+        username: atleta.username || atleta.nome_completo?.split(' ')[0]
+      }));
+      
+      res.json(normalizedData);
+    } catch (error: any) {
+      console.error('[API] Erro em /api/eliteArena:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/getPerfisDestaque", async (req, res) => {
     try {
       console.log('[API] Buscando perfis em destaque...');
