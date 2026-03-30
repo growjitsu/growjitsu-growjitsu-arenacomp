@@ -178,6 +178,8 @@ export const ArenaRankings: React.FC = () => {
         .from('profiles')
         .select('*')
         .neq('role', 'admin') // Exclude admins
+        .eq('perfil_publico', true)
+        .gt('arena_score', 0)
         .order('arena_score', { ascending: false, nullsFirst: false })
         .limit(50);
 

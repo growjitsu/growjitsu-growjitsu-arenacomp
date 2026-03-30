@@ -114,6 +114,8 @@ async function startServer() {
         .from('profiles')
         .select('*')
         .neq('role', 'admin')
+        .eq('perfil_publico', true)
+        .gt('arena_score', 0)
         .order('arena_score', { ascending: false, nullsFirst: false })
         .limit(10);
       

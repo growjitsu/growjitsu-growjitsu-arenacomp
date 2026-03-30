@@ -94,7 +94,9 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
           .from('profiles')
           .select('*')
           .neq('role', 'admin')
-          .order('arena_score', { ascending: false })
+          .eq('perfil_publico', true)
+          .gt('arena_score', 0)
+          .order('arena_score', { ascending: false, nullsFirst: false })
           .limit(5);
         
         if (error) throw error;
