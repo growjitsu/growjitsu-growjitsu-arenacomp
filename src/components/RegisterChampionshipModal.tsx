@@ -397,7 +397,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center space-x-2">
                       <MapPin size={12} />
-                      <span>Cidade</span>
+                      <span>Cidade <span className="text-red-500">*</span></span>
                     </label>
                     <input
                       required
@@ -413,7 +413,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center space-x-2">
                       <MapPin size={12} />
-                      <span>País</span>
+                      <span>País <span className="text-red-500">*</span></span>
                     </label>
                     <input
                       required

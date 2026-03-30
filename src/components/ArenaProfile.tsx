@@ -1820,7 +1820,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">País</label>
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">País <span className="text-red-500">*</span></label>
                     <select 
                       value={editData.country || ''} 
                       onChange={e => {
@@ -1844,7 +1844,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Estado</label>
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Estado <span className="text-red-500">*</span></label>
                     <select 
                       value={editData.state || ''} 
                       onChange={e => {
@@ -1869,7 +1869,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Cidade</label>
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">Cidade <span className="text-red-500">*</span></label>
                     <select 
                       value={editData.city || ''} 
                       onChange={e => {
@@ -3070,7 +3070,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">País</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">País <span className="text-red-500">*</span></label>
                     <select
                       value={teamEditData.country_id || ''}
                       onChange={(e) => {
@@ -3091,7 +3091,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado <span className="text-red-500">*</span></label>
                       <select
                         value={teamEditData.state_id || ''}
                         disabled={!teamEditData.country_id}
@@ -3110,7 +3110,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Cidade</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Cidade <span className="text-red-500">*</span></label>
                       <select
                         value={teamEditData.city_id || ''}
                         disabled={!teamEditData.state_id}

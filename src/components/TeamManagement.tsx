@@ -346,7 +346,7 @@ export default function TeamManagement() {
 
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <label className="label-standard">País</label>
+                    <label className="label-standard">País <span className="text-red-500">*</span></label>
                     <select 
                       className="input-standard py-4 px-6"
                       value={locationData.country_id}
@@ -361,7 +361,7 @@ export default function TeamManagement() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="label-standard">Estado</label>
+                      <label className="label-standard">Estado <span className="text-red-500">*</span></label>
                       <select 
                         disabled={!locationData.country_id}
                         className="input-standard py-4 px-6 disabled:opacity-50"
@@ -375,7 +375,7 @@ export default function TeamManagement() {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="label-standard">Cidade</label>
+                      <label className="label-standard">Cidade <span className="text-red-500">*</span></label>
                       <select 
                         disabled={!locationData.state_id}
                         className="input-standard py-4 px-6 disabled:opacity-50"

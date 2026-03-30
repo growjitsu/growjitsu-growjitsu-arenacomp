@@ -490,7 +490,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
 
             {/* Localização */}
             <div>
-              <label className="label-standard">País</label>
+              <label className="label-standard">País <span className="text-red-500">*</span></label>
               <select
                 value={profile.country_id || ''}
                 onChange={(e) => {
@@ -513,7 +513,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
             </div>
 
             <div>
-              <label className="label-standard">Estado</label>
+              <label className="label-standard">Estado <span className="text-red-500">*</span></label>
               <select
                 value={profile.state_id || ''}
                 onChange={(e) => {
@@ -536,7 +536,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
             </div>
 
             <div className="md:col-span-2">
-              <label className="label-standard">Cidade</label>
+              <label className="label-standard">Cidade <span className="text-red-500">*</span></label>
               <select
                 value={profile.city_id || ''}
                 onChange={(e) => {
