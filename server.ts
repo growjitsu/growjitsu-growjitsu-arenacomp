@@ -202,10 +202,87 @@ async function startServer() {
         .eq('is_promoted', true)
         .limit(5);
       
+      if (error) {
+        console.warn('[API] Erro ao buscar perfis em destaque:', error.message);
+      }
+
+      if (!data || data.length === 0) {
+        console.log('[API] Nenhum perfil em destaque encontrado, buscando top atletas como fallback...');
+        const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .neq('role', 'admin')
+          .eq('perfil_publico', true)
+          .order('arena_score', { ascending: false })
+          .limit(5);
+        
+        if (fallbackError) throw fallbackError;
+        return res.json(fallbackData || []);
+      }
+      
+      res.json(data);
+    } catch (error: any) {
+      console.error('[API] Erro ao buscar perfis em destaque:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/getTrendingPosts", async (req, res) => {
+    try {
+      console.log('[API] Buscando posts em alta...');
+      let { data: postsData, error: postsError } = await supabaseAdmin
+        .from('posts')
+        .select('*')
+        .eq('is_archived', false)
+        .order('likes_count', { ascending: false })
+        .limit(3);
+      
+      if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
+        const { data: retryData, error: retryError } = await supabaseAdmin
+          .from('posts')
+          .select('*')
+          .order('likes_count', { ascending: false })
+          .limit(3);
+        
+        if (retryError) throw retryError;
+        postsData = retryData;
+      } else if (postsError) {
+        throw postsError;
+      }
+      
+      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
+      const { data: authorsData } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .neq('role', 'admin')
+        .in('id', authorIds);
+      
+      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
+      const postsWithAuthors = (postsData || []).map(p => ({
+        ...p,
+        author: authorsMap.get(p.author_id)
+      })).filter(p => p.author);
+      
+      res.json(postsWithAuthors);
+    } catch (error: any) {
+      console.error('[API] Erro ao buscar posts em alta:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/getAds", async (req, res) => {
+    try {
+      console.log('[API] Buscando anúncios...');
+      const { data, error } = await supabaseAdmin
+        .from('arena_ads')
+        .select('*')
+        .eq('active', true)
+        .order('created_at', { ascending: false });
+      
       if (error) throw error;
       res.json(data || []);
     } catch (error: any) {
-      console.error('[API] Erro ao buscar perfis em destaque:', error);
+      console.error('[API] Erro ao buscar anúncios:', error);
       res.status(500).json({ error: error.message });
     }
   });

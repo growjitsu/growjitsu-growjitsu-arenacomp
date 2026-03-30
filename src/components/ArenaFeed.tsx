@@ -54,6 +54,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [trendingPosts, setTrendingPosts] = useState<ArenaPost[]>([]);
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
+  const [loadingPromoted, setLoadingPromoted] = useState(false);
   const { id: urlPostId } = useParams<{ id?: string }>();
 
   useEffect(() => {
@@ -375,61 +376,40 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchTrendingPosts = async () => {
     try {
-      let { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('is_archived', false)
-        .order('likes_count', { ascending: false })
-        .limit(3);
+      console.log('[ArenaFeed] Buscando posts em alta via API...');
+      const response = await fetch('/api/getTrendingPosts');
       
-      if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
-        const { data: retryData, error: retryError } = await supabase
-          .from('posts')
-          .select('*')
-          .order('likes_count', { ascending: false })
-          .limit(3);
-        
-        if (retryError) throw retryError;
-        postsData = retryData;
-      } else if (postsError) {
-        throw postsError;
+      if (response.ok) {
+        const data = await response.json();
+        setTrendingPosts(data || []);
+        console.log('[ArenaFeed] Posts em alta carregados via API:', data?.length);
+      } else {
+        console.error('[ArenaFeed] Falha na API de posts em alta:', response.status);
       }
-      
-      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
-      const { data: authorsData } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('role', 'admin') // Exclude admins
-        .in('id', authorIds);
-      
-      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
-      const postsWithAuthors = (postsData || []).map(p => ({
-        ...p,
-        author: authorsMap.get(p.author_id)
-      })).filter(p => p.author); // Only include posts with valid (non-admin) authors
-
-      setTrendingPosts(postsWithAuthors);
     } catch (error) {
-      console.error('Error fetching trending posts:', error);
+      console.error('[ArenaFeed] Erro ao buscar posts em alta:', error);
     }
   };
 
   const fetchAds = async () => {
     try {
-      const { data, error } = await supabase
-        .from('arena_ads')
-        .select('*')
-        .eq('active', true)
-        .order('created_at', { ascending: false });
+      console.log('[ArenaFeed] Buscando anúncios via API...');
+      const response = await fetch('/api/getAds');
       
-      if (error) throw error;
-      setAds(data || []);
+      if (response.ok) {
+        const data = await response.json();
+        setAds(data || []);
+        console.log('[ArenaFeed] Anúncios carregados via API:', data?.length);
+      } else {
+        console.error('[ArenaFeed] Falha na API de anúncios:', response.status);
+      }
     } catch (error) {
-      console.error('Error fetching ads:', error);
+      console.error('[ArenaFeed] Erro ao buscar anúncios:', error);
     }
   };
 
   const fetchPromotedProfiles = async () => {
+    setLoadingPromoted(true);
     try {
       console.log('[ArenaFeed] Buscando perfis em destaque via API...');
       const response = await fetch('/api/getPerfisDestaque');
@@ -437,22 +417,16 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       if (response.ok) {
         const data = await response.json();
         setPromotedProfiles(data || []);
-        console.log('[ArenaFeed] Perfis em destaque carregados via API');
-        return;
+        console.log('[ArenaFeed] Perfis em destaque carregados via API:', data?.length);
+      } else {
+        console.error('[ArenaFeed] Falha na API de perfis em destaque:', response.status);
+        setPromotedProfiles([]);
       }
-
-      console.warn('[ArenaFeed] Falha na API, tentando fallback Supabase direto...');
-      // Fallback para Supabase direto
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_promoted', true)
-        .limit(5);
-      
-      if (error) throw error;
-      setPromotedProfiles(data || []);
     } catch (error) {
-      console.error('Error fetching promoted profiles:', error);
+      console.error('[ArenaFeed] Erro ao buscar perfis em destaque:', error);
+      setPromotedProfiles([]);
+    } finally {
+      setLoadingPromoted(false);
     }
   };
 
@@ -889,7 +863,18 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                       <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                     </div>
                     <div className="flex space-x-6 overflow-x-auto pb-4 hide-scrollbar">
-                      {promotedProfiles.map(profile => (
+                      {loadingPromoted ? (
+              // Loading Skeleton
+              [1, 2, 3].map((i) => (
+                <div key={`promoted-skeleton-${i}`} className="flex items-center space-x-4 p-3 rounded-xl bg-[var(--surface)] animate-pulse">
+                  <div className="w-12 h-12 rounded-full bg-[var(--border-ui)]" />
+                  <div className="flex-1 space-y-2">
+                    <div className="w-24 h-3 bg-[var(--border-ui)] rounded" />
+                    <div className="w-16 h-2 bg-[var(--border-ui)] rounded" />
+                  </div>
+                </div>
+              ))
+            ) : promotedProfiles.map(profile => (
                         <Link key={profile.id} to={`/user/@${profile.username}`} className="flex-shrink-0 group text-center space-y-3">
                           <div className="relative">
                             <div className="absolute inset-0 bg-amber-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
