@@ -132,11 +132,20 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
     return () => unsubscribeBanners();
   }, []);
 
+  // Reset currentBannerIndex if it's out of bounds when banners change
+  useEffect(() => {
+    if (banners.length > 0 && currentBannerIndex >= banners.length) {
+      setCurrentBannerIndex(0);
+    }
+  }, [banners, currentBannerIndex]);
+
   // Banner Carousel Auto-play
   useEffect(() => {
     if (banners.length === 0) return;
 
     const currentBanner = banners[currentBannerIndex];
+    if (!currentBanner) return; // Safety check
+
     const timer = setTimeout(() => {
       setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
     }, (currentBanner?.display_time || 15) * 1000);
@@ -155,7 +164,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         {/* Hero / Banners Section */}
         <section className="relative h-[400px] md:h-[600px] overflow-hidden">
           <AnimatePresence mode="wait">
-            {banners.length > 0 ? (
+            {banners.length > 0 && banners[currentBannerIndex] ? (
               <motion.a
                 key={banners[currentBannerIndex].id}
                 href={banners[currentBannerIndex].link}
@@ -193,7 +202,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                   </div>
                 )}
               </motion.a>
-            ) : (
+            ) : banners.length === 0 ? (
               <div className="absolute inset-0 bg-gradient-to-br from-[#0A1F44] to-black flex flex-col items-center justify-center text-center p-6">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -214,7 +223,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                   </button>
                 </motion.div>
               </div>
-            )}
+            ) : null}
           </AnimatePresence>
 
           {banners.length > 1 && (
