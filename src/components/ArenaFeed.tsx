@@ -321,20 +321,16 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       
       if (response.ok) {
         const data = await response.json();
-        console.log('[ArenaFeed] Elite Arena carregada via API:', data?.length);
-        if (data && data.length > 0) {
-          setTopAthletes(data);
-        } else {
-          console.warn('[ArenaFeed] API retornou lista vazia de atletas elite');
-          setTopAthletes([]); // Ensure it's empty to show placeholders
-        }
+        console.log('[ArenaFeed] Elite Arena recebida:', data?.length);
+        setTopAthletes(data || []);
       } else {
-        console.error('[ArenaFeed] Falha na resposta da API:', response.status);
-        setTopAthletes([]); // Fallback to empty list for placeholders
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[ArenaFeed] Falha na resposta da API:', response.status, errorData);
+        setTopAthletes([]);
       }
     } catch (error) {
-      console.error('[ArenaFeed] Error fetching top athletes:', error);
-      setTopAthletes([]); // Fallback to empty list for placeholders
+      console.error('[ArenaFeed] Erro ao buscar atletas de elite:', error);
+      setTopAthletes([]);
     } finally {
       setLoadingTopAthletes(false);
     }
@@ -764,7 +760,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : topAthletes.length > 0 ? (
               topAthletes.map((athlete, i) => (
                 <Link 
-                  key={athlete.id} 
+                  key={athlete.id || `athlete-${i}`} 
                   to={`/user/@${athlete.username}`}
                   className="flex-shrink-0 flex flex-col items-center space-y-2 snap-start group cursor-pointer"
                 >
@@ -800,12 +796,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 </Link>
               ))
             ) : (
-              [1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex-shrink-0 flex flex-col items-center space-y-2 snap-start animate-pulse">
-                  <div className="w-14 h-14 rounded-full bg-[var(--surface)] border border-[var(--border-ui)]" />
-                  <div className="w-10 h-1.5 bg-[var(--surface)] rounded" />
-                </div>
-              ))
+              <div className="flex items-center justify-center w-full py-4 bg-white/5 rounded-xl border border-white/10">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest">Nenhum atleta de elite encontrado</p>
+              </div>
             )}
           </div>
         </div>

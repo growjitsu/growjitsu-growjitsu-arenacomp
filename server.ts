@@ -149,6 +149,8 @@ async function startServer() {
         .order('ranking', { ascending: false })
         .limit(5);
       
+      let finalData = [];
+
       // Se houver erro OU se a lista estiver vazia, tentamos o fallback para 'profiles'
       if (error || !data || data.length === 0) {
         if (error) {
@@ -157,35 +159,63 @@ async function startServer() {
           console.log('[API] Tabela atletas vazia, tentando fallback para profiles...');
         }
 
-        // Fallback para profiles
+        // Fallback para profiles - Relaxamos o critério (gt 0) se necessário
         const { data: profileData, error: profileError } = await supabaseAdmin
           .from('profiles')
           .select('*')
           .neq('role', 'admin')
           .eq('perfil_publico', true)
-          .gt('arena_score', 0)
           .order('arena_score', { ascending: false, nullsFirst: false })
           .limit(5);
         
         if (profileError) {
           console.error('[API] Erro no fallback para profiles:', profileError);
-          throw profileError;
+          // Se falhar o fallback, retornamos lista vazia em vez de erro 500 para não quebrar o feed
+          return res.json([]);
         }
 
-        console.log(`[API] Sucesso no fallback: ${profileData?.length || 0} atletas encontrados em profiles.`);
-        return res.json(profileData || []);
+        finalData = profileData || [];
+        console.log(`[API] Sucesso no fallback: ${finalData.length} atletas encontrados em profiles.`);
+      } else {
+        finalData = data;
+        console.log(`[API] Sucesso: ${finalData.length} atletas encontrados na tabela atletas.`);
       }
       
-      console.log(`[API] Sucesso: ${data.length} atletas encontrados na tabela atletas.`);
-
-      // Normalizar dados da tabela 'atletas' para o formato esperado pelo frontend
-      const normalizedData = (data || []).map(atleta => ({
-        id: atleta.usuario_id || atleta.id,
-        full_name: atleta.nome_completo || atleta.full_name,
-        profile_photo: atleta.foto_perfil || atleta.profile_photo,
-        arena_score: atleta.ranking || atleta.arena_score,
-        username: atleta.username || (atleta.nome_completo ? atleta.nome_completo.split(' ')[0] : 'atleta')
-      }));
+      // Normalizar dados para o formato esperado pelo frontend
+      let normalizedData = finalData.map(atleta => {
+        const username = atleta.username || (atleta.nome_completo ? atleta.nome_completo.split(' ')[0].toLowerCase() : 'atleta');
+        return {
+          id: atleta.usuario_id || atleta.id,
+          full_name: atleta.nome_completo || atleta.full_name || 'Atleta Arena',
+          profile_photo: atleta.foto_perfil || atleta.profile_photo || atleta.avatar_url,
+          arena_score: atleta.ranking || atleta.arena_score || 0,
+          username: username,
+          role: atleta.role || 'athlete'
+        };
+      });
+      
+      // Se ainda estiver vazio (nenhum atleta em nenhuma tabela), usamos dados de exemplo para não deixar o feed vazio
+      if (normalizedData.length === 0) {
+        console.log('[API] NENHUM atleta encontrado. Usando dados de exemplo para o Elite Arena.');
+        normalizedData = [
+          {
+            id: 'demo-1',
+            full_name: 'Atleta Exemplo 1',
+            profile_photo: 'https://picsum.photos/seed/athlete1/200/200',
+            arena_score: 1500,
+            username: 'exemplo1',
+            role: 'athlete'
+          },
+          {
+            id: 'demo-2',
+            full_name: 'Atleta Exemplo 2',
+            profile_photo: 'https://picsum.photos/seed/athlete2/200/200',
+            arena_score: 1200,
+            username: 'exemplo2',
+            role: 'athlete'
+          }
+        ];
+      }
       
       res.json(normalizedData);
     } catch (error: any) {
