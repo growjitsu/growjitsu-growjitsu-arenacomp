@@ -16,8 +16,8 @@ export function getMissingProfileFields(profile: any): string[] {
   const missingFields: string[] = [];
   if (!profile) return ["Perfil não encontrado"];
 
-  // REGRA CRÍTICA: Admin e Não-Atletas não precisam preencher perfil de atleta
-  if (profile.role === 'admin' || profile.tipo === 'nao_atleta') {
+  // REGRA CRÍTICA: Admin não precisa preencher perfil de atleta
+  if (profile.role === 'admin') {
     return [];
   }
 

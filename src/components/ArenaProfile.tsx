@@ -839,7 +839,6 @@ export const ArenaProfileView: React.FC<{
         country_id: editData.country_id,
         state_id: editData.state_id,
         city_id: editData.city_id,
-        tipo: editData.tipo,
         updated_at: new Date().toISOString()
       };
 
@@ -869,7 +868,6 @@ export const ArenaProfileView: React.FC<{
             pais: updatePayload.country,
             estado: updatePayload.state,
             cidade: updatePayload.city,
-            tipo: updatePayload.tipo,
             foto: profile.profile_photo || profile.avatar_url,
             updated_at: updatePayload.updated_at
           };
@@ -1995,175 +1993,172 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Informações Esportivas</h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {((editData.tipo || profile.tipo) === 'atleta') && (
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2 text-[var(--text-muted)]">
-                    <Trophy size={12} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Modalidades</span>
-                  </div>
-                  {isEditing ? (
-                    <div className="space-y-4">
-                      {/* List existing modalities */}
-                      <div className="space-y-2">
-                        {userModalities.map((m) => (
-                          <div key={m.id} className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-[var(--text-main)]">{m.modality}</span>
-                              {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <button 
-                                type="button"
-                                onClick={() => {
-                                  setEditingModalityId(m.id);
-                                  setNewModality(m.modality);
-                                  setNewModalityBelt(m.belt || '');
-                                  setIsCustomModality(!modalities.includes(m.modality));
-                                }}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
-                                title="Editar"
-                              >
-                                <Edit2 size={14} />
-                              </button>
-                              <button 
-                                type="button"
-                                onClick={() => handleRemoveModality(m.id)}
-                                className="p-1.5 text-[var(--text-muted)] hover:text-red-500 transition-colors"
-                                title="Remover"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2 text-[var(--text-muted)]">
+                  <Trophy size={12} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">Modalidades</span>
+                </div>
+                {isEditing ? (
+                  <div className="space-y-4">
+                    {/* List existing modalities */}
+                    <div className="space-y-2">
+                      {userModalities.map((m) => (
+                        <div key={m.id} className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[var(--text-main)]">{m.modality}</span>
+                            {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
                           </div>
-                        ))}
-                        
-                        {/* Fallback to old modality if no new ones exist */}
-                        {userModalities.length === 0 && editData.modality && (
-                          <div className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3 opacity-50">
-                            <div className="flex flex-col">
-                              <span className="text-xs font-bold text-[var(--text-main)]">{editData.modality}</span>
-                              {editData.graduation && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{editData.graduation}</span>}
-                            </div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-rose-500">Legado</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Add/Edit modality form */}
-                      <div className={`bg-[var(--bg)] border ${isFieldMissing('Modalidade') || isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} p-4 rounded-xl space-y-4`}>
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
-                            {editingModalityId ? 'Editar Modalidade' : 'Adicionar Modalidade'}
-                          </h4>
-                          {isFieldMissing('Modalidade') && <span className="text-[8px] font-bold text-red-500 uppercase">Modalidade Obrigatória</span>}
-                          {isFieldMissing('Graduação') && <span className="text-[8px] font-bold text-red-500 uppercase">Graduação Obrigatória</span>}
-                          {editingModalityId && (
+                          <div className="flex items-center space-x-2">
                             <button 
                               type="button"
                               onClick={() => {
-                                setEditingModalityId(null);
-                                setNewModality('');
-                                setNewModalityBelt('');
+                                setEditingModalityId(m.id);
+                                setNewModality(m.modality);
+                                setNewModalityBelt(m.belt || '');
+                                setIsCustomModality(!modalities.includes(m.modality));
                               }}
-                              className="text-[10px] font-bold text-red-500 uppercase tracking-widest"
+                              className="p-1.5 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+                              title="Editar"
                             >
-                              Cancelar
+                              <Edit2 size={14} />
                             </button>
-                          )}
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
-                              Modalidade <span className="text-red-500">*</span>
-                            </label>
-                            <select 
-                              value={isCustomModality ? 'Outros' : (modalities.includes(newModality) ? newModality : '')} 
-                              onChange={e => {
-                                const val = e.target.value;
-                                if (val === 'Outros') {
-                                  setIsCustomModality(true);
-                                  setNewModality('');
-                                } else {
-                                  setIsCustomModality(false);
-                                  setNewModality(val);
-                                }
-                              }}
-                              className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Modalidade') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
+                            <button 
+                              type="button"
+                              onClick={() => handleRemoveModality(m.id)}
+                              className="p-1.5 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                              title="Remover"
                             >
-                              <option value="">Selecione...</option>
-                              {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
-                              <option value="Outros">Outros</option>
-                            </select>
-                            {isCustomModality && (
-                              <input 
-                                value={newModality} 
-                                onChange={e => setNewModality(e.target.value)}
-                                placeholder="Digite sua modalidade"
-                                className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)] mt-2"
-                                autoFocus
-                              />
-                            )}
+                              <Trash2 size={14} />
+                            </button>
                           </div>
-
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
-                              Graduação / Faixa <span className="text-red-500">*</span>
-                            </label>
-                            <select 
-                              value={newModalityBelt} 
-                              onChange={e => setNewModalityBelt(e.target.value)}
-                              className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
-                            >
-                              <option value="">Selecione a faixa...</option>
-                              {belts.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                          </div>
-
-                          <button 
-                            type="button"
-                            onClick={() => editingModalityId ? handleEditModality(editingModalityId) : handleAddModalidade()}
-                            disabled={!newModality.trim() || !newModalityBelt.trim()}
-                            className="w-full bg-[var(--primary)] text-white rounded-lg px-4 py-2 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                          >
-                            {editingModalityId ? <Save size={14} /> : <Plus size={14} />}
-                            <span>{editingModalityId ? 'Salvar Alterações' : 'Adicionar Modalidade'}</span>
-                          </button>
                         </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {userModalities.length > 0 ? (
-                        userModalities.map((m) => (
-                          <div key={m.id} className="flex flex-col bg-[var(--bg-card)] px-3 py-1.5 rounded-xl border border-[var(--border-ui)]">
-                            <span className="text-sm font-bold text-[var(--text-main)]">{m.modality}</span>
-                            {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
+                      ))}
+                      
+                      {/* Fallback to old modality if no new ones exist */}
+                      {userModalities.length === 0 && editData.modality && (
+                        <div className="flex items-center justify-between bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-xl p-3 opacity-50">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-[var(--text-main)]">{editData.modality}</span>
+                            {editData.graduation && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{editData.graduation}</span>}
                           </div>
-                        ))
-                      ) : (
-                        <div className="flex flex-col">
-                          <p className="text-sm font-bold text-[var(--text-main)]">{profile?.modality || '-'}</p>
-                          {profile?.graduation && <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{profile.graduation}</p>}
+                          <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Legado</span>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* Add/Edit modality form */}
+                    <div className={`bg-[var(--bg)] border ${isFieldMissing('Modalidade') || isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} p-4 rounded-xl space-y-4`}>
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">
+                          {editingModalityId ? 'Editar Modalidade' : 'Adicionar Modalidade'}
+                        </h4>
+                        {isFieldMissing('Modalidade') && <span className="text-[8px] font-bold text-red-500 uppercase">Modalidade Obrigatória</span>}
+                        {isFieldMissing('Graduação') && <span className="text-[8px] font-bold text-red-500 uppercase">Graduação Obrigatória</span>}
+                        {editingModalityId && (
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setEditingModalityId(null);
+                              setNewModality('');
+                              setNewModalityBelt('');
+                            }}
+                            className="text-[10px] font-bold text-red-500 uppercase tracking-widest"
+                          >
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
+                            Modalidade <span className="text-red-500">*</span>
+                          </label>
+                          <select 
+                            value={isCustomModality ? 'Outros' : (modalities.includes(newModality) ? newModality : '')} 
+                            onChange={e => {
+                              const val = e.target.value;
+                              if (val === 'Outros') {
+                                setIsCustomModality(true);
+                                setNewModality('');
+                              } else {
+                                setIsCustomModality(false);
+                                setNewModality(val);
+                              }
+                            }}
+                            className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Modalidade') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
+                          >
+                            <option value="">Selecione...</option>
+                            {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
+                            <option value="Outros">Outros</option>
+                          </select>
+                          {isCustomModality && (
+                            <input 
+                              value={newModality} 
+                              onChange={e => setNewModality(e.target.value)}
+                              placeholder="Digite sua modalidade"
+                              className="w-full bg-[var(--bg-card)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)] mt-2"
+                              autoFocus
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase flex items-center gap-1">
+                            Graduação / Faixa <span className="text-red-500">*</span>
+                          </label>
+                          <select 
+                            value={newModalityBelt} 
+                            onChange={e => setNewModalityBelt(e.target.value)}
+                            className={`w-full bg-[var(--bg-card)] border ${isFieldMissing('Graduação') ? 'border-red-500' : 'border-[var(--border-ui)]'} rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
+                          >
+                            <option value="">Selecione a faixa...</option>
+                            {belts.map(b => <option key={b} value={b}>{b}</option>)}
+                          </select>
+                        </div>
+
+                        <button 
+                          type="button"
+                          onClick={() => editingModalityId ? handleEditModality(editingModalityId) : handleAddModalidade()}
+                          disabled={!newModality.trim() || !newModalityBelt.trim()}
+                          className="w-full bg-[var(--primary)] text-white rounded-lg px-4 py-2 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                        >
+                          {editingModalityId ? <Save size={14} /> : <Plus size={14} />}
+                          <span>{editingModalityId ? 'Salvar Alterações' : 'Adicionar Modalidade'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {userModalities.length > 0 ? (
+                      userModalities.map((m) => (
+                        <div key={m.id} className="flex flex-col bg-[var(--bg-card)] px-3 py-1.5 rounded-xl border border-[var(--border-ui)]">
+                          <span className="text-sm font-bold text-[var(--text-main)]">{m.modality}</span>
+                          {m.belt && <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{m.belt}</span>}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex flex-col">
+                        <p className="text-sm font-bold text-[var(--text-main)]">{profile?.modality || '-'}</p>
+                        {profile?.graduation && <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">{profile.graduation}</p>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {[
-                { label: 'Tipo de Perfil', value: profile.tipo === 'atleta' ? 'Atleta' : 'Não-Atleta', icon: User, key: 'tipo', mandatory: true },
                 { label: 'Equipe / Team', value: profile.team, icon: Award, key: 'team', mandatory: true },
                 { label: 'Sexo / Gênero', value: profile.genero, icon: VenusAndMars, key: 'genero', mandatory: true },
                 { label: 'Nascimento', value: profile.birth_date ? new Date(profile.birth_date + 'T00:00:00').toLocaleDateString('pt-BR') : '-', icon: Calendar, key: 'birth_date', mandatory: true },
-                { label: 'Categoria', value: profile.category, icon: Target, key: 'category', mandatory: true, athleteOnly: true },
-                { label: 'Peso', value: profile.weight ? `${String(profile.weight).replace('.', ',')}kg` : '-', icon: Scale, key: 'weight', mandatory: true, athleteOnly: true },
-                { label: 'Altura', value: profile.height ? `${String(profile.height).replace('.', ',')}m` : '-', icon: Ruler, key: 'height', mandatory: true, athleteOnly: true },
-                { label: 'Graduação', value: profile.graduation, icon: GraduationCap, key: 'graduation', mandatory: true, athleteOnly: true },
-                { label: 'Professor', value: profile.professor, icon: User, key: 'professor', mandatory: false, athleteOnly: true },
-                { label: 'Academia', value: profile.gym_name, icon: Dumbbell, key: 'gym_name', mandatory: true, athleteOnly: true },
-              ].filter(info => !info.athleteOnly || (editData.tipo || profile.tipo) === 'atleta').map((info, i) => (
+                { label: 'Categoria', value: profile.category, icon: Target, key: 'category', mandatory: true },
+                { label: 'Peso', value: profile.weight ? `${String(profile.weight).replace('.', ',')}kg` : '-', icon: Scale, key: 'weight', mandatory: true },
+                { label: 'Altura', value: profile.height ? `${String(profile.height).replace('.', ',')}m` : '-', icon: Ruler, key: 'height', mandatory: true },
+                { label: 'Graduação', value: profile.graduation, icon: GraduationCap, key: 'graduation', mandatory: true },
+                { label: 'Professor', value: profile.professor, icon: User, key: 'professor', mandatory: false },
+                { label: 'Academia', value: profile.gym_name, icon: Dumbbell, key: 'gym_name', mandatory: true },
+              ].map((info, i) => (
                 <div key={i} className="space-y-1">
                   <div className="flex items-center space-x-2 text-[var(--text-muted)]">
                     <info.icon size={12} />
@@ -2172,16 +2167,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     </span>
                   </div>
                   {isEditing ? (
-                    info.key === 'tipo' ? (
-                      <select 
-                        value={editData.tipo || ''} 
-                        onChange={e => setEditData({...editData, tipo: e.target.value as any})}
-                        className={`w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-2 py-1 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)]`}
-                      >
-                        <option value="atleta">Atleta</option>
-                        <option value="nao_atleta">Não-Atleta (Apoiador/Pai/Amigo)</option>
-                      </select>
-                    ) : info.key === 'team' ? (
+                    info.key === 'team' ? (
                       <>
                         <select 
                           value={editData.team_id || ''}

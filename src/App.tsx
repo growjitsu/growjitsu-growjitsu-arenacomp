@@ -15,7 +15,6 @@ import { ArenaProfileView } from './components/ArenaProfile';
 import { ArenaSettings } from './components/ArenaSettings';
 import { ArenaAuth } from './components/ArenaAuth';
 import { ArenaNotifications } from './components/ArenaNotifications';
-import { OnboardingQuestion } from './components/OnboardingQuestion';
 import { SharePage } from './pages/SharePage';
 import { CreatePostModal } from './components/CreatePostModal';
 import { AdminLayout } from './components/Admin/AdminLayout';
@@ -57,7 +56,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading, checkProfile } = useProfile();
+  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -404,19 +403,6 @@ function AppContent() {
   return (
     <>
       <Toaster position="top-center" theme="dark" />
-      
-      {/* Onboarding Flow: Ask for user type if not set (and not admin) */}
-      {isLoggedIn && profile && !profile.tipo && profile.role !== 'admin' && (
-        <OnboardingQuestion 
-          userId={profile.id} 
-          onComplete={(tipo) => {
-            setProfile({ ...profile, tipo });
-            // Re-check profile validity after choice
-            checkProfile();
-          }} 
-        />
-      )}
-
       <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
       <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />

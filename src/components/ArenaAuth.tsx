@@ -461,21 +461,19 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-32 h-32 mx-auto flex items-center justify-center overflow-hidden transform hover:scale-105 transition-transform duration-500"
+            className="w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-[2rem] mx-auto flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-4 border-white/10 overflow-hidden"
           >
             <img 
               src={logo} 
               alt="ArenaComp" 
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain p-4"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 const fallback = e.currentTarget.nextElementSibling;
                 if (fallback) (fallback as HTMLElement).style.display = 'block';
               }}
             />
-            <div className="hidden w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-[2rem] items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-4 border-white/10">
-              <Trophy size={48} className="text-white" />
-            </div>
+            <Trophy size={48} className="text-white" style={{ display: 'none' }} />
           </motion.div>
           <div className="space-y-1">
             <h1 className="text-5xl font-black uppercase tracking-tighter text-[var(--text-main)] italic leading-none">
