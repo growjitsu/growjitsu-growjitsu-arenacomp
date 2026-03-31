@@ -7,15 +7,15 @@
 }
 
 :root {
-  --primary: #0085FF;
-  --primary-highlight: #33A1FF;
+  --primary: #2563EB;
+  --primary-highlight: #3B82F6;
   --gold: #FFD700;
   --deep-black: #000000;
-  --arena-blue: #0047AB;
+  --arena-blue: #0A1F44;
   
   /* Default to Dark Mode */
-  --bg: #050B18;
-  --surface: #0E1629;
+  --bg: #0F172A;
+  --surface: #1E293B;
   --text-main: #FFFFFF;
   --text-muted: #94A3B8;
   --border-ui: rgba(255, 255, 255, 0.1);
