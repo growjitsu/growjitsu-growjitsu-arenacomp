@@ -13,7 +13,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [topAthletes, setTopAthletes] = useState<ArenaProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingTopAthletes, setLoadingTopAthletes] = useState(false);
+  const [loadingTopAthletes, setLoadingTopAthletes] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -316,21 +316,50 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const fetchTopAthletes = async () => {
     setLoadingTopAthletes(true);
     try {
-      console.log('[ArenaFeed] Buscando Elite Arena via API...');
-      const response = await fetch('/api/eliteArena');
+      console.log('[ArenaFeed] Buscando Elite Arena via Supabase (Fonte de Verdade)...');
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[ArenaFeed] Elite Arena recebida:', data?.length);
-        setTopAthletes(data || []);
+      // Mesma lógica da Landing Page que está funcionando
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('role', 'admin')
+        .eq('perfil_publico', true)
+        .gt('arena_score', 0)
+        .order('arena_score', { ascending: false, nullsFirst: false })
+        .limit(5);
+      
+      if (error) {
+        console.warn('[ArenaFeed] Erro no Supabase, tentando API:', error.message);
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        console.log('[ArenaFeed] Elite Arena recebida do Supabase:', data.length);
+        setTopAthletes(data);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[ArenaFeed] Falha na resposta da API:', response.status, errorData);
-        setTopAthletes([]);
+        console.log('[ArenaFeed] Supabase retornou vazio, tentando API como fallback...');
+        const response = await fetch('/api/eliteArena');
+        if (response.ok) {
+          const apiData = await response.json();
+          setTopAthletes(apiData || []);
+        } else {
+          setTopAthletes([]);
+        }
       }
     } catch (error) {
       console.error('[ArenaFeed] Erro ao buscar atletas de elite:', error);
-      setTopAthletes([]);
+      // Fallback final para a API que tem dados de exemplo
+      try {
+        const response = await fetch('/api/eliteArena');
+        if (response.ok) {
+          const apiData = await response.json();
+          setTopAthletes(apiData || []);
+        } else {
+          setTopAthletes([]);
+        }
+      } catch (apiError) {
+        setTopAthletes([]);
+      }
     } finally {
       setLoadingTopAthletes(false);
     }
@@ -790,7 +819,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                   </div>
                   <div className="text-center">
                     <p className="text-[9px] font-black uppercase tracking-tighter text-[var(--text-main)] truncate w-16">
-                      { (athlete.full_name?.split(' ')[0] || athlete.username || 'Atleta').substring(0, 10) }
+                      { athlete.full_name || athlete.username || 'Atleta' }
                     </p>
                   </div>
                 </Link>
