@@ -16,21 +16,21 @@ export function getMissingProfileFields(profile: any): string[] {
   const missingFields: string[] = [];
   if (!profile) return ["Perfil não encontrado"];
 
-  // REGRA CRÍTICA: Admin e Não-Atletas não precisam preencher perfil de atleta
-  if (profile.role === 'admin' || profile.tipo === 'nao_atleta') {
+  // REGRA CRÍTICA: Admin não precisa preencher perfil de atleta
+  if (profile.role === 'admin') {
     return [];
   }
 
   // 1. Modalidades (Pelo menos 1 válida)
-  const modalidades = profile.modalidades || [];
-  const hasValidModalityInList = modalidades.some((m: any) => !!m.modality && String(m.modality).trim() !== '');
-  const hasLegacyModality = !!profile.modality && String(profile.modality).trim() !== '';
+  const modalidades = profile.modalidades || profile.modalities || [];
+  const hasValidModalityInList = modalidades.some((m: any) => (!!m.modality || !!m.modalidade) && String(m.modality || m.modalidade).trim() !== '');
+  const hasLegacyModality = !!(profile.modality || profile.modalidade) && String(profile.modality || profile.modalidade).trim() !== '';
   if (!hasValidModalityInList && !hasLegacyModality) {
     missingFields.push("Modalidade");
   }
 
   // 2. Graduação (Pode estar no perfil ou em qualquer uma das modalidades da lista)
-  const hasGraduationInModalities = modalidades.some((m: any) => !!m.belt && String(m.belt).trim() !== '');
+  const hasGraduationInModalities = modalidades.some((m: any) => (!!m.belt || !!m.faixa) && String(m.belt || m.faixa).trim() !== '');
   const hasLegacyGraduation = !!(profile.graduation || profile.graduacao);
   if (!hasGraduationInModalities && !hasLegacyGraduation) {
     missingFields.push("Graduação");
@@ -42,34 +42,36 @@ export function getMissingProfileFields(profile: any): string[] {
   }
 
   // 4. Gênero
-  if (!profile.genero) {
+  if (!(profile.genero || profile.gender || profile.sexo)) {
     missingFields.push("Sexo / Gênero");
   }
 
   // 5. Data de Nascimento
-  if (!(profile.birth_date || profile.dataNascimento || profile.nascimento)) {
+  if (!(profile.birth_date || profile.data_nascimento || profile.dataNascimento || profile.nascimento)) {
     missingFields.push("Nascimento");
   }
 
   // 6. Categoria
-  if (!(profile.category || profile.categoria)) {
+  if (!(profile.category || profile.categoria || profile.categoria_idade)) {
     missingFields.push("Categoria");
   }
 
   // 7. Peso (Pode ser 0, então verificamos se não é nulo/vazio)
-  const hasWeight = profile.weight !== undefined && profile.weight !== null && String(profile.weight).trim() !== '';
+  const weight = profile.weight || profile.peso_kg || profile.peso;
+  const hasWeight = weight !== undefined && weight !== null && String(weight).trim() !== '' && parseFloat(String(weight)) > 0;
   if (!hasWeight) {
     missingFields.push("Peso");
   }
 
   // 8. Altura (Pode ser 0, então verificamos se não é nulo/vazio)
-  const hasHeight = profile.height !== undefined && profile.height !== null && String(profile.height).trim() !== '';
+  const height = profile.height || profile.altura_cm || profile.altura;
+  const hasHeight = height !== undefined && height !== null && String(height).trim() !== '' && parseFloat(String(height)) > 0;
   if (!hasHeight) {
     missingFields.push("Altura");
   }
 
   // 9. Academia
-  if (!(profile.gym_name || profile.academia)) {
+  if (!(profile.gym_name || profile.academia || profile.equipe)) {
     missingFields.push("Academia");
   }
 

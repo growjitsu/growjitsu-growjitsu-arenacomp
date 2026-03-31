@@ -847,6 +847,14 @@ export const ArenaProfileView: React.FC<{
         updated_at: new Date().toISOString()
       };
 
+      // Calcular se o perfil está completo antes de salvar
+      const updatedProfileForValidation = { 
+        ...profile, 
+        ...updatePayload, 
+        modalities: userModalities 
+      };
+      (updatePayload as any).perfil_completo = isProfileComplete(updatedProfileForValidation);
+
       const { error } = await supabase
         .from('profiles')
         .update(updatePayload)

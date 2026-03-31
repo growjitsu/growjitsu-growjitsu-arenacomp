@@ -383,9 +383,9 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
               </button>
               <AthleteProfileForm 
                 userId={profile?.id || ''} 
-                onComplete={async () => {
+                onComplete={async (updatedData) => {
                   setIsEditingProfile(false);
-                  await checkProfile();
+                  await checkProfile(updatedData);
                   await fetchData();
                 }} 
               />
