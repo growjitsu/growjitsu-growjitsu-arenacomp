@@ -6,7 +6,8 @@ import cors from "cors";
 import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
 import dotenv from "dotenv";
-import * as admin from 'firebase-admin';
+import { initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
@@ -38,7 +39,7 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
 
 // Initialize Firebase Admin SDK
 try {
-  admin.initializeApp({
+  initializeApp({
     projectId: firebaseConfig.projectId,
   });
   console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
@@ -424,9 +425,10 @@ async function startServer() {
 
     try {
       console.log(`[FIREBASE-ADMIN] Tentando definir claim de admin para: ${email}`);
-      const user = await admin.auth().getUserByEmail(email);
+      const auth = getAuth();
+      const user = await auth.getUserByEmail(email);
       
-      await admin.auth().setCustomUserClaims(user.uid, { admin: true });
+      await auth.setCustomUserClaims(user.uid, { admin: true });
       
       console.log(`[FIREBASE-ADMIN] Claim 'admin: true' definido com sucesso para ${email} (UID: ${user.uid})`);
       
