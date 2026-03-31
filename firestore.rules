@@ -33,25 +33,14 @@ service cloud.firestore {
           request.auth.token.admin == true ||
           (request.auth.token.email != null && 
            (request.auth.token.email.lower() == "admin@arenacomp.com.br" || 
-            request.auth.token.email.lower() == "carlos.atila001@gmail.com"))
-        ); // Admin emails + Custom Claim
+            request.auth.token.email.lower() == "carlos.atila001@gmail.com" ||
+            request.auth.token.email == "carlos.atila001@gmail.com"))
+        );
     }
 
     function isValidBanner(data) {
       let requiredFields = ['image_url', 'link', 'is_active', 'order'];
-      let allowedFields = ['image_url', 'mobile_image_url', 'link', 'title', 'display_time', 'is_active', 'order', 'start_date', 'end_date', 'created_at', 'updated_at'];
-      
-      return data.keys().hasAll(requiredFields) &&
-             data.keys().hasOnly(allowedFields) &&
-             data.image_url is string && data.image_url.size() < 5000 &&
-             data.link is string && data.link.size() < 2000 &&
-             data.is_active is bool &&
-             data.order is number &&
-             (!('title' in data) || data.title is string) &&
-             (!('display_time' in data) || data.display_time is number) &&
-             (!('mobile_image_url' in data) || data.mobile_image_url is string) &&
-             (!('start_date' in data) || data.start_date is timestamp || data.start_date == null) &&
-             (!('end_date' in data) || data.end_date is timestamp || data.end_date == null);
+      return data.keys().hasAll(requiredFields);
     }
 
     // ===============================================================
@@ -59,13 +48,20 @@ service cloud.firestore {
     // ===============================================================
 
     match /featured_banners/{bannerId} {
-      allow read: if true; // Publicly readable for the landing page
-      allow create, update, delete: if isAdmin();
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidBanner(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /admin_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
     }
   }
 }

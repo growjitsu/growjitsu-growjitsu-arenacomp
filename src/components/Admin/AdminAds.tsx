@@ -363,7 +363,8 @@ export const AdminAds: React.FC = () => {
       try {
         // Tenta parsear se for um erro do handleFirestoreError (JSON)
         const parsed = JSON.parse(error.message);
-        message = `Erro de permissão: ${parsed.error}`;
+        const userEmail = auth.currentUser?.email || 'não identificado';
+        message = `Erro de permissão (${parsed.operationType} em ${parsed.path}): ${parsed.error}. Usuário: ${userEmail}`;
       } catch {
         message = error.message || message;
       }
