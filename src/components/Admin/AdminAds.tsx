@@ -59,10 +59,12 @@ export const AdminAds: React.FC = () => {
   const [desktopPreview, setDesktopPreview] = useState<string>('');
   const [mobilePreview, setMobilePreview] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
+  const [fbUser, setFbUser] = useState<any>(null);
   const [isFirebaseAuthReady, setIsFirebaseAuthReady] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
+      setFbUser(user);
       setIsFirebaseAuthReady(true);
     });
     return () => unsubscribe();
@@ -264,7 +266,7 @@ export const AdminAds: React.FC = () => {
     if (isUploading) return;
     
     if (!auth.currentUser) {
-      toast.error('Você precisa estar autenticado no Firestore para salvar banners. Clique no botão "Conectar Firestore" no topo da página.');
+      toast.error('Você precisa estar autenticado no Firestore para salvar banners. Clique no botão "Login Firebase" no topo da página.');
       return;
     }
     
@@ -433,15 +435,17 @@ export const AdminAds: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-3">
-          {!auth.currentUser && (
-            <button
-              onClick={handleFirebaseLogin}
-              className="flex items-center space-x-2 px-4 py-2 bg-rose-600/10 text-rose-500 border border-rose-600/20 hover:bg-rose-600 hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
-            >
-              <Lock size={14} />
-              <span>Conectar Firestore</span>
-            </button>
-          )}
+          <button
+            onClick={handleFirebaseLogin}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+              fbUser 
+                ? 'bg-green-600/10 text-green-500 border-green-600/20 hover:bg-green-600 hover:text-white' 
+                : 'bg-rose-600/10 text-rose-500 border-rose-600/20 hover:bg-rose-600 hover:text-white'
+            }`}
+          >
+            <Lock size={14} />
+            <span>{fbUser ? `Logado: ${fbUser.email?.split('@')[0]}` : 'Login Firebase'}</span>
+          </button>
           
           <button 
             onClick={() => handleOpenModal()}
