@@ -124,6 +124,24 @@ export const AdminAds: React.FC = () => {
     if (data) setCities(data);
   };
 
+  const formatDateForInput = (timestamp: any) => {
+    if (!timestamp) return '';
+    try {
+      // Handle Firestore Timestamp
+      const date = timestamp.seconds ? new Date(timestamp.seconds * 1000) : new Date(timestamp);
+      if (isNaN(date.getTime())) return '';
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
   const handleOpenModal = (banner?: Banner) => {
     setDesktopFile(null);
     setMobileFile(null);
@@ -139,8 +157,8 @@ export const AdminAds: React.FC = () => {
         display_time: banner.display_time,
         is_active: banner.is_active,
         order: banner.order,
-        start_date: banner.start_date ? new Date(banner.start_date.seconds * 1000).toISOString().slice(0, 16) : '',
-        end_date: banner.end_date ? new Date(banner.end_date.seconds * 1000).toISOString().slice(0, 16) : '',
+        start_date: formatDateForInput(banner.start_date),
+        end_date: formatDateForInput(banner.end_date),
         country: banner.country || '',
         state: banner.state || '',
         city: banner.city || '',
