@@ -13,6 +13,18 @@ const rawKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsIn
 const supabaseUrl = rawUrl.trim();
 const supabaseAnonKey = rawKey.trim();
 
+// Verificação de segurança: Se a chave começar com 'sb_secret_' ou for uma service_role key, 
+// ela não deve ser usada no frontend.
+const isSecretKey = (key: string) => {
+  if (key.startsWith('sb_secret_')) return true;
+  try {
+    const payload = JSON.parse(atob(key.split('.')[1]));
+    return payload.role === 'service_role';
+  } catch {
+    return false;
+  }
+};
+
 const isValidUrl = (url: string) => {
   try {
     const u = new URL(url);
@@ -22,9 +34,11 @@ const isValidUrl = (url: string) => {
   }
 };
 
-// Fallback final se a URL ainda for inválida
+// Fallback final se a URL ainda for inválida ou a chave for secreta
 const finalUrl = isValidUrl(supabaseUrl) ? supabaseUrl : 'https://vfefztzaiqhpsfnvpkba.supabase.co';
-const finalKey = supabaseAnonKey.length > 20 ? supabaseAnonKey : rawKey;
+const finalKey = (supabaseAnonKey.length > 20 && !isSecretKey(supabaseAnonKey)) 
+  ? supabaseAnonKey 
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
 
 // Validação de segurança para o restante do app
 export const isSupabaseConfigured = isValidUrl(finalUrl) && finalKey.length > 20;
