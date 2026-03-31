@@ -54,7 +54,8 @@
         "pais": { "type": "string" },
         "estado": { "type": "string" },
         "cidade": { "type": "string" },
-        "foto": { "type": "string" }
+        "foto": { "type": "string" },
+        "tipo": { "type": "string", "enum": ["atleta", "nao_atleta"] }
       }
     }
   },

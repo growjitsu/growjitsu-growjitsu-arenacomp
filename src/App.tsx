@@ -56,9 +56,8 @@ export default function App() {
 }
 
 function AppContent() {
-  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading } = useProfile();
+  const { isProfileValid, isLoggedIn, profile, isLoading: isProfileLoading } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
-  const [profile, setProfile] = useState<ArenaProfile | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -94,15 +93,8 @@ function AppContent() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          // Fetch profile but don't strictly block initialization if it's slow
-          // We'll wait a bit, but if it takes too long, we'll proceed
-          const profilePromise = fetchProfile(session.user.id);
-          
-          // Wait up to 2 seconds for profile, then proceed anyway
-          await Promise.race([
-            profilePromise,
-            new Promise(resolve => setTimeout(resolve, 2000))
-          ]);
+          // Profile is handled by ProfileContext
+          fetchUnreadNotifications(session.user.id);
         }
       } catch (err) {
         console.error('Auth initialization error:', err);
@@ -113,12 +105,10 @@ function AppContent() {
 
     initAuth();
 
-    // Listen for auth changes to fetch profile
+    // Listen for auth changes to fetch notifications
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
+        fetchUnreadNotifications(session.user.id);
       }
     });
 
@@ -183,21 +173,11 @@ function AppContent() {
     }
   }, [isLoggedIn, isProfileValid, location.pathname, navigate, profile?.role]);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error) throw error;
-      setProfile(data);
-      fetchUnreadNotifications(userId);
-    } catch (err) {
-      console.error('Erro ao buscar perfil:', err);
+  useEffect(() => {
+    if (isLoggedIn && profile) {
+      fetchUnreadNotifications(profile.id);
     }
-  };
+  }, [isLoggedIn, profile?.id]);
 
   const fetchUnreadNotifications = async (userId: string) => {
     try {

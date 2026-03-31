@@ -43,6 +43,10 @@ service cloud.firestore {
       return data.keys().hasAll(requiredFields);
     }
 
+    function isValidUser(data) {
+      return !('tipo' in data) || (data.tipo in ['atleta', 'nao_atleta']);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -55,7 +59,7 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin()) && isValidUser(request.resource.data);
     }
 
     match /admin_logs/{logId} {

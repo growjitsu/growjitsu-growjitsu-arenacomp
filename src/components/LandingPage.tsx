@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { authService } from '../services/authService';
-import logo from '../assets/logo.png';
+const logo = 'https://picsum.photos/seed/arena/200/200';
 
 export default function LandingPage({ onLogin }: { onLogin: (userType?: string) => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);

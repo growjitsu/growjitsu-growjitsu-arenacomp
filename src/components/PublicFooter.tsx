@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, Instagram, Twitter, Facebook, Mail } from 'lucide-react';
-import logo from '../assets/logo.png';
+const logo = 'https://picsum.photos/seed/arena/200/200';
 
 export const PublicFooter: React.FC = () => {
   return (
