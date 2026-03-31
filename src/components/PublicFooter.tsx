@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Trophy, Instagram, Twitter, Facebook, Mail } from 'lucide-react';
+import logo from '../assets/logo.png';
 
 export const PublicFooter: React.FC = () => {
   return (
@@ -10,7 +11,17 @@ export const PublicFooter: React.FC = () => {
         <div className="space-y-6">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center font-black text-white italic overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10">
-              <Trophy size={20} className="text-white" />
+              <img 
+                src={logo} 
+                alt="ArenaComp" 
+                className="w-full h-full object-contain p-1.5"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling;
+                  if (fallback) (fallback as HTMLElement).style.display = 'block';
+                }}
+              />
+              <Trophy size={20} className="text-white" style={{ display: 'none' }} />
             </div>
             <span className="text-sm font-black uppercase tracking-[0.2em] italic text-white">ArenaComp</span>
           </div>

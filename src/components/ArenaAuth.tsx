@@ -4,6 +4,7 @@ import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react
 import { supabase } from '../services/supabase';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
+import logo from '../assets/logo.png';
 
 interface ArenaAuthProps {
   isAdminLogin?: boolean;
@@ -460,9 +461,19 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           <motion.div
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-[2rem] mx-auto flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-4 border-white/10"
+            className="w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-[2rem] mx-auto flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-4 border-white/10 overflow-hidden"
           >
-            <Trophy size={48} className="text-white" />
+            <img 
+              src={logo} 
+              alt="ArenaComp" 
+              className="w-full h-full object-contain p-4"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const fallback = e.currentTarget.nextElementSibling;
+                if (fallback) (fallback as HTMLElement).style.display = 'block';
+              }}
+            />
+            <Trophy size={48} className="text-white" style={{ display: 'none' }} />
           </motion.div>
           <div className="space-y-1">
             <h1 className="text-5xl font-black uppercase tracking-tighter text-[var(--text-main)] italic leading-none">
@@ -627,7 +638,19 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                           {newTeamData.logo_url ? (
                             <img src={newTeamData.logo_url} alt="Logo" className="w-full h-full object-contain" />
                           ) : (
-                            <Trophy size={16} className="text-[var(--text-muted)]" />
+                            <>
+                              <img 
+                                src={logo} 
+                                alt="Logo" 
+                                className="w-full h-full object-contain p-2"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling;
+                                  if (fallback) (fallback as HTMLElement).style.display = 'block';
+                                }}
+                              />
+                              <Trophy size={16} className="text-[var(--text-muted)]" style={{ display: 'none' }} />
+                            </>
                           )}
                         </div>
                         <label className="flex-1 cursor-pointer">
@@ -716,8 +739,18 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                 className="bg-[var(--surface)] border border-[var(--border-ui)] p-8 rounded-3xl max-w-sm w-full space-y-6 shadow-2xl"
               >
                 <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-rose-500/10 rounded-2xl mx-auto flex items-center justify-center text-rose-500">
-                    <Trophy size={32} />
+                  <div className="w-16 h-16 bg-rose-500/10 rounded-2xl mx-auto flex items-center justify-center text-rose-500 overflow-hidden">
+                    <img 
+                      src={logo} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain p-3 opacity-20 grayscale"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling;
+                        if (fallback) (fallback as HTMLElement).style.display = 'block';
+                      }}
+                    />
+                    <Trophy size={32} style={{ display: 'none' }} />
                   </div>
                   <h3 className="text-lg font-black uppercase tracking-tight text-[var(--text-main)] italic">Equipe já representada</h3>
                   <p className="text-xs text-[var(--text-muted)] leading-relaxed">

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trophy, Search, Sun, Moon, LogIn } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { motion } from 'motion/react';
+import logo from '../assets/logo.png';
 
 export const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
@@ -24,7 +25,17 @@ export const PublicHeader: React.FC = () => {
         onClick={() => navigate('/')}
       >
         <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center font-black text-white italic overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10 transform group-hover:scale-110 transition-transform duration-300">
-          <Trophy size={20} className="text-white" />
+          <img 
+            src={logo} 
+            alt="ArenaComp" 
+            className="w-full h-full object-contain p-1.5"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const fallback = e.currentTarget.nextElementSibling;
+              if (fallback) (fallback as HTMLElement).style.display = 'block';
+            }}
+          />
+          <Trophy size={20} className="text-white" style={{ display: 'none' }} />
         </div>
         <span className="text-sm font-black uppercase tracking-[0.2em] italic text-white hidden sm:block">ArenaComp</span>
       </div>
