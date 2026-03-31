@@ -1703,7 +1703,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             </div>
           )}
 
-          {isOwnProfile && !isEditing && (
+          {isOwnProfile && !isEditing && profile.role !== 'admin' && (
             <div className="pb-4 flex flex-wrap gap-2">
               {isTeamRepresentative && (
                 <button
@@ -1762,45 +1762,49 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       </AnimatePresence>
 
       {/* Stats Grid */}
-      <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
-        {[
-          { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
-          { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
-          { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
-          { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
-          { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
-            <div className="flex items-center justify-between gap-2">
-              <stat.icon size={14} className={`${stat.color} shrink-0`} />
-              <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
+      {profile.role !== 'admin' && (
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+          {[
+            { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
+            { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
+            { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
+            { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
+            { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <stat.icon size={14} className={`${stat.color} shrink-0`} />
+                <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
+              </div>
+              <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
             </div>
-            <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Rankings Section */}
-      <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-4">
-        <div className="flex items-center space-x-3">
-          <Trophy size={20} className="text-[var(--primary)]" />
-          <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Rankings Oficiais</h3>
+      {profile.role !== 'admin' && (
+        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-4">
+          <div className="flex items-center space-x-3">
+            <Trophy size={20} className="text-[var(--primary)]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Rankings Oficiais</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
-            <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
-            <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
-          </div>
-          <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
-            <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Bio & Info */}
       <div className="grid md:grid-cols-3 gap-8">

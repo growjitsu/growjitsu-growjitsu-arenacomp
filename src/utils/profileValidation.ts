@@ -16,6 +16,11 @@ export function getMissingProfileFields(profile: any): string[] {
   const missingFields: string[] = [];
   if (!profile) return ["Perfil não encontrado"];
 
+  // REGRA CRÍTICA: Admin não precisa preencher perfil de atleta
+  if (profile.role === 'admin') {
+    return [];
+  }
+
   // 1. Modalidades (Pelo menos 1 válida)
   const modalidades = profile.modalidades || [];
   const hasValidModalityInList = modalidades.some((m: any) => !!m.modality && String(m.modality).trim() !== '');

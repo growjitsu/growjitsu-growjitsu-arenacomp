@@ -169,13 +169,19 @@ function AppContent() {
     if (isLoggedIn && isProfileValid === false && location.pathname !== '/perfil') {
       console.log('[ARENACOMP] Perfil incompleto detectado. Redirecionando para /perfil. Path:', location.pathname);
       navigate('/perfil');
-    } else if (isLoggedIn && isProfileValid === true && location.pathname === '/perfil') {
+    } else if (isLoggedIn && isProfileValid === true && (location.pathname === '/perfil' || location.pathname === '/login')) {
       if (!location.pathname.includes('edit')) {
-        console.log('[ARENACOMP] Perfil completo detectado. Redirecionando para /');
-        navigate('/');
+        // If admin, redirect to /admin, otherwise to /
+        if (profile?.role === 'admin') {
+          console.log('[ARENACOMP] Admin detectado. Redirecionando para /admin');
+          navigate('/admin');
+        } else {
+          console.log('[ARENACOMP] Perfil completo detectado. Redirecionando para /');
+          navigate('/');
+        }
       }
     }
-  }, [isLoggedIn, isProfileValid, location.pathname, navigate]);
+  }, [isLoggedIn, isProfileValid, location.pathname, navigate, profile?.role]);
 
   const fetchProfile = async (userId: string) => {
     try {
