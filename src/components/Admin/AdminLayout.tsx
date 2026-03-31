@@ -49,18 +49,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, userProfile 
       <aside className="hidden md:flex w-64 flex-col border-r border-white/10 bg-[#0f0f0f] sticky top-0 h-screen">
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black italic text-white shadow-lg shadow-blue-500/20 overflow-hidden">
+            <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
               <img 
                 src={logo} 
                 alt="ArenaComp" 
-                className="w-full h-full object-contain p-1"
+                className="w-full h-full object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = e.currentTarget.nextElementSibling;
                   if (fallback) (fallback as HTMLElement).style.display = 'block';
                 }}
               />
-              <span style={{ display: 'none' }}>A</span>
+              <div className="hidden w-8 h-8 bg-blue-600 rounded-lg items-center justify-center font-black italic text-white shadow-lg border border-white/10">
+                <span>A</span>
+              </div>
             </div>
             <span className="font-black uppercase tracking-widest text-sm italic">Arena Admin</span>
           </div>
@@ -118,18 +120,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({ children, userProfile 
       {/* Mobile Header */}
       <header className="md:hidden flex items-center justify-between p-4 bg-[#0f0f0f] border-b border-white/10 sticky top-0 z-50">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-black italic text-white overflow-hidden">
+          <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
             <img 
               src={logo} 
               alt="ArenaComp" 
-              className="w-full h-full object-contain p-1"
+              className="w-full h-full object-contain"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
                 const fallback = e.currentTarget.nextElementSibling;
                 if (fallback) (fallback as HTMLElement).style.display = 'block';
               }}
             />
-            <span style={{ display: 'none' }}>A</span>
+            <div className="hidden w-8 h-8 bg-blue-600 rounded-lg items-center justify-center font-black italic text-white">
+              <span>A</span>
+            </div>
           </div>
           <span className="font-black uppercase tracking-widest text-sm italic">Arena Admin</span>
         </div>

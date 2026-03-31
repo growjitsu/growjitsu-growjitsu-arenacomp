@@ -18,24 +18,26 @@ export const PublicHeader: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-[#0A1F44]/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 md:px-12 z-50 transition-all duration-500">
+    <header className="fixed top-0 left-0 right-0 h-20 bg-[#050B18]/90 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 md:px-12 z-50 transition-all duration-500">
       {/* Left: Logo */}
       <div 
         className="flex items-center space-x-3 cursor-pointer group" 
         onClick={() => navigate('/')}
       >
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center font-black text-white italic overflow-hidden shadow-lg shadow-blue-500/20 border border-white/10 transform group-hover:scale-110 transition-transform duration-300">
+        <div className="w-12 h-12 flex items-center justify-center overflow-hidden transform group-hover:scale-110 transition-transform duration-300">
           <img 
             src={logo} 
             alt="ArenaComp" 
-            className="w-full h-full object-contain p-1.5"
+            className="w-full h-full object-contain"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
               const fallback = e.currentTarget.nextElementSibling;
               if (fallback) (fallback as HTMLElement).style.display = 'block';
             }}
           />
-          <Trophy size={20} className="text-white" style={{ display: 'none' }} />
+          <div className="hidden w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl items-center justify-center font-black text-white italic shadow-lg border border-white/10">
+            <Trophy size={20} className="text-white" />
+          </div>
         </div>
         <span className="text-sm font-black uppercase tracking-[0.2em] italic text-white hidden sm:block">ArenaComp</span>
       </div>

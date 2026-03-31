@@ -91,23 +91,25 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
   return (
     <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] selection:bg-bjj-blue selection:text-white">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-20 border-b border-[var(--border-ui)] bg-[var(--bg-app)]/80 backdrop-blur-xl z-[100]">
+      <header className="fixed top-0 left-0 right-0 h-20 border-b border-[var(--border-ui)] bg-[#050B18]/90 backdrop-blur-xl z-[100]">
         <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-bjj-blue to-blue-700 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 border border-white/10 overflow-hidden">
+            <div className="w-14 h-14 flex items-center justify-center overflow-hidden">
               <img 
                 src={logo} 
                 alt="ArenaComp" 
-                className="w-full h-full object-contain p-1.5"
+                className="w-full h-full object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fallback = e.currentTarget.nextElementSibling;
                   if (fallback) (fallback as HTMLElement).style.display = 'block';
                 }}
               />
-              <Trophy className="text-white" size={20} style={{ display: 'none' }} />
+              <div className="hidden w-10 h-10 bg-gradient-to-br from-bjj-blue to-blue-700 rounded-xl items-center justify-center shadow-lg border border-white/10">
+                <Trophy className="text-white" size={20} />
+              </div>
             </div>
-            <span className="text-2xl font-black font-display tracking-tighter italic">ARENA<span className="text-bjj-blue">COMP</span></span>
+            <span className="text-2xl font-black font-display tracking-tighter italic hidden sm:block">ARENA<span className="text-bjj-blue">COMP</span></span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -314,18 +316,20 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
         <div className="max-w-7xl mx-auto grid md:grid-cols-4 gap-12">
           <div className="col-span-2">
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-gradient-to-br from-bjj-blue to-blue-700 rounded-lg flex items-center justify-center border border-white/10 overflow-hidden">
+              <div className="w-12 h-12 flex items-center justify-center overflow-hidden">
                 <img 
                   src={logo} 
                   alt="ArenaComp" 
-                  className="w-full h-full object-contain p-1"
+                  className="w-full h-full object-contain"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     const fallback = e.currentTarget.nextElementSibling;
                     if (fallback) (fallback as HTMLElement).style.display = 'block';
                   }}
                 />
-                <Trophy className="text-white" size={16} style={{ display: 'none' }} />
+                <div className="hidden w-8 h-8 bg-gradient-to-br from-bjj-blue to-blue-700 rounded-lg items-center justify-center border border-white/10">
+                  <Trophy className="text-white" size={16} />
+                </div>
               </div>
               <span className="text-xl font-black font-display tracking-tighter italic">ARENA<span className="text-bjj-blue">COMP</span></span>
             </div>
