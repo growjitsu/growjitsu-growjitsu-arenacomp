@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../services/supabase';
-const logo = 'https://picsum.photos/seed/arena/200/200';
+import logo from '../../assets/logo.png';
 
 interface AdminLayoutProps {
   children: React.ReactNode;

@@ -204,6 +204,7 @@ export const ArenaProfileView: React.FC<{
           }))
         }, { merge: true });
         console.log('[FIREBASE] Modalidades sincronizadas com Firestore');
+        await checkProfile();
       }
     } catch (err) {
       console.error('[FIREBASE] Erro ao sincronizar modalidades:', err);
@@ -252,9 +253,7 @@ export const ArenaProfileView: React.FC<{
 
       // Synchronize with Firestore for validation
       try {
-        const updatedProfile = { ...profile, modalities: updatedModalities } as ArenaProfile;
         await syncModalitiesToFirestore(updatedModalities);
-        await checkProfile(updatedProfile);
       } catch (fsError) {
         console.error('[FIREBASE] Erro ao sincronizar modalidades (não crítico):', fsError);
       }
@@ -325,9 +324,7 @@ export const ArenaProfileView: React.FC<{
 
       // Synchronize with Firestore
       try {
-        const updatedProfile = { ...profile, modalities: updatedModalities } as ArenaProfile;
         await syncModalitiesToFirestore(updatedModalities);
-        await checkProfile(updatedProfile);
       } catch (fsError) {
         console.error('[FIREBASE] Erro ao sincronizar edição (não crítico):', fsError);
       }
@@ -380,9 +377,7 @@ export const ArenaProfileView: React.FC<{
       setUserModalities(updatedModalities);
 
       // Synchronize with Firestore for validation
-      const updatedProfile = { ...profile!, modalities: updatedModalities } as ArenaProfile;
       await syncModalitiesToFirestore(updatedModalities);
-      await checkProfile(updatedProfile);
 
       // If we removed the first one, update main profile with the new first one
       if (userModalities[0]?.id === id && updatedModalities.length > 0) {
@@ -847,14 +842,6 @@ export const ArenaProfileView: React.FC<{
         updated_at: new Date().toISOString()
       };
 
-      // Calcular se o perfil está completo antes de salvar
-      const updatedProfileForValidation = { 
-        ...profile, 
-        ...updatePayload, 
-        modalities: userModalities 
-      };
-      (updatePayload as any).perfil_completo = isProfileComplete(updatedProfileForValidation);
-
       const { error } = await supabase
         .from('profiles')
         .update(updatePayload)
@@ -885,27 +872,17 @@ export const ArenaProfileView: React.FC<{
             updated_at: updatePayload.updated_at
           };
 
-      await setDoc(doc(db, "users", user.id), firestorePayload, { merge: true });
+          await setDoc(doc(db, "users", user.id), firestorePayload, { merge: true });
           console.log('[FIREBASE] Perfil sincronizado com Firestore');
           
-          // Re-validate profile globally with immediate data
-          const updatedProfile = { 
-            ...profile, 
-            ...updatePayload, 
-            modalities: userModalities 
-          } as ArenaProfile;
-          
-          console.log('[ARENACOMP] Revalidando perfil com dados atualizados:', updatedProfile);
-          const isValid = await checkProfile(updatedProfile);
-          console.log('[ARENACOMP] Resultado da revalidação:', isValid);
-          
-          setProfile(updatedProfile);
-          setEditData(updatedProfile);
+          // Re-validate profile globally
+          await checkProfile();
         }
       } catch (fsError) {
         console.error('[FIREBASE] Erro ao sincronizar com Firestore:', fsError);
       }
 
+      setProfile({ ...profile, ...editData });
       setIsEditing(false);
     } catch (error: any) {
       console.error('Error updating profile:', error);

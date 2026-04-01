@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Trophy, Search, Sun, Moon, LogIn } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { motion } from 'motion/react';
-const logo = 'https://picsum.photos/seed/arena/200/200';
+import logo from '../assets/logo.png';
 
 export const PublicHeader: React.FC = () => {
   const navigate = useNavigate();
