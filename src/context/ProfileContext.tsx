@@ -1,12 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
+import { ArenaProfile } from '../types';
 
 interface ProfileContextType {
   isProfileValid: boolean | null;
   isLoggedIn: boolean;
   checkProfile: () => Promise<boolean>;
   isLoading: boolean;
+  profile: ArenaProfile | null;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -15,13 +17,14 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [isProfileValid, setIsProfileValid] = useState<boolean | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<ArenaProfile | null>(null);
 
   const checkProfile = useCallback(async () => {
     try {
       setIsLoading(true);
       
       // Small delay to ensure DB propagation if called immediately after save
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -37,13 +40,13 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.log('[PROFILE CONTEXT] Checking profile for user:', user.id);
 
       // Fetch profile from Supabase
-      const { data: profile, error: profileError } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (profileError || !profile) {
+      if (profileError || !profileData) {
         console.log('[PROFILE CONTEXT] Profile not found or error:', profileError);
         setIsProfileValid(false);
         setIsLoading(false);
@@ -57,18 +60,26 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         .eq('user_id', user.id);
 
       const missingFields = getMissingProfileFields({
-        ...profile,
+        ...profileData,
         modalidades: modalities || []
       });
 
       const isValid = missingFields.length === 0;
+      const completeProfile = {
+        ...profileData,
+        modalities: modalities || []
+      };
 
+      // DEBUG CONTROLADO (Etapa 7)
+      console.log("[ARENACOMP] User atualizado:", completeProfile);
+      console.log("[ARENACOMP] Perfil completo:", isValid);
       if (!isValid) {
-        console.warn('[PROFILE CONTEXT] Profile incomplete. Missing fields:', missingFields);
+        console.warn('[ARENACOMP] Perfil incompleto. Campos faltando:', missingFields);
       } else {
-        console.log('[PROFILE CONTEXT] Profile is complete!');
+        console.log('[ARENACOMP] Perfil está completo!');
       }
 
+      setProfile(completeProfile);
       setIsProfileValid(isValid);
       setIsLoading(false);
       return isValid;
@@ -96,7 +107,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [checkProfile]);
 
   return (
-    <ProfileContext.Provider value={{ isProfileValid, isLoggedIn, checkProfile, isLoading }}>
+    <ProfileContext.Provider value={{ isProfileValid, isLoggedIn, checkProfile, isLoading, profile }}>
       {children}
     </ProfileContext.Provider>
   );

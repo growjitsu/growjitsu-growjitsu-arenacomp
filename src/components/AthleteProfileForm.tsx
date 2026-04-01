@@ -9,7 +9,7 @@ import { getAutomaticCategorization } from '../services/categorization';
 
 interface AthleteProfileFormProps {
   userId: string;
-  onComplete: () => void;
+  onComplete: (updatedProfile?: any) => void;
 }
 
 const BELTS: Belt[] = ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde', 'Azul', 'Roxa', 'Marrom', 'Preta'];
@@ -290,7 +290,22 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
 
       // 4. Notificar sucesso e disparar callback de conclusão
       if (onComplete) {
-        await onComplete();
+        // Passamos o payload atualizado para que o checkProfile possa validar imediatamente
+        await onComplete({
+          id: userId,
+          full_name: profile.nome_completo,
+          full_name_search: profile.nome_completo?.toLowerCase(),
+          birth_date: profile.data_nascimento,
+          graduation: profile.graduacao,
+          gym_name: profile.equipe,
+          category: autoCategory.fullCategory || '-',
+          weight: profile.peso_kg,
+          height: profile.altura_cm,
+          genero: profile.genero,
+          team: profile.equipe,
+          equipe: profile.equipe,
+          perfil_completo: true
+        });
       }
     } catch (err: any) {
       console.error('Erro ao salvar perfil:', err);

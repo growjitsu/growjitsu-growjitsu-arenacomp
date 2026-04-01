@@ -882,7 +882,14 @@ export const ArenaProfileView: React.FC<{
         console.error('[FIREBASE] Erro ao sincronizar com Firestore:', fsError);
       }
 
-      setProfile({ ...profile, ...editData });
+      // ETAPA 1 e 2 - REFETCH E SINCRONIZAÇÃO (Plano de Correção)
+      // Refetch completo do perfil para garantir que o estado local está 100% sincronizado com o backend
+      console.log("[ARENACOMP] Iniciando refetch pós-salvamento...");
+      await fetchProfileData();
+      
+      // DEBUG CONTROLADO (Etapa 7)
+      console.log("[ARENACOMP] Perfil salvo e estado sincronizado.");
+      
       setIsEditing(false);
     } catch (error: any) {
       console.error('Error updating profile:', error);

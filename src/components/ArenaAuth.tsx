@@ -4,7 +4,7 @@ import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react
 import { supabase } from '../services/supabase';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import logo from '../assets/logo.png';
+const logo = 'https://picsum.photos/seed/arena/200/200';
 
 interface ArenaAuthProps {
   isAdminLogin?: boolean;
