@@ -459,7 +459,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
         {/* Logo */}
         <div className="text-center space-y-4">
           <Logo size={96} showText={true} className="flex-col !gap-4" />
-          <p className="text-[var(--text-muted)] text-xs font-medium max-w-[280px] mx-auto leading-relaxed">A maior rede social de atletas de esportes de combate do Brasil</p>
+          <p className="text-[var(--text-main)] opacity-60 text-xs font-medium max-w-[280px] mx-auto leading-relaxed">A maior rede social de atletas de esportes de combate do Brasil</p>
         </div>
 
         {/* Form */}
@@ -686,7 +686,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             <div className="text-center">
               <button
                 onClick={() => setIsLogin(!isLogin)}
-                className="text-[var(--text-muted)] hover:text-[var(--text-main)] text-[10px] font-black uppercase tracking-widest transition-colors"
+                className="text-[var(--text-main)] opacity-60 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors"
               >
                 {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Entre'}
               </button>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeContext';
 
 interface LogoProps {
   className?: string;
@@ -13,6 +14,8 @@ export const Logo: React.FC<LogoProps> = ({
   showText = false,
   variant = 'full'
 }) => {
+  const { theme } = useTheme();
+  
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <div 
@@ -91,10 +94,10 @@ export const Logo: React.FC<LogoProps> = ({
       {showText && (
         <div className="flex flex-col -space-y-1">
           <div className="flex items-baseline italic">
-            <span className="text-xl font-black text-white tracking-tighter uppercase">Arena</span>
+            <span className="text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
             <span className="text-xl font-black text-blue-500 tracking-tighter uppercase">Comp</span>
           </div>
-          <span className="text-[8px] font-bold text-blue-400/60 uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
+          <span className="text-[8px] font-bold text-blue-600/80 dark:text-blue-400/60 uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
         </div>
       )}
     </div>
