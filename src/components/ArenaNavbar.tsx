@@ -69,7 +69,7 @@ export const ArenaNavbar: React.FC<ArenaNavbarProps> = ({
               } ${tab.id === 'post' ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20' : ''}`}>
                 <tab.icon size={24} strokeWidth={activeTab === tab.id ? 2.5 : 2} className={activeTab === tab.id ? 'scale-110' : 'group-hover:scale-110 transition-transform'} />
               </div>
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-2 md:hidden">{tab.label}</span>
+              <span className="text-[8px] font-black uppercase tracking-[0.2em] mt-2">{tab.label}</span>
               
               {activeTab === tab.id && (
                 <motion.div 
