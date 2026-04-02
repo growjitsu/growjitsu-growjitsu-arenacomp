@@ -869,23 +869,33 @@ export const ArenaProfileView: React.FC<{
 
           await setDoc(doc(db, "users", user.id), firestorePayload, { merge: true });
           console.log('[FIREBASE] Perfil sincronizado com Firestore');
-          
-          // Re-validate profile globally
-          await checkProfile();
         }
       } catch (fsError) {
         console.error('[FIREBASE] Erro ao sincronizar com Firestore:', fsError);
       }
 
+      // Re-validate profile globally - Move outside Firestore block to ensure it always runs
+      console.log("[ARENACOMP] Revalidando perfil globalmente...");
+      const isValid = await checkProfile();
+      
       // ETAPA 1 e 2 - REFETCH E SINCRONIZAÇÃO (Plano de Correção)
       // Refetch completo do perfil para garantir que o estado local está 100% sincronizado com o backend
       console.log("[ARENACOMP] Iniciando refetch pós-salvamento...");
       await fetchProfileData();
       
       // DEBUG CONTROLADO (Etapa 7)
-      console.log("[ARENACOMP] Perfil salvo e estado sincronizado.");
+      console.log("[ARENACOMP] Perfil salvo e estado sincronizado. Válido:", isValid);
       
       setIsEditing(false);
+
+      // Fallback de segurança: se o perfil ainda não for considerado válido após o refetch,
+      // forçamos um recarregamento da página para garantir que o sistema libere o acesso.
+      if (!isValid) {
+        console.warn("[ARENACOMP] Perfil ainda inválido após checkProfile. Forçando reload...");
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
     } catch (error: any) {
       console.error('Error updating profile:', error);
       const errorMessage = error?.message || 'Erro desconhecido';
@@ -1525,7 +1535,8 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       { id: 8, title: 'Altura' },
       { id: 9, title: 'Graduação' },
       { id: 10, title: 'Academia' },
-      { id: 11, title: 'Revisão' }
+      { id: 11, title: 'Foto' },
+      { id: 12, title: 'Revisão' }
     ];
 
     const nextStep = async () => {
@@ -1553,6 +1564,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
         case 8: return !!editData.height;
         case 9: return !!editData.graduation || userModalities.some(m => !!m.belt);
         case 10: return !!editData.gym_name;
+        case 11: return !!profile.profile_photo || !!profile.avatar_url;
         default: return true;
       }
     };
@@ -1836,6 +1848,34 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               )}
 
               {wizardStep === 11 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Adicione uma foto de perfil para continuar:</p>
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="w-40 h-40 rounded-3xl bg-[var(--surface)] border-4 border-[var(--bg)] overflow-hidden shadow-2xl relative group">
+                      {profile.profile_photo || profile.avatar_url ? (
+                        <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] bg-[var(--primary)]/10">
+                          <User size={48} />
+                        </div>
+                      )}
+                      <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                        <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} disabled={uploading} />
+                        <p className="text-[10px] font-black uppercase text-white">{uploading ? 'Enviando...' : 'Alterar Foto'}</p>
+                      </label>
+                    </div>
+                    {uploading && (
+                      <div className="flex items-center gap-2 text-[var(--primary)] animate-pulse">
+                        <div className="w-3 h-3 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Enviando foto...</span>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-[var(--text-muted)] text-center max-w-[200px]">Uma foto nítida ajuda outros atletas e organizadores a identificarem você.</p>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 12 && (
                 <div className="space-y-6">
                   <p className="text-xs text-[var(--text-muted)] text-center">Tudo pronto! Revise seus dados:</p>
                   <div className="bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl p-6 space-y-3">

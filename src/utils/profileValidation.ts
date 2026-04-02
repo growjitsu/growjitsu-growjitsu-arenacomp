@@ -75,6 +75,11 @@ export function getMissingProfileFields(profile: any): string[] {
     missingFields.push("Academia");
   }
 
+  // 10. Foto de Perfil
+  if (!(profile.profile_photo || profile.avatar_url || profile.foto)) {
+    missingFields.push("Foto de Perfil");
+  }
+
   return missingFields;
 }
 
