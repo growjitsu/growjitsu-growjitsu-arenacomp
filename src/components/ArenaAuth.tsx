@@ -4,7 +4,7 @@ import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react
 import { supabase } from '../services/supabase';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
-const logo = 'https://picsum.photos/seed/arena/200/200';
+import { Logo } from './Logo';
 
 interface ArenaAuthProps {
   isAdminLogin?: boolean;
@@ -458,29 +458,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
       <div className="max-w-md w-full space-y-8">
         {/* Logo */}
         <div className="text-center space-y-4">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-blue-700 rounded-[2rem] mx-auto flex items-center justify-center shadow-[0_20px_50px_rgba(37,99,235,0.3)] border-4 border-white/10 overflow-hidden"
-          >
-            <img 
-              src={logo} 
-              alt="ArenaComp" 
-              className="w-full h-full object-contain p-4"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.nextElementSibling;
-                if (fallback) (fallback as HTMLElement).style.display = 'block';
-              }}
-            />
-            <Trophy size={48} className="text-white" style={{ display: 'none' }} />
-          </motion.div>
-          <div className="space-y-1">
-            <h1 className="text-5xl font-black uppercase tracking-tighter text-[var(--text-main)] italic leading-none">
-              Arena <span className="text-[var(--primary)]">Comp</span>
-            </h1>
-            <p className="text-[var(--text-muted)] text-[10px] uppercase tracking-[0.4em] font-black">Official Platform</p>
-          </div>
+          <Logo size={96} showText={true} className="flex-col !gap-4" />
           <p className="text-[var(--text-muted)] text-xs font-medium max-w-[280px] mx-auto leading-relaxed">A maior rede social de atletas de esportes de combate do Brasil</p>
         </div>
 
@@ -638,19 +616,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                           {newTeamData.logo_url ? (
                             <img src={newTeamData.logo_url} alt="Logo" className="w-full h-full object-contain" />
                           ) : (
-                            <>
-                              <img 
-                                src={logo} 
-                                alt="Logo" 
-                                className="w-full h-full object-contain p-2"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none';
-                                  const fallback = e.currentTarget.nextElementSibling;
-                                  if (fallback) (fallback as HTMLElement).style.display = 'block';
-                                }}
-                              />
-                              <Trophy size={16} className="text-[var(--text-muted)]" style={{ display: 'none' }} />
-                            </>
+                            <Logo size={24} variant="icon" />
                           )}
                         </div>
                         <label className="flex-1 cursor-pointer">
@@ -740,17 +706,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
               >
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 bg-rose-500/10 rounded-2xl mx-auto flex items-center justify-center text-rose-500 overflow-hidden">
-                    <img 
-                      src={logo} 
-                      alt="Logo" 
-                      className="w-full h-full object-contain p-3 opacity-20 grayscale"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const fallback = e.currentTarget.nextElementSibling;
-                        if (fallback) (fallback as HTMLElement).style.display = 'block';
-                      }}
-                    />
-                    <Trophy size={32} style={{ display: 'none' }} />
+                    <Logo size={40} variant="icon" />
                   </div>
                   <h3 className="text-lg font-black uppercase tracking-tight text-[var(--text-main)] italic">Equipe já representada</h3>
                   <p className="text-xs text-[var(--text-muted)] leading-relaxed">
