@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database } from 'lucide-react';
+import { EliteArena } from './EliteArena';
 import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
@@ -374,6 +375,9 @@ export const ArenaRankings: React.FC = () => {
         </h1>
         <p className="text-[var(--text-muted)] text-xs uppercase tracking-[0.3em] font-bold">O topo do esporte nacional</p>
       </div>
+
+      {/* Elite Arena Section */}
+      <EliteArena />
 
       {/* Tabs */}
       <div className="flex justify-center p-1 bg-[var(--surface)] border border-[var(--border-ui)] rounded-2xl w-fit mx-auto">
