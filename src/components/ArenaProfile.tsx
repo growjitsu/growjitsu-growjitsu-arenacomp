@@ -85,6 +85,7 @@ export const ArenaProfileView: React.FC<{
     date: '',
     profileUrl: ''
   });
+  const [wizardStep, setWizardStep] = useState(1);
 
   useEffect(() => {
     const handleClickOutside = () => setActiveMenuId(null);
@@ -1517,10 +1518,380 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
   const totalFights = profile ? (profile.total_fights || (profile.wins + profile.losses)) : 0;
   const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
 
+  // Wizard Component
+  const renderWizard = () => {
+    const steps = [
+      { id: 1, title: 'Modalidade' },
+      { id: 2, title: 'Localização' },
+      { id: 3, title: 'Equipe' },
+      { id: 4, title: 'Gênero' },
+      { id: 5, title: 'Nascimento' },
+      { id: 6, title: 'Peso' },
+      { id: 7, title: 'Categoria' },
+      { id: 8, title: 'Altura' },
+      { id: 9, title: 'Graduação' },
+      { id: 10, title: 'Academia' },
+      { id: 11, title: 'Revisão' }
+    ];
+
+    const nextStep = () => setWizardStep(prev => Math.min(prev + 1, steps.length));
+    const prevStep = () => setWizardStep(prev => Math.max(prev - 1, 1));
+
+    const canAdvance = () => {
+      switch (wizardStep) {
+        case 1: return userModalities.length > 0 || !!editData.modality;
+        case 2: return !!editData.country && !!editData.state && !!editData.city;
+        case 3: return !!editData.team || !!editData.team_id;
+        case 4: return !!editData.genero;
+        case 5: return !!editData.birth_date;
+        case 6: return !!editData.weight;
+        case 7: return !!editData.category;
+        case 8: return !!editData.height;
+        case 9: return !!editData.graduation || userModalities.some(m => !!m.belt);
+        case 10: return !!editData.gym_name;
+        default: return true;
+      }
+    };
+
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center py-8 px-4">
+        <div className="w-full max-w-lg bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] p-8 md:p-12 space-y-8 shadow-2xl relative overflow-hidden">
+          {/* Progress Bar */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-[var(--bg)]">
+            <motion.div 
+              initial={{ width: 0 }}
+              animate={{ width: `${(wizardStep / steps.length) * 100}%` }}
+              className="h-full bg-[var(--primary)] shadow-[0_0_10px_var(--primary)]"
+            />
+          </div>
+
+          <div className="space-y-2 text-center">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--primary)]">Passo {wizardStep} de {steps.length}</p>
+            <h2 className="text-2xl font-black uppercase italic text-[var(--text-main)]">{steps[wizardStep - 1].title}</h2>
+          </div>
+
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={wizardStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="min-h-[200px] flex flex-col justify-center"
+            >
+              {wizardStep === 1 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual modalidade você pratica?</p>
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {userModalities.map(m => (
+                        <div key={m.id} className="bg-[var(--primary)]/10 border border-[var(--primary)]/20 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                          <span className="text-xs font-bold text-[var(--primary)]">{m.modality}</span>
+                          <button onClick={() => handleRemoveModality(m.id)} className="text-rose-500"><X size={12} /></button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-3">
+                      <select 
+                        value={isCustomModality ? 'Outros' : (modalities.includes(newModality) ? newModality : '')} 
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === 'Outros') {
+                            setIsCustomModality(true);
+                            setNewModality('');
+                          } else {
+                            setIsCustomModality(false);
+                            setNewModality(val);
+                          }
+                        }}
+                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      >
+                        <option value="">Selecione...</option>
+                        {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
+                        <option value="Outros">Outros</option>
+                      </select>
+                      {isCustomModality && (
+                        <input 
+                          value={newModality} 
+                          onChange={e => setNewModality(e.target.value)}
+                          placeholder="Digite sua modalidade"
+                          className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                        />
+                      )}
+                      <button 
+                        onClick={handleAddModalidade}
+                        disabled={!newModality.trim()}
+                        className="w-full py-3 bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        <Plus size={14} />
+                        <span>Adicionar Modalidade</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 2 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Onde você treina?</p>
+                  <div className="space-y-4">
+                    <select 
+                      value={editData.country || ''} 
+                      onChange={e => {
+                        const countryName = e.target.value;
+                        const country = dbCountries.find(c => c.name === countryName);
+                        setEditData({ ...editData, country: countryName, country_id: country?.id, state: '', city: '' });
+                        if (country) fetchStates(country.id);
+                      }}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                    >
+                      <option value="">País</option>
+                      {dbCountries.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                    <select 
+                      value={editData.state || ''} 
+                      onChange={e => {
+                        const stateName = e.target.value;
+                        const state = dbStates.find(s => s.name === stateName);
+                        setEditData({ ...editData, state: stateName, state_id: state?.id, city: '' });
+                        if (state) fetchCities(state.id);
+                      }}
+                      disabled={!editData.country}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
+                    >
+                      <option value="">Estado</option>
+                      {dbStates.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    </select>
+                    <select 
+                      value={editData.city || ''} 
+                      onChange={e => {
+                        const cityName = e.target.value;
+                        const city = dbCities.find(c => c.name === cityName);
+                        setEditData({ ...editData, city: cityName, city_id: city?.id });
+                      }}
+                      disabled={!editData.state}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] disabled:opacity-50"
+                    >
+                      <option value="">Cidade</option>
+                      {dbCities.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 3 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual sua equipe?</p>
+                  <div className="space-y-4">
+                    <select 
+                      value={editData.team_id || ''}
+                      onChange={(e) => {
+                        if (e.target.value === 'other') {
+                          setEditData({ ...editData, team: '', team_id: 'other' });
+                          return;
+                        }
+                        const selectedTeam = allTeams.find(t => t.id === e.target.value);
+                        if (selectedTeam) {
+                          setEditData({ ...editData, team: selectedTeam.name, team_id: selectedTeam.id });
+                        }
+                      }}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                    >
+                      <option value="">Selecionar Equipe</option>
+                      {allTeams.map(team => (
+                        <option key={team.id} value={team.id}>{team.name} ({team.city})</option>
+                      ))}
+                      <option value="other">Outra Equipe (Não listada)</option>
+                    </select>
+                    {editData.team_id === 'other' && (
+                      <input 
+                        placeholder="Nome da Equipe"
+                        value={editData.team || ''}
+                        onChange={e => setEditData({...editData, team: e.target.value})}
+                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 4 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual seu gênero?</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {['Masculino', 'Feminino'].map(g => (
+                      <button
+                        key={g}
+                        onClick={() => setEditData({...editData, genero: g as any})}
+                        className={`py-6 rounded-2xl border transition-all flex flex-col items-center gap-3 ${
+                          editData.genero === g 
+                            ? 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]' 
+                            : 'bg-[var(--bg)] border-[var(--border-ui)] text-[var(--text-muted)] hover:border-[var(--primary)]/50'
+                        }`}
+                      >
+                        <VenusAndMars size={24} />
+                        <span className="text-xs font-black uppercase tracking-widest">{g}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 5 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Quando você nasceu?</p>
+                  <input 
+                    type="date"
+                    value={editData.birth_date || ''} 
+                    onChange={e => setEditData({...editData, birth_date: e.target.value})}
+                    className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                  />
+                </div>
+              )}
+
+              {wizardStep === 6 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual seu peso atual (kg)?</p>
+                  <div className="relative">
+                    <input 
+                      type="number"
+                      step="0.1"
+                      value={editData.weight || ''} 
+                      onChange={e => setEditData({...editData, weight: parseFloat(e.target.value)})}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] pr-12"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--text-muted)]">kg</span>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 7 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Sua categoria automática:</p>
+                  <div className="bg-[var(--primary)]/10 border border-[var(--primary)]/20 p-8 rounded-3xl text-center space-y-2">
+                    <Target size={32} className="text-[var(--primary)] mx-auto mb-2" />
+                    <p className="text-2xl font-black uppercase italic text-[var(--text-main)]">{editData.category || 'Calculando...'}</p>
+                    <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Baseada em idade e peso</p>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 8 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual sua altura (m)?</p>
+                  <div className="relative">
+                    <input 
+                      type="number"
+                      step="0.01"
+                      value={editData.height || ''} 
+                      onChange={e => setEditData({...editData, height: parseFloat(e.target.value)})}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)] pr-12"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--text-muted)]">m</span>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 9 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Qual sua graduação/faixa?</p>
+                  <div className="space-y-4">
+                    <select 
+                      value={editData.graduation || ''} 
+                      onChange={e => setEditData({...editData, graduation: e.target.value})}
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                    >
+                      <option value="">Selecionar Graduação</option>
+                      {belts.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest text-center">Isso será aplicado à sua modalidade principal</p>
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 10 && (
+                <div className="space-y-4">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Em qual academia você treina?</p>
+                  <div className="relative">
+                    <Dumbbell size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input 
+                      value={editData.gym_name || ''} 
+                      onChange={e => setEditData({...editData, gym_name: e.target.value})}
+                      placeholder="Nome da Academia"
+                      className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl pl-12 pr-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {wizardStep === 11 && (
+                <div className="space-y-6">
+                  <p className="text-xs text-[var(--text-muted)] text-center">Tudo pronto! Revise seus dados:</p>
+                  <div className="bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl p-6 space-y-3">
+                    <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest">
+                      <span className="text-[var(--text-muted)]">Modalidade:</span>
+                      <span className="text-[var(--text-main)]">{userModalities[0]?.modality || editData.modality}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest">
+                      <span className="text-[var(--text-muted)]">Local:</span>
+                      <span className="text-[var(--text-main)]">{editData.city}, {editData.state}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest">
+                      <span className="text-[var(--text-muted)]">Equipe:</span>
+                      <span className="text-[var(--text-main)]">{editData.team}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] uppercase font-bold tracking-widest">
+                      <span className="text-[var(--text-muted)]">Categoria:</span>
+                      <span className="text-[var(--text-main)]">{editData.category}</span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-center text-[var(--text-muted)]">Você poderá editar essas informações a qualquer momento no seu perfil.</p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Navigation */}
+          <div className="flex items-center gap-4 pt-4">
+            {wizardStep > 1 && (
+              <button
+                onClick={prevStep}
+                className="flex-1 py-4 rounded-2xl border border-[var(--border-ui)] text-xs font-black uppercase tracking-widest hover:bg-[var(--bg)] transition-all"
+              >
+                Voltar
+              </button>
+            )}
+            {wizardStep < steps.length ? (
+              <button
+                onClick={nextStep}
+                disabled={!canAdvance()}
+                className="flex-[2] py-4 rounded-2xl bg-[var(--primary)] text-white text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all disabled:opacity-50 shadow-lg shadow-[var(--primary)]/20"
+              >
+                Próximo
+              </button>
+            ) : (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-[2] py-4 rounded-2xl bg-[var(--primary)] text-white text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all disabled:opacity-50 shadow-lg shadow-[var(--primary)]/20 flex items-center justify-center gap-2"
+              >
+                {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Save size={14} />}
+                <span>Finalizar Perfil</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (isOwnProfile && isProfileValid === false && !loading) {
+    return renderWizard();
+  }
+
   return (
-    <div className="w-full max-w-4xl mx-auto py-4 md:py-8 px-4 space-y-12 md:space-y-16 overflow-x-hidden">
-      {/* Profile Incomplete Warning */}
-      {isOwnProfile && isProfileValid === false && (
+    <div className="w-full max-w-4xl mx-auto py-4 md:py-8 px-4 space-y-8 md:space-y-12 overflow-x-hidden">
+      {/* Profile Incomplete Warning - Only show if not in editing mode and valid is false */}
+      {isOwnProfile && isProfileValid === false && !isEditing && (
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1632,7 +2003,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </div>
             ) : (
               <div className="space-y-1 w-full min-w-0">
-                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-nowrap leading-tight overflow-hidden text-ellipsis">
+                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis">
                   {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">(@{profile.nickname.replace(/^@/, '')})</span>}
                 </h1>
                 <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
@@ -1814,10 +2185,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       )}
 
       {/* Bio & Info */}
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
         <div className="md:col-span-1 space-y-6">
           {/* Basic Info */}
-          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-2xl space-y-4 transition-colors duration-300 overflow-hidden">
+          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-5 md:p-6 rounded-2xl space-y-4 transition-colors duration-300 overflow-hidden">
             <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Informações</h3>
             {isEditing ? (
               <div className="space-y-4">
@@ -1829,7 +2200,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--primary)] min-h-[100px]"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-[var(--text-muted)]">País <span className="text-red-500">*</span></label>
                     <select 
@@ -1996,10 +2367,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
         <div className="md:col-span-2 space-y-6">
           {/* Sports Info Section */}
-          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-6 rounded-2xl space-y-6 transition-colors duration-300">
+          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-5 md:p-6 rounded-2xl space-y-6 transition-colors duration-300">
             <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)]">Informações Esportivas</h3>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2 text-[var(--text-muted)]">
                   <Trophy size={12} />
