@@ -17,6 +17,7 @@ import { ArenaAuth } from './components/ArenaAuth';
 import { ArenaNotifications } from './components/ArenaNotifications';
 import { SharePage } from './pages/SharePage';
 import { CreatePostModal } from './components/CreatePostModal';
+import { UserTypeSelection } from './components/UserTypeSelection';
 import { AdminLayout } from './components/Admin/AdminLayout';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { AdminAthletes } from './components/Admin/AdminAthletes';
@@ -381,6 +382,12 @@ function AppContent() {
   return (
     <>
       <Toaster position="top-center" theme="dark" />
+      
+      {/* User Type Selection Onboarding */}
+      {isLoggedIn && profile && !profile.tipo && profile.role !== 'admin' && (
+        <UserTypeSelection onComplete={() => {}} />
+      )}
+
       <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
       <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />

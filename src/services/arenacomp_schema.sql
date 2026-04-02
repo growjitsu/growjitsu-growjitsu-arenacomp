@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     draws INTEGER DEFAULT 0,
     total_fights INTEGER DEFAULT 0,
     win_rate DECIMAL(5,2) DEFAULT 0,
+    tipo TEXT, -- 'atleta' or 'nao_atleta'
     wallet_address TEXT,
     city_id TEXT,
     state_id TEXT,
@@ -342,6 +343,7 @@ CREATE POLICY "allow_all_event_regras_especiais" ON public.event_regras_especiai
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS city_id TEXT;
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS state_id TEXT;
 -- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS country_id TEXT;
+-- ALTER TABLE profiles ADD COLUMN IF NOT EXISTS tipo TEXT;
 --
 -- CREATE TABLE IF NOT EXISTS teams (
 --     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

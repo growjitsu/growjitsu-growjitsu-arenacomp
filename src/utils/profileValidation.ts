@@ -21,6 +21,11 @@ export function getMissingProfileFields(profile: any): string[] {
     return [];
   }
 
+  // REGRA CRÍTICA: Usuários não atletas não precisam preencher perfil completo
+  if (profile.tipo === 'nao_atleta') {
+    return [];
+  }
+
   // 1. Modalidades (Pelo menos 1 válida)
   const modalidades = profile.modalidades || profile.modalities || [];
   const hasValidModalityInList = modalidades.some((m: any) => (!!m.modality || !!m.modalidade) && String(m.modality || m.modalidade).trim() !== '');

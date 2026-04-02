@@ -2135,29 +2135,59 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
           {isOwnProfile && !isEditing && profile.role !== 'admin' && (
             <div className="pb-4 flex flex-wrap gap-2">
-              {isTeamRepresentative && (
+              {profile.tipo === 'nao_atleta' ? (
                 <button
-                  onClick={() => setIsTeamModalOpen(true)}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center space-x-2"
+                  onClick={async () => {
+                    if (window.confirm('Deseja tornar-se um atleta? Você precisará completar seu perfil esportivo.')) {
+                      setSaving(true);
+                      try {
+                        const { error } = await supabase
+                          .from('profiles')
+                          .update({ tipo: 'atleta' })
+                          .eq('id', profile.id);
+                        if (error) throw error;
+                        await checkProfile();
+                        // This will trigger the wizard because isProfileValid will become false
+                      } catch (err) {
+                        console.error('Erro ao mudar para atleta:', err);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }
+                  }}
+                  disabled={saving}
+                  className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
                 >
-                  <Shield size={14} />
-                  <span>Gerenciar Equipe</span>
+                  <Trophy size={14} />
+                  <span>{saving ? 'Processando...' : 'Tornar-se Atleta'}</span>
                 </button>
+              ) : (
+                <>
+                  {isTeamRepresentative && (
+                    <button
+                      onClick={() => setIsTeamModalOpen(true)}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center space-x-2"
+                    >
+                      <Shield size={14} />
+                      <span>Gerenciar Equipe</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsRegisterFightModalOpen(true)}
+                    className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
+                  >
+                    <Plus size={14} />
+                    <span>Registrar Luta</span>
+                  </button>
+                  <button
+                    onClick={() => setIsRegisterChampionshipModalOpen(true)}
+                    className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+                  >
+                    <Trophy size={14} />
+                    <span>Registrar Campeonato</span>
+                  </button>
+                </>
               )}
-              <button
-                onClick={() => setIsRegisterFightModalOpen(true)}
-                className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
-              >
-                <Plus size={14} />
-                <span>Registrar Luta</span>
-              </button>
-              <button
-                onClick={() => setIsRegisterChampionshipModalOpen(true)}
-                className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
-              >
-                <Trophy size={14} />
-                <span>Registrar Campeonato</span>
-              </button>
             </div>
           )}
         </div>
