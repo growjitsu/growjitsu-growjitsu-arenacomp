@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CardPreview } from '../components/CardPreview';
+import { Logo } from '../components/Logo';
 import { Trophy, ArrowLeft, Share2, Download, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../services/supabase';
@@ -253,11 +254,8 @@ export const SharePage = () => {
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-[#0066FF] to-blue-700 rounded-lg flex items-center justify-center font-black text-white italic border border-white/10">
-            <Trophy size={16} />
-          </div>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] italic">ArenaComp</span>
+        <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
+          <Logo size={24} showText={true} />
         </div>
         <div className="w-10" /> {/* Spacer */}
       </div>

@@ -10,17 +10,21 @@ interface LogoProps {
 
 export const Logo: React.FC<LogoProps> = ({ 
   className = "", 
-  size = 40, 
+  size, 
   showText = false,
   variant = 'full'
 }) => {
   const { theme } = useTheme();
   
+  // Default size if none provided
+  const defaultSize = 40;
+  const finalSize = size || defaultSize;
+
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div className={`flex items-center gap-2 md:gap-3 ${className}`}>
       <div 
-        style={{ width: size, height: size }}
-        className="relative flex items-center justify-center group"
+        style={size ? { width: size, height: size } : {}}
+        className={`relative flex items-center justify-center group ${!size ? 'w-9 h-9 md:w-11 md:h-11' : ''}`}
       >
         {/* Shield Background with Glow */}
         <div className="absolute inset-0 bg-blue-600/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />

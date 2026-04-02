@@ -18,47 +18,47 @@ export const PublicHeader: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-[#0A1F44]/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-6 md:px-12 z-50 transition-all duration-500">
+    <header className="fixed top-0 left-0 right-0 h-20 bg-[#0A1F44]/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 md:px-12 z-50 transition-all duration-500">
       {/* Left: Logo */}
       <div 
-        className="flex items-center cursor-pointer group" 
+        className="flex items-center cursor-pointer group shrink-0" 
         onClick={() => navigate('/')}
       >
-        <Logo size={44} showText={true} />
+        <Logo showText={true} />
       </div>
 
       {/* Center: Search */}
       <form 
         onSubmit={handleSearch}
-        className="flex-1 max-w-md mx-4 md:mx-12 relative group"
+        className="flex-1 max-w-md mx-2 md:mx-12 relative group"
       >
         <div className="absolute inset-0 bg-blue-500/10 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity" />
         <div className="relative flex items-center">
-          <Search className="absolute left-4 text-gray-400 group-focus-within:text-blue-400 transition-colors" size={18} />
+          <Search className="absolute left-3 md:left-4 text-gray-400 group-focus-within:text-blue-400 transition-colors w-4 h-4 md:w-5 md:h-5" />
           <input 
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar atletas, campeonatos..."
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2.5 pl-12 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
+            placeholder="Buscar..."
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 md:py-2.5 pl-10 md:pl-12 pr-3 md:pr-4 text-xs md:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
           />
         </div>
       </form>
 
       {/* Right: Actions */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-2 md:space-x-4 shrink-0">
         <button 
           onClick={toggleTheme}
-          className="p-2.5 text-gray-400 hover:text-white bg-white/5 rounded-xl border border-white/10 transition-all hover:scale-105 active:scale-95"
+          className="p-2 md:p-2.5 text-gray-400 hover:text-white bg-white/5 rounded-xl border border-white/10 transition-all hover:scale-105 active:scale-95"
         >
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          {theme === 'light' ? <Moon className="w-4 h-4 md:w-5 md:h-5" /> : <Sun className="w-4 h-4 md:w-5 md:h-5" />}
         </button>
         
         <button 
           onClick={() => navigate('/login')}
-          className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95"
+          className="flex items-center space-x-2 px-4 md:px-6 py-2 md:py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 hover:scale-105 active:scale-95"
         >
-          <LogIn size={16} />
+          <LogIn className="w-3.5 h-3.5 md:w-4 md:h-4" />
           <span className="hidden md:block">Entrar</span>
         </button>
       </div>
