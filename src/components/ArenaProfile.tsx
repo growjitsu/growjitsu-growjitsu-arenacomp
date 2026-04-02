@@ -213,18 +213,12 @@ export const ArenaProfileView: React.FC<{
   };
 
   async function handleAddModalidade() {
-    if (!newModality.trim() || !newModalityBelt.trim() || !profile || !profile.id) {
+    if (!newModality.trim() || !profile || !profile.id) {
       console.warn('[ARENACOMP] Tentativa de adicionar modalidade com campos vazios ou perfil inválido');
       return;
     }
     
     try {
-      console.log('[ARENACOMP] Iniciando inserção de modalidade:', {
-        user_id: profile.id,
-        modality: newModality.trim(),
-        belt: newModalityBelt.trim()
-      });
-
       const { data: insertedData, error: insertError } = await supabase
         .from('user_modalities')
         .insert({
@@ -1534,12 +1528,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
       { id: 11, title: 'Revisão' }
     ];
 
-    const nextStep = () => setWizardStep(prev => Math.min(prev + 1, steps.length));
+    const nextStep = async () => {
+      if (wizardStep === 1 && userModalities.length === 0 && newModality.trim()) {
+        try {
+          await handleAddModalidade();
+        } catch (err) {
+          console.error('[ARENACOMP] Erro ao adicionar modalidade no wizard:', err);
+          return;
+        }
+      }
+      setWizardStep(prev => Math.min(prev + 1, steps.length));
+    };
     const prevStep = () => setWizardStep(prev => Math.max(prev - 1, 1));
 
     const canAdvance = () => {
       switch (wizardStep) {
-        case 1: return userModalities.length > 0 || !!editData.modality;
+        case 1: return userModalities.length > 0 || !!newModality.trim() || !!editData.modality;
         case 2: return !!editData.country && !!editData.state && !!editData.city;
         case 3: return !!editData.team || !!editData.team_id;
         case 4: return !!editData.genero;
@@ -1605,9 +1609,17 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         }}
                         className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
                       >
-                        <option value="">Selecione...</option>
+                        <option value="">Selecione a Modalidade...</option>
                         {modalities.filter(m => m !== 'Outros').map(m => <option key={m} value={m}>{m}</option>)}
                         <option value="Outros">Outros</option>
+                      </select>
+                      <select 
+                        value={newModalityBelt} 
+                        onChange={e => setNewModalityBelt(e.target.value)}
+                        className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-xl px-4 py-3 text-sm text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                      >
+                        <option value="">Sua Graduação/Faixa...</option>
+                        {belts.map(b => <option key={b} value={b}>{b}</option>)}
                       </select>
                       {isCustomModality && (
                         <input 
