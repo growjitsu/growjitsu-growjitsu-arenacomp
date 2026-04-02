@@ -1049,7 +1049,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 </div>
                               </button>
 
-                              <button className="flex items-center space-x-2 md:space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPost(post);
+                                  setIsPostModalOpen(true);
+                                }}
+                                className="flex items-center space-x-2 md:space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
+                              >
                                 <div className="p-2 md:p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
                                   <MessageCircle size={18} className="group-hover/btn:scale-110 transition-transform" />
                                 </div>

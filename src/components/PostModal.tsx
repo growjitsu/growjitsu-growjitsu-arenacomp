@@ -234,7 +234,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.9, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--bg)] w-full max-w-5xl h-full max-h-[800px] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-[var(--border-ui)] relative"
+        className="bg-[var(--bg)] w-full max-w-5xl h-full max-h-[90vh] md:max-h-[800px] rounded-[2.5rem] overflow-hidden flex flex-col md:flex-row shadow-2xl border border-[var(--border-ui)] relative"
       >
         {/* Close Button - Inside the modal content for better reliability */}
         <button 
@@ -290,7 +290,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
           </div>
 
           {/* Info Section */}
-          <div className="w-full md:w-[400px] flex flex-col bg-[var(--surface)] border-l border-[var(--border-ui)]">
+          <div className="w-full md:w-[400px] flex flex-col bg-[var(--surface)] border-l border-[var(--border-ui)] flex-1 md:flex-none overflow-hidden">
             {/* Header */}
             <div className="p-4 border-b border-[var(--border-ui)] flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -508,7 +508,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                     }
                   }}
                   placeholder="Adicione um comentário..." 
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]"
+                  className="flex-1 min-w-0 bg-transparent border-none focus:ring-0 text-sm text-[var(--text-main)] placeholder-[var(--text-muted)]"
                 />
                 <button 
                   onClick={(e) => {
@@ -516,7 +516,7 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                     handleAddComment();
                   }}
                   disabled={!newComment.trim() || submittingComment}
-                  className="text-[var(--primary)] font-black text-[11px] uppercase tracking-[0.2em] disabled:opacity-30 hover:text-[var(--primary-highlight)] transition-all px-2 py-1"
+                  className="text-[var(--primary)] font-black text-[11px] uppercase tracking-[0.2em] disabled:opacity-30 hover:text-[var(--primary-highlight)] transition-all px-2 py-1 flex-shrink-0 whitespace-nowrap"
                 >
                   {submittingComment ? '...' : 'Publicar'}
                 </button>
