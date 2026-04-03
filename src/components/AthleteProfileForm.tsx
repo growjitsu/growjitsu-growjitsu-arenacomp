@@ -6,13 +6,14 @@ import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { AthleteProfile, Belt, Gender, Equipe } from '../types';
 import { getAutomaticCategorization } from '../services/categorization';
+import { BELTS } from '../utils/data';
 
 interface AthleteProfileFormProps {
   userId: string;
   onComplete: (updatedProfile?: any) => void;
 }
 
-const BELTS: Belt[] = ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde', 'Azul', 'Roxa', 'Marrom', 'Preta'];
+const BELTS_LIST = BELTS;
 
 export default function AthleteProfileForm({ userId, onComplete }: AthleteProfileFormProps) {
   const [loading, setLoading] = useState(true);
@@ -26,7 +27,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
     usuario_id: userId,
     nome_completo: '',
     genero: 'Masculino',
-    graduacao: 'Branca',
+    graduacao: 'FAIXA BRANCA',
     data_nascimento: '',
     peso_kg: 0,
     altura_cm: 0,
@@ -458,7 +459,7 @@ export default function AthleteProfileForm({ userId, onComplete }: AthleteProfil
                 onChange={(e) => setProfile({ ...profile, graduacao: e.target.value })}
                 className="input-standard"
               >
-                {BELTS.map(belt => (
+                {BELTS_LIST.map(belt => (
                   <option key={belt} value={belt}>{belt}</option>
                 ))}
               </select>

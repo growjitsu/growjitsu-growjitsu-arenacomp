@@ -14,20 +14,20 @@ interface CreateEventWizardProps {
 }
 
 const DEFAULT_CATEGORIES = [
-  { nome: 'PRÉ MIRIM', idades: '4 e 5 anos', faixas: ['Branca', 'Cinza'] },
-  { nome: 'MIRIM', idades: '6 e 7 anos', faixas: ['Branca', 'Cinza'] },
-  { nome: 'INFANTIL A', idades: '8 e 9 anos', faixas: ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde'] },
-  { nome: 'INFANTIL B', idades: '10 e 11 anos', faixas: ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde'] },
-  { nome: 'INFANTO A', idades: '12 e 13 anos', faixas: ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde'] },
-  { nome: 'INFANTO B', idades: '14 e 15 anos', faixas: ['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde'] },
-  { nome: 'JUVENIL', idades: '16 e 17 anos', faixas: ['Branca', 'Azul', 'Roxa'] },
-  { nome: 'ADULTO', idades: '18 a 29 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 1', idades: '30 a 35 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 2', idades: '36 a 40 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 3', idades: '41 a 45 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 4', idades: '46 a 50 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 5', idades: '51 a 55 anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
-  { nome: 'MASTER 6', idades: '56+ anos', faixas: ['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'] },
+  { nome: 'PRÉ MIRIM', idades: '4 e 5 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA'] },
+  { nome: 'MIRIM', idades: '6 e 7 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA'] },
+  { nome: 'INFANTIL A', idades: '8 e 9 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE'] },
+  { nome: 'INFANTIL B', idades: '10 e 11 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE'] },
+  { nome: 'INFANTO A', idades: '12 e 13 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE'] },
+  { nome: 'INFANTO B', idades: '14 e 15 anos', faixas: ['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE'] },
+  { nome: 'JUVENIL', idades: '16 e 17 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA'] },
+  { nome: 'ADULTO', idades: '18 a 29 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 1', idades: '30 a 35 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 2', idades: '36 a 40 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 3', idades: '41 a 45 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 4', idades: '46 a 50 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 5', idades: '51 a 55 anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
+  { nome: 'MASTER 6', idades: '56+ anos', faixas: ['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'] },
 ];
 
 export default function CreateEventWizard({ onClose, onSuccess }: CreateEventWizardProps) {

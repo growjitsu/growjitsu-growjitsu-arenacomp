@@ -138,11 +138,11 @@ BEGIN
   -- ADULTO
   IF NEW.nome ILIKE '%ADULTO%' THEN
     CASE NEW.faixa
-      WHEN 'Branca' THEN NEW.tempo_luta_minutos := 5;
-      WHEN 'Azul' THEN NEW.tempo_luta_minutos := 6;
-      WHEN 'Roxa' THEN NEW.tempo_luta_minutos := 7;
-      WHEN 'Marrom' THEN NEW.tempo_luta_minutos := 8;
-      WHEN 'Preta' THEN NEW.tempo_luta_minutos := 10;
+      WHEN 'FAIXA BRANCA' THEN NEW.tempo_luta_minutos := 5;
+      WHEN 'FAIXA AZUL' THEN NEW.tempo_luta_minutos := 6;
+      WHEN 'FAIXA ROXA' THEN NEW.tempo_luta_minutos := 7;
+      WHEN 'FAIXA MARROM' THEN NEW.tempo_luta_minutos := 8;
+      WHEN 'FAIXA PRETA' THEN NEW.tempo_luta_minutos := 10;
       ELSE NEW.tempo_luta_minutos := 5;
     END CASE;
   -- MASTER, JUVENIL

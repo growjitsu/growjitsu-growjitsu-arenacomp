@@ -23,11 +23,11 @@ export default function TechniqueLibrary() {
   }, []);
 
   const BELTS = [
-    { name: "Branca", color: "bg-white text-black" },
-    { name: "Azul", color: "bg-blue-600 text-white" },
-    { name: "Roxa", color: "bg-purple-600 text-white" },
-    { name: "Marrom", color: "bg-amber-900 text-white" },
-    { name: "Preta", color: "bg-zinc-900 text-white border border-zinc-700" },
+    { name: "FAIXA BRANCA", color: "bg-white text-black" },
+    { name: "FAIXA AZUL", color: "bg-blue-600 text-white" },
+    { name: "FAIXA ROXA", color: "bg-purple-600 text-white" },
+    { name: "FAIXA MARROM", color: "bg-amber-900 text-white" },
+    { name: "FAIXA PRETA", color: "bg-zinc-900 text-white border border-zinc-700" },
   ];
 
   return (
@@ -55,7 +55,7 @@ export default function TechniqueLibrary() {
             key={belt.name}
             className={`px-6 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-transform active:scale-95 ${belt.color} shadow-md`}
           >
-            Faixa {belt.name}
+            {belt.name}
           </button>
         ))}
       </div>

@@ -261,7 +261,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
             <div className="w-full space-y-4 text-left">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Faixa</span>
-                <span className="px-3 py-1 bg-blue-600 text-white text-xs font-black rounded uppercase">{athleteData?.graduacao || 'Branca'}</span>
+                <span className="px-3 py-1 bg-blue-600 text-white text-xs font-black rounded uppercase">{athleteData?.graduacao || 'FAIXA BRANCA'}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Peso</span>

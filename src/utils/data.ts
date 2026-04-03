@@ -50,16 +50,18 @@ export const ageCategories = [
 ];
 
 export const belts = [
-  'Faixa Branca',
-  'Faixa Cinza',
-  'Faixa Amarela',
-  'Faixa Laranja',
-  'Faixa Verde',
-  'Faixa Azul',
-  'Faixa Roxa',
-  'Faixa Marrom',
-  'Faixa Preta',
-  'Faixa Coral (Vermelha e Preta)',
-  'Faixa Coral (Vermelha e Branca)',
-  'Faixa Vermelha'
+  'FAIXA BRANCA',
+  'FAIXA CINZA',
+  'FAIXA AMARELA',
+  'FAIXA LARANJA',
+  'FAIXA VERDE',
+  'FAIXA AZUL',
+  'FAIXA ROXA',
+  'FAIXA MARROM',
+  'FAIXA PRETA',
+  'FAIXA CORAL (VERMELHA E PRETA)',
+  'FAIXA CORAL (VERMELHA E BRANCA)',
+  'FAIXA VERMELHA'
 ];
+
+export const BELTS = belts;

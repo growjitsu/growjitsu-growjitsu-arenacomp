@@ -131,7 +131,7 @@ BEGIN
 
     -- ADULTO (18-29)
     FOR v_cat IN SELECT * FROM (VALUES 
-        ('ADULTO', 18, 29, ARRAY['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta'])
+        ('ADULTO', 18, 29, ARRAY['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA'])
     ) AS t(nome, imin, imax, faixas) LOOP
         FOR i IN 1..array_length(v_cat.faixas, 1) LOOP
             INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
@@ -143,27 +143,27 @@ BEGIN
     FOR i IN 1..6 LOOP
         INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
         SELECT NEW.id, 'MASTER ' || i, 30 + (i-1)*5 + 1, 30 + i*5, f
-        FROM unnest(ARRAY['Branca', 'Azul', 'Roxa', 'Marrom', 'Preta']) f;
+        FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA', 'FAIXA MARROM', 'FAIXA PRETA']) f;
     END LOOP;
 
     -- JUVENIL (16-17)
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
     SELECT NEW.id, 'JUVENIL', 16, 17, f
-    FROM unnest(ARRAY['Branca', 'Azul', 'Roxa']) f;
+    FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA AZUL', 'FAIXA ROXA']) f;
 
     -- INFANTO, INFANTIL, MIRIM, PRE-MIRIM
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'INFANTO B', 14, 15, f FROM unnest(ARRAY['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde']) f;
+    SELECT NEW.id, 'INFANTO B', 14, 15, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE']) f;
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'INFANTO A', 12, 13, f FROM unnest(ARRAY['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde']) f;
+    SELECT NEW.id, 'INFANTO A', 12, 13, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE']) f;
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'INFANTIL B', 10, 11, f FROM unnest(ARRAY['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde']) f;
+    SELECT NEW.id, 'INFANTIL B', 10, 11, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE']) f;
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'INFANTIL A', 8, 9, f FROM unnest(ARRAY['Branca', 'Cinza', 'Amarela', 'Laranja', 'Verde']) f;
+    SELECT NEW.id, 'INFANTIL A', 8, 9, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA', 'FAIXA AMARELA', 'FAIXA LARANJA', 'FAIXA VERDE']) f;
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'MIRIM', 6, 7, f FROM unnest(ARRAY['Branca', 'Cinza']) f;
+    SELECT NEW.id, 'MIRIM', 6, 7, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA']) f;
     INSERT INTO categorias_evento (evento_id, nome, idade_min, idade_max, faixa)
-    SELECT NEW.id, 'PRÉ MIRIM', 4, 5, f FROM unnest(ARRAY['Branca', 'Cinza']) f;
+    SELECT NEW.id, 'PRÉ MIRIM', 4, 5, f FROM unnest(ARRAY['FAIXA BRANCA', 'FAIXA CINZA']) f;
 
     -- Initialize Config Tables
     INSERT INTO event_config_absoluto (evento_id) VALUES (NEW.id);
@@ -180,11 +180,11 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF NEW.nome ILIKE '%ADULTO%' THEN
         CASE NEW.faixa
-            WHEN 'Branca' THEN NEW.tempo_luta_minutos := 5;
-            WHEN 'Azul' THEN NEW.tempo_luta_minutos := 6;
-            WHEN 'Roxa' THEN NEW.tempo_luta_minutos := 7;
-            WHEN 'Marrom' THEN NEW.tempo_luta_minutos := 8;
-            WHEN 'Preta' THEN NEW.tempo_luta_minutos := 10;
+            WHEN 'FAIXA BRANCA' THEN NEW.tempo_luta_minutos := 5;
+            WHEN 'FAIXA AZUL' THEN NEW.tempo_luta_minutos := 6;
+            WHEN 'FAIXA ROXA' THEN NEW.tempo_luta_minutos := 7;
+            WHEN 'FAIXA MARROM' THEN NEW.tempo_luta_minutos := 8;
+            WHEN 'FAIXA PRETA' THEN NEW.tempo_luta_minutos := 10;
             ELSE NEW.tempo_luta_minutos := 5;
         END CASE;
     ELSIF NEW.nome ILIKE '%MASTER%' THEN

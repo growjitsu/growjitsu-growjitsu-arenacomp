@@ -5,6 +5,7 @@ import { supabase } from '../services/supabase';
 import Scoreboard from './Scoreboard';
 import BracketView from './BracketView';
 import { CategoriaEvento, Evento } from '../types';
+import { BELTS } from '../utils/data';
 
 export default function MyEvents({ initialEventId, onClearSelection }: { initialEventId?: string | null, onClearSelection?: () => void }) {
   const [events, setEvents] = useState<Evento[]>([]);
@@ -588,11 +589,9 @@ function EventOperational({ event, onBack, onEdit, onStartLuta }: {
                   <div className="space-y-1">
                     <label className="label-standard">Faixa</label>
                     <select name="faixa" className="input-standard text-sm">
-                      <option value="Branca">Branca</option>
-                      <option value="Azul">Azul</option>
-                      <option value="Roxa">Roxa</option>
-                      <option value="Marrom">Marrom</option>
-                      <option value="Preta">Preta</option>
+                      {BELTS.map(belt => (
+                        <option key={belt} value={belt}>{belt}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-1">

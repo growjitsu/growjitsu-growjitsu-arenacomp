@@ -17,6 +17,7 @@ import {
 import { supabase } from '../../services/supabase';
 import { ArenaProfile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { BELTS } from '../../utils/data';
 
 export const AdminAthletes: React.FC = () => {
   const [athletes, setAthletes] = useState<ArenaProfile[]>([]);
@@ -231,11 +232,9 @@ export const AdminAthletes: React.FC = () => {
               className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500"
             >
               <option value="">Todas as Faixas</option>
-              <option value="Branca">Branca</option>
-              <option value="Azul">Azul</option>
-              <option value="Roxa">Roxa</option>
-              <option value="Marrom">Marrom</option>
-              <option value="Preta">Preta</option>
+              {BELTS.map(belt => (
+                <option key={belt} value={belt}>{belt}</option>
+              ))}
             </select>
             <button
               type="submit"
@@ -496,11 +495,9 @@ export const AdminAthletes: React.FC = () => {
                       onChange={(e) => setEditData({ ...editData, graduation: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
                     >
-                      <option value="Branca">Branca</option>
-                      <option value="Azul">Azul</option>
-                      <option value="Roxa">Roxa</option>
-                      <option value="Marrom">Marrom</option>
-                      <option value="Preta">Preta</option>
+                      {BELTS.map(belt => (
+                        <option key={belt} value={belt}>{belt}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-2 flex items-center pt-6">

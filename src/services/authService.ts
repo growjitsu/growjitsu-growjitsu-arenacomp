@@ -84,7 +84,7 @@ export const authService = {
             usuario_id: userId,
             genero: data.gender || 'Masculino',
             data_nascimento: data.birthDate || new Date().toISOString().split('T')[0],
-            graduacao: data.belt || 'Branca',
+            graduacao: data.belt || 'FAIXA BRANCA',
             peso_kg: data.weight || 0,
           }, { onConflict: 'usuario_id' });
 

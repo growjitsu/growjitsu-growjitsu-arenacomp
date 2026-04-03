@@ -194,7 +194,20 @@ export interface ArenaCertificate {
 
 export type UserType = 'atleta' | 'coordenador' | 'responsavel';
 
-export type Belt = 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';
+export type Belt = 
+  | 'FAIXA BRANCA' 
+  | 'FAIXA CINZA' 
+  | 'FAIXA AMARELA' 
+  | 'FAIXA LARANJA' 
+  | 'FAIXA VERDE' 
+  | 'FAIXA AZUL' 
+  | 'FAIXA ROXA' 
+  | 'FAIXA MARROM' 
+  | 'FAIXA PRETA' 
+  | 'FAIXA CORAL (VERMELHA E PRETA)' 
+  | 'FAIXA CORAL (VERMELHA E BRANCA)' 
+  | 'FAIXA VERMELHA'
+  | 'Branca' | 'Cinza' | 'Amarela' | 'Laranja' | 'Verde' | 'Azul' | 'Roxa' | 'Marrom' | 'Preta';
 
 export type Gender = 'Masculino' | 'Feminino';
 
