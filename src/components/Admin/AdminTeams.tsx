@@ -540,7 +540,7 @@ export const AdminTeams: React.FC = () => {
       {/* Team Modal */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -552,25 +552,25 @@ export const AdminTeams: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"
+              className="relative w-full max-w-lg bg-[#0f0f0f] border border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] flex flex-col max-h-[95vh] md:max-h-[90vh] shadow-2xl overflow-hidden"
             >
-              <div className="p-8 border-b border-white/10 flex items-center justify-between">
-                <h3 className="text-xl font-black uppercase italic tracking-tight">
+              <div className="p-5 md:p-8 border-b border-white/10 flex items-center justify-between shrink-0">
+                <h3 className="text-lg md:text-xl font-black uppercase italic tracking-tight">
                   {selectedTeam ? 'Editar Equipe' : 'Nova Equipe'}
                 </h3>
                 <button onClick={() => setIsModalOpen(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
-                  <X size={24} />
+                  <X size={20} className="md:size-6" />
                 </button>
               </div>
 
-              <div className="p-8 space-y-6">
+              <div className="p-5 md:p-8 space-y-6 overflow-y-auto custom-scrollbar flex-1">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Nome da Equipe</label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500"
                     placeholder="Ex: Alliance Jiu-Jitsu"
                   />
                 </div>
@@ -580,7 +580,7 @@ export const AdminTeams: React.FC = () => {
                     type="text"
                     value={formData.professor || ''}
                     onChange={(e) => setFormData({ ...formData, professor: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500"
                     placeholder="Ex: Mestre Hélio Gracie"
                   />
                 </div>
@@ -590,7 +590,7 @@ export const AdminTeams: React.FC = () => {
                     <textarea
                       value={formData.description || ''}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 min-h-[100px] resize-none"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500 min-h-[80px] md:min-h-[100px] resize-none"
                       placeholder="Descreva a história ou foco da equipe..."
                     />
                   </div>
@@ -606,7 +606,7 @@ export const AdminTeams: React.FC = () => {
                         setCities([]);
                         if (countryId) fetchStates(countryId);
                       }}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500"
                     >
                       <option value="">Selecionar País</option>
                       {countries.map(c => (
@@ -615,7 +615,7 @@ export const AdminTeams: React.FC = () => {
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Estado</label>
                       <select
@@ -627,7 +627,7 @@ export const AdminTeams: React.FC = () => {
                           setCities([]);
                           if (stateId) fetchCities(stateId);
                         }}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
                       >
                         <option value="">{formData.country_id ? (states.length === 0 ? 'Carregando estados...' : 'Selecionar Estado') : 'Selecione um País'}</option>
                         {states.map(s => (
@@ -641,7 +641,7 @@ export const AdminTeams: React.FC = () => {
                         value={formData.city_id}
                         disabled={!formData.state_id}
                         onChange={(e) => setFormData({ ...formData, city_id: e.target.value })}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 md:p-4 text-sm outline-none focus:border-blue-500 disabled:opacity-50"
                       >
                         <option value="">{formData.state_id ? (cities.length === 0 ? 'Nenhuma cidade encontrada' : 'Selecionar Cidade') : 'Selecione um Estado'}</option>
                         {cities.map(c => (
@@ -681,7 +681,7 @@ export const AdminTeams: React.FC = () => {
                         type="text"
                         value={userSearch}
                         onChange={(e) => searchUsers(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-sm outline-none focus:border-blue-500"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl py-3 md:py-4 pl-12 pr-4 text-sm outline-none focus:border-blue-500"
                         placeholder="Adicionar novo responsável..."
                       />
                     </div>
@@ -712,11 +712,11 @@ export const AdminTeams: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Logo da Equipe</label>
                   <div className="flex items-center space-x-4">
-                    <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
+                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                       {formData.logo_url ? (
                         <img src={formData.logo_url} alt="Preview" className="w-full h-full object-contain" />
                       ) : (
-                        <Shield className="w-8 h-8 text-gray-700" />
+                        <Shield className="w-6 h-6 md:w-8 md:h-8 text-gray-700" />
                       )}
                     </div>
                     <div className="flex-1">
@@ -729,7 +729,7 @@ export const AdminTeams: React.FC = () => {
                       />
                       <label
                         htmlFor="logo-upload"
-                        className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-white/5 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+                        className={`inline-flex items-center space-x-2 px-3 md:px-4 py-2 rounded-lg border border-white/10 text-[9px] md:text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-white/5 transition-all ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
                       >
                         <Plus size={14} />
                         <span>{uploading ? 'Enviando...' : 'Fazer Upload'}</span>
@@ -740,18 +740,18 @@ export const AdminTeams: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-8 border-t border-white/10 bg-white/5 flex items-center justify-end space-x-4">
+              <div className="p-5 md:p-8 border-t border-white/10 bg-white/5 flex items-center justify-end space-x-3 md:space-x-4 shrink-0">
                 <button
                   onClick={() => setIsModalOpen(false)}
-                  className="px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all"
+                  className="px-4 md:px-6 py-2 md:py-3 text-[10px] md:text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleSaveTeam}
-                  className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all"
+                  className="bg-blue-600 text-white px-6 md:px-8 py-2 md:py-3 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all"
                 >
-                  {selectedTeam ? 'Salvar Alterações' : 'Criar Equipe'}
+                  {selectedTeam ? 'Salvar' : 'Criar'}
                 </button>
               </div>
             </motion.div>
