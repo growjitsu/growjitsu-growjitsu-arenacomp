@@ -12,6 +12,7 @@ interface ShareModalProps {
   title: string;
   subtitle?: string;
   followerCount: number;
+  imageUrl?: string;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({ 
@@ -21,7 +22,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   url, 
   title,
   subtitle,
-  followerCount 
+  followerCount,
+  imageUrl
 }) => {
   const [copied, setCopied] = useState(false);
   const [sharingArena, setSharingArena] = useState(false);
@@ -35,7 +37,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         achievement: 'Confira este conteúdo no ArenaComp!',
         modality: 'Arena',
         profileUrl: url,
-        type: 'post'
+        type: 'post',
+        mainImageUrl: imageUrl
       };
       await shareToArenaComp(cardData, url);
       toast.success('Compartilhado com sucesso no ArenaComp!');

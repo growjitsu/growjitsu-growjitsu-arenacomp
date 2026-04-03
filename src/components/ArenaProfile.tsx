@@ -75,6 +75,7 @@ export const ArenaProfileView: React.FC<{
     title: string;
     subtitle: string;
     url: string;
+    imageUrl?: string;
     onGenerate: () => void;
   } | null>(null);
   const [achievementData, setAchievementData] = useState<CardData>({
@@ -1988,6 +1989,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     title: profile.full_name,
                     subtitle: 'Confira meu perfil na ArenaComp!',
                     url: `${window.location.origin}/share/profile/${profile.id}`,
+                    imageUrl: profile.profile_photo || profile.avatar_url,
                     onGenerate: () => {
                       setAchievementData({
                         title: 'PERFIL ARENA',
@@ -2108,6 +2110,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     title: profile.full_name,
                     subtitle: 'Confira este perfil na ArenaComp!',
                     url: `${window.location.origin}/share/profile/${profile.id}`,
+                    imageUrl: profile.profile_photo || profile.avatar_url,
                     onGenerate: () => {
                       setAchievementData({
                         title: 'PERFIL ARENA',
@@ -3101,6 +3104,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                     title: '🏆 CERTIFICADO',
                                     subtitle: cert.name,
                                     url: `${window.location.origin}/share/certificate/${cert.id}`,
+                                    imageUrl: cert.media_url,
                                     onGenerate: () => {
                                       setAchievementData({
                                         title: '🏆 CERTIFICADO',
@@ -3394,6 +3398,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                 title: '🏆 CAMPEONATO',
                                 subtitle: champ.championship_name,
                                 url: `${window.location.origin}/share/championship/${champ.id}`,
+                                imageUrl: champ.foto_podio_url,
                                 onGenerate: () => {
                                   setAchievementData({
                                     title: '🏆 CAMPEONATO',
@@ -3669,6 +3674,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           url={shareModalData.url}
           title={shareModalData.title}
           subtitle={shareModalData.subtitle}
+          imageUrl={shareModalData.imageUrl}
           followerCount={followerCount}
           onGenerate={shareModalData.onGenerate}
         />

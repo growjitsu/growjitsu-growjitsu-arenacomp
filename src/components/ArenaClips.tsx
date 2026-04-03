@@ -249,6 +249,7 @@ export const ArenaClips: React.FC = () => {
     title: string;
     subtitle?: string;
     url: string;
+    imageUrl?: string;
     onGenerate?: () => void;
   }>({ title: '', url: '' });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -354,6 +355,7 @@ export const ArenaClips: React.FC = () => {
       title: 'Compartilhar Clip',
       subtitle: post.content || 'Confira este clip na ArenaComp!',
       url: shareUrl,
+      imageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
       onGenerate: () => {
         setAchievementData({
           title: 'Novo Clip',
@@ -433,6 +435,7 @@ export const ArenaClips: React.FC = () => {
         title={shareModalData.title}
         subtitle={shareModalData.subtitle}
         url={shareModalData.url}
+        imageUrl={shareModalData.imageUrl}
         onGenerate={shareModalData.onGenerate || (() => {})}
         followerCount={0}
       />

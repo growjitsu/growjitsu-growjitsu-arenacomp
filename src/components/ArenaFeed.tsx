@@ -37,6 +37,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     title: string;
     subtitle?: string;
     url: string;
+    imageUrl?: string;
     onGenerate?: () => void;
   }>({ title: '', url: '' });
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -436,10 +437,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     });
     const shareUrl = `${window.location.origin}/share/post/${post.id}`;
     
+    let firstImageUrl = post.media_url;
+    try {
+      if (post.media_url?.startsWith('[')) {
+        const urls = JSON.parse(post.media_url);
+        firstImageUrl = urls[0];
+      }
+    } catch (e) {}
+
     setShareModalData({
       title: 'Compartilhar Postagem',
       subtitle: post.content || 'Confira esta postagem na ArenaComp!',
       url: shareUrl,
+      imageUrl: firstImageUrl,
       onGenerate: () => {
         setAchievementData({
           title: 'Nova Postagem',
@@ -1161,6 +1171,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         title={shareModalData.title}
         subtitle={shareModalData.subtitle}
         url={shareModalData.url}
+        imageUrl={shareModalData.imageUrl}
         onGenerate={shareModalData.onGenerate || (() => {})}
         followerCount={0}
       />
