@@ -70,10 +70,10 @@ export const RankingCardPreview: React.FC<RankingCardPreviewProps> = ({ data, cl
         </div>
 
         {/* Main Content */}
-        <div className="flex-grow flex flex-col items-center justify-center w-full space-y-8">
+        <div className="flex-grow flex flex-col items-center justify-center w-full gap-6 py-4">
           {/* Profile Photo with Rank Badge */}
-          <div className="relative">
-            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full p-1 bg-gradient-to-tr from-[var(--primary)] to-white/20 shadow-2xl">
+          <div className="relative flex-shrink-0">
+            <div className="w-32 h-32 md:w-36 md:h-36 rounded-full p-1 bg-gradient-to-tr from-[var(--primary)] to-white/20 shadow-2xl">
               <div className="w-full h-full rounded-full bg-zinc-900 overflow-hidden border-4 border-zinc-950">
                 {profilePhoto ? (
                   <img 
@@ -85,43 +85,43 @@ export const RankingCardPreview: React.FC<RankingCardPreviewProps> = ({ data, cl
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-zinc-800">
-                    <Star size={48} className="text-zinc-600" />
+                    <Star size={40} className="text-zinc-600" />
                   </div>
                 )}
               </div>
             </div>
             
             {/* Rank Badge */}
-            <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 rounded-xl shadow-2xl border border-white/20 flex items-center gap-2 bg-gradient-to-r ${getRankColor(position)}`}>
-              {position <= 3 ? <Award size={18} className="text-white" /> : <Target size={18} className="text-white" />}
-              <span className="text-lg font-black text-white italic tracking-tighter">
+            <div className={`absolute -bottom-2 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-xl shadow-2xl border border-white/20 flex items-center gap-2 bg-gradient-to-r ${getRankColor(position)} z-20`}>
+              {position <= 3 ? <Award size={16} className="text-white" /> : <Target size={16} className="text-white" />}
+              <span className="text-base font-black text-white italic tracking-tighter">
                 {getPositionText(position)}
               </span>
             </div>
           </div>
 
           {/* Athlete Info */}
-          <div className="text-center space-y-2 w-full">
-            <h2 className="text-2xl md:text-3xl font-black uppercase italic text-white tracking-tighter leading-none px-4">
+          <div className="text-center w-full px-4 flex flex-col items-center gap-3">
+            <h2 className="text-[1.5rem] md:text-[1.75rem] font-black uppercase italic text-white tracking-tighter leading-[1.1] max-w-full break-words">
               {athleteName}
             </h2>
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-2">
-                  <div className="px-4 py-1 bg-white/5 rounded-full border border-white/10">
-                    <span className="text-[10px] font-black text-[var(--primary)] uppercase tracking-[0.2em]">
-                      {modality}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-wrap justify-center items-center gap-2">
+                <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
+                  <span className="text-[9px] font-black text-[var(--primary)] uppercase tracking-[0.15em]">
+                    {modality}
+                  </span>
+                </div>
+                {category && (
+                  <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
+                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">
+                      {category}
                     </span>
                   </div>
-                  {category && (
-                    <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
-                      <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">
-                        {category}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                {location && (
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                )}
+              </div>
+              {location && (
+                <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] italic">
                   {location}
                 </p>
               )}
@@ -129,14 +129,14 @@ export const RankingCardPreview: React.FC<RankingCardPreviewProps> = ({ data, cl
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 w-full max-w-[240px]">
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center">
-              <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1">Pontuação</p>
-              <p className="text-xl font-black text-white tracking-tighter italic">{Math.round(score)}</p>
+          <div className="grid grid-cols-2 gap-3 w-full max-w-[260px] px-4">
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-3 border border-white/10 text-center">
+              <p className="text-[7px] font-black text-white/40 uppercase tracking-widest mb-1">Pontuação</p>
+              <p className="text-lg font-black text-white tracking-tighter italic">{Math.round(score)}</p>
             </div>
-            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-4 border border-white/10 text-center">
-              <p className="text-[8px] font-black text-white/40 uppercase tracking-widest mb-1">Status</p>
-              <p className="text-xl font-black text-[var(--primary)] tracking-tighter italic uppercase">Elite</p>
+            <div className="bg-white/5 backdrop-blur-md rounded-2xl p-3 border border-white/10 text-center">
+              <p className="text-[7px] font-black text-white/40 uppercase tracking-widest mb-1">Status</p>
+              <p className="text-lg font-black text-[var(--primary)] tracking-tighter italic uppercase">Elite</p>
             </div>
           </div>
         </div>
