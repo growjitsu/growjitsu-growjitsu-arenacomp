@@ -139,7 +139,7 @@ export default function MyEvents({ initialEventId, onClearSelection }: { initial
               </div>
               <h3 className="text-xl font-black font-display text-[var(--text-main)] mb-2">{event.nome}</h3>
               <div className="space-y-2 text-sm text-[var(--text-muted)]">
-                <p className="flex items-center gap-2"><Calendar size={16} /> {new Date(event.data).toLocaleDateString('pt-BR')}</p>
+                <p className="flex items-center gap-2"><Calendar size={16} /> {new Date(event.data + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 <p className="flex items-center gap-2"><Clock size={16} /> {event.horario_inicio.slice(0, 5)}</p>
                 <p className="flex items-center gap-2"><MapPin size={16} /> {event.cidade ? `${event.cidade} / ${event.uf}` : 'Local não definido'}</p>
               </div>

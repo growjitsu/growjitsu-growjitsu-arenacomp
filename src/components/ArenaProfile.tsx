@@ -3197,7 +3197,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                   athleteName: profile.full_name,
                                   achievement: `${fight.resultado === 'win' ? 'Venceu' : 'Lutou com'} ${fight.opponent_name} no ${fight.evento}`,
                                   modality: fight.modalidade || profile.modality || 'Jiu-Jitsu',
-                                  date: new Date(fight.data_luta).toLocaleDateString(),
+                                  date: new Date(fight.data_luta + 'T00:00:00').toLocaleDateString(),
                                   profileUrl: `${window.location.origin}/share/fight/${fight.id}`,
                                   type: 'fight',
                                   realId: fight.id
@@ -3255,7 +3255,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       </div>
                       <div className="space-y-1">
                         <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Data</p>
-                        <p className="text-xs font-bold text-[var(--text-main)]">{new Date(fight.data_luta).toLocaleDateString()}</p>
+                        <p className="text-xs font-bold text-[var(--text-main)]">{new Date(fight.data_luta + 'T00:00:00').toLocaleDateString()}</p>
                       </div>
                     </div>
                   </div>
@@ -3374,7 +3374,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             <h4 className="text-lg font-black text-[var(--text-main)] uppercase italic tracking-tighter">{champ.championship_name}</h4>
                             <div className="flex items-center space-x-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                               <Calendar size={12} />
-                              <span>{new Date(champ.data_evento).toLocaleDateString()}</span>
+                              <span>{new Date(champ.data_evento + 'T00:00:00').toLocaleDateString()}</span>
                               <span>•</span>
                               <MapPin size={12} />
                               <span>{champ.cidade}, {champ.pais}</span>
@@ -3400,7 +3400,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                     athleteName: profile.full_name,
                                     achievement: `${champ.resultado} no ${champ.championship_name}`,
                                     modality: champ.modalidade || profile.modality || 'Jiu-Jitsu',
-                                    date: new Date(champ.data_evento).toLocaleDateString(),
+                                    date: new Date(champ.data_evento + 'T00:00:00').toLocaleDateString(),
                                     profileUrl: `${window.location.origin}/share/championship/${champ.id}`,
                                     type: 'championship',
                                     realId: champ.id,

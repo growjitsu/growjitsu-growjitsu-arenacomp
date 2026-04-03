@@ -1,7 +1,7 @@
 import { AthleteProfile, Gender, Belt } from '../types';
 
 export const getCompetitionAge = (birthDate: string): number => {
-  const birthYear = new Date(birthDate).getFullYear();
+  const birthYear = new Date(birthDate + 'T00:00:00').getFullYear();
   const currentYear = new Date().getFullYear();
   return currentYear - birthYear;
 };

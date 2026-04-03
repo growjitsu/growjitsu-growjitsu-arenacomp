@@ -74,7 +74,7 @@ export default function RegistrationPage() {
         setAthleteProfile(profileData);
 
         // 3. Determine Category automatically via RPC
-        const birthYear = new Date(profileData.data_nascimento).getFullYear();
+        const birthYear = new Date(profileData.data_nascimento + 'T00:00:00').getFullYear();
         const { data: catId, error: rpcError } = await supabase.rpc('fn_determinar_categoria_jiujitsu', {
           p_ano_nascimento: birthYear,
           p_peso: profileData.peso_kg,
@@ -206,7 +206,7 @@ export default function RegistrationPage() {
             </div>
             
             <div className="flex flex-wrap gap-6 mt-6 text-sm text-[var(--text-muted)]">
-              <span className="flex items-center gap-2"><Calendar size={18} /> {new Date(event.data).toLocaleDateString('pt-BR')}</span>
+              <span className="flex items-center gap-2"><Calendar size={18} /> {new Date(event.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
               <span className="flex items-center gap-2"><MapPin size={18} /> {event.cidade} / {event.uf}</span>
             </div>
           </div>

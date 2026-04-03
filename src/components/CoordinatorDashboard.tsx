@@ -239,7 +239,7 @@ export default function CoordinatorDashboard({ onEventClick }: CoordinatorDashbo
                 <MiniEventCard 
                   key={event.id}
                   name={event.nome} 
-                  date={new Date(event.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} 
+                  date={new Date(event.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} 
                   athletes={0} // This would need another count query per event for full accuracy
                   onClick={() => onEventClick?.(event.id)}
                 />

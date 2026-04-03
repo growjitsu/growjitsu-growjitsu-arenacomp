@@ -274,7 +274,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--text-muted)] font-bold uppercase">Nascimento</span>
                 <span className="font-bold text-[var(--text-main)]">
-                  {athleteData?.data_nascimento ? new Date(athleteData.data_nascimento).toLocaleDateString('pt-BR') : '--/--/----'}
+                  {athleteData?.data_nascimento ? new Date(athleteData.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR') : '--/--/----'}
                 </span>
               </div>
             </div>
@@ -322,7 +322,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
                 <ChampionshipCard 
                   key={champ.id}
                   name={champ.nome} 
-                  date={new Date(champ.data).toLocaleDateString('pt-BR')} 
+                  date={new Date(champ.data + 'T00:00:00').toLocaleDateString('pt-BR')} 
                   location={champ.local}
                   status={champ.status === 'aberto' ? 'Inscrições Abertas' : 'Encerrado'}
                   onRegister={() => {

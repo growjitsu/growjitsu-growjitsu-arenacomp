@@ -71,7 +71,7 @@ export default function ChampionshipModule() {
                   <div>
                     <h3 className="text-xl font-bold font-display text-[var(--text-main)]">{event.nome}</h3>
                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-[var(--text-muted)]">
-                      <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(event.data).toLocaleDateString('pt-BR')}</span>
+                      <span className="flex items-center gap-1"><Calendar size={14} /> {new Date(event.data + 'T00:00:00').toLocaleDateString('pt-BR')}</span>
                       <span className="flex items-center gap-1"><MapPin size={14} /> {event.local}</span>
                       <span className="flex items-center gap-1"><Users size={14} /> Inscrições Abertas</span>
                     </div>

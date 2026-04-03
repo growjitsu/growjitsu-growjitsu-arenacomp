@@ -121,9 +121,9 @@ export const SharePage = () => {
 
               data = {
                 athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `${champ.resultado} no ${champ.evento}`,
+                achievement: `${champ.resultado} no ${champ.championship_name}`,
                 modality: profile?.modality || 'Atleta',
-                date: new Date(champ.created_at).toLocaleDateString(),
+                date: new Date(champ.data_evento + 'T00:00:00').toLocaleDateString(),
                 profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: champ.media_url,
                 type: 'championship',
@@ -146,9 +146,9 @@ export const SharePage = () => {
 
               data = {
                 athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `Luta no ${fight.evento}`,
+                achievement: `Luta no ${fight.evento_nome}`,
                 modality: profile?.modality || 'Atleta',
-                date: new Date(fight.created_at).toLocaleDateString(),
+                date: new Date(fight.data_luta + 'T00:00:00').toLocaleDateString(),
                 profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
                 mainImageUrl: fight.media_url,
                 type: 'fight',
