@@ -38,10 +38,12 @@ const getFemaleCategoryAdult = (weight: number) => {
 };
 
 // Simplified IBJJF-like weight classes for Adult/Master (Gi)
-export const getWeightCategory = (gender: Gender, weight: number, ageCategory: string): string => {
-  const isAdultOrMaster = ageCategory.includes('ADULTO') || ageCategory.includes('MASTER');
+export const getWeightCategory = (gender: string, weight: number, ageCategory: string): string => {
+  const upperAge = (ageCategory || '').toUpperCase();
+  const isAdultOrMaster = upperAge.includes('ADULTO') || upperAge.includes('MASTER');
+  const normalizedGender = (gender || '').toLowerCase();
   
-  if (gender === 'Masculino') {
+  if (normalizedGender === 'masculino' || normalizedGender === 'male') {
     if (isAdultOrMaster) {
       if (weight <= 57.5) return 'Galo';
       if (weight <= 64.0) return 'Pluma';

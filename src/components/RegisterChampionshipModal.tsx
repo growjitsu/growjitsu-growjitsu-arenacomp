@@ -25,24 +25,34 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
 
   useEffect(() => {
     if (isOpen && athleteId) {
-      const fetchGender = async () => {
+      const fetchAthleteData = async () => {
         try {
           const { data, error } = await supabase
             .from('atletas')
-            .select('genero')
+            .select('genero, peso_kg, categoria_idade, categoria_peso')
             .eq('usuario_id', athleteId)
             .maybeSingle();
           
           if (data) {
             setAthleteGender(data.genero as Gender);
+            
+            // Pre-fill weight and categories if it's a new registration
+            if (!initialData) {
+              setFormData(prev => ({
+                ...prev,
+                peso_atleta: data.peso_kg?.toString() || '',
+                categoria_idade: data.categoria_idade || prev.categoria_idade,
+                peso: data.categoria_peso || prev.peso
+              }));
+            }
           }
         } catch (err) {
-          console.error('Erro ao buscar gênero do atleta:', err);
+          console.error('Erro ao buscar dados do atleta:', err);
         }
       };
-      fetchGender();
+      fetchAthleteData();
     }
-  }, [isOpen, athleteId]);
+  }, [isOpen, athleteId, initialData]);
 
   const [formData, setFormData] = useState({
     championship_name: initialData?.championship_name || '',
@@ -98,7 +108,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
   };
 
   const handleWeightChange = (val: string) => {
-    const weightNum = parseFloat(val);
+    const weightNum = parseFloat(val.replace(',', '.'));
     const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, formData.modalidade, formData.categoria_idade) : formData.peso;
     setFormData({
       ...formData,
@@ -108,7 +118,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
   };
 
   const handleAgeCategoryChange = (val: string) => {
-    const weightNum = parseFloat(formData.peso_atleta);
+    const weightNum = parseFloat(formData.peso_atleta.replace(',', '.'));
     const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, formData.modalidade, val) : (val.includes('ABS') ? 'Absoluto' : formData.peso);
     setFormData({
       ...formData,
