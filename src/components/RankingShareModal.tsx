@@ -3,6 +3,7 @@ import { Share2, Download, Trophy, X, Loader2, MessageCircle, Link as LinkIcon, 
 import { motion, AnimatePresence } from 'motion/react';
 import { generateCard, shareCard, shareWhatsApp, shareToSocial, shareToArenaComp, CardData } from '../services/arenaService';
 import { RankingCardPreview } from './RankingCardPreview';
+import { supabase } from '../services/supabase';
 import { toPng } from 'html-to-image';
 import { toast } from 'sonner';
 
@@ -102,9 +103,45 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
   };
 
   const handleArenaShare = async () => {
-    if (!shareUrl) return;
+    if (!shareUrl || !cardRef.current) return;
     setSharingArena(true);
     try {
+      // 1. Gerar a imagem do card visual
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        quality: 1,
+        pixelRatio: 2,
+        backgroundColor: '#000',
+      });
+
+      if (!dataUrl) throw new Error('Falha ao gerar imagem do card');
+
+      // 2. Converter dataUrl para Blob
+      const imgResponse = await fetch(dataUrl);
+      const blob = await imgResponse.blob();
+
+      // 3. Upload para o Supabase Storage
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const fileName = `ranking-${user.id}-${Date.now()}.png`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(filePath, blob, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 4. Obter a URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      // 5. Preparar dados e compartilhar
       const cardData: CardData = {
         title: `TOP ${data.position} NO RANKING ${data.scope.toUpperCase()}`,
         athleteName: data.athleteName,
@@ -114,7 +151,8 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
         mainImageUrl: data.profilePhoto,
         type: 'profile'
       };
-      await shareToArenaComp(cardData, shareUrl);
+      
+      await shareToArenaComp(cardData, shareUrl, publicUrl);
       toast.success('Compartilhado com sucesso no ArenaComp!');
     } catch (error: any) {
       console.error('Erro ao compartilhar no ArenaComp:', error);

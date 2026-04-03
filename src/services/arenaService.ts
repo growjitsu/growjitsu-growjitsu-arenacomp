@@ -229,7 +229,7 @@ export const shareWhatsApp = (url: string, text: string = 'Veja minha conquista 
   window.open(`https://wa.me/?text=${message}`, '_blank');
 };
 
-export const shareToArenaComp = async (data: CardData, shareUrl: string) => {
+export const shareToArenaComp = async (data: CardData, shareUrl: string, customImageUrl?: string) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
 
@@ -243,7 +243,7 @@ export const shareToArenaComp = async (data: CardData, shareUrl: string) => {
       author_id: user.id,
       content: content,
       type: 'image',
-      media_url: data.mainImageUrl || null,
+      media_url: customImageUrl || data.mainImageUrl || null,
       hashtags: '#ARENACOMP #CONQUISTA #JIUJITSU'
     });
 
