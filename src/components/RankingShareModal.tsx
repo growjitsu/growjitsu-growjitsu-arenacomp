@@ -40,20 +40,57 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
   }, [isOpen]);
 
   const handleGenerateShareLink = async () => {
+    if (!cardRef.current) return;
     setLoading(true);
     try {
+      // 1. Gerar a imagem do card visual para o preview social
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        quality: 1,
+        pixelRatio: 2,
+        backgroundColor: '#000',
+      });
+
+      if (!dataUrl) throw new Error('Falha ao gerar imagem do card');
+
+      // 2. Converter dataUrl para Blob
+      const imgResponse = await fetch(dataUrl);
+      const blob = await imgResponse.blob();
+
+      // 3. Upload para o Supabase Storage
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const fileName = `ranking-share-${user.id}-${Date.now()}.png`;
+      const filePath = `${user.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('posts')
+        .upload(filePath, blob, {
+          contentType: 'image/png',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // 4. Obter a URL pública da imagem do card
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      // 5. Gerar o link com a URL da imagem do card
       const cardData: CardData = {
         title: `TOP ${data.position} NO RANKING ${data.scope.toUpperCase()}`,
         athleteName: data.athleteName,
         achievement: `Estou no ${getPositionText(data.position)} do Ranking ${data.scope} de ${data.modality}${data.category ? ` (${data.category})` : ''}!`,
         modality: data.modality,
         profileUrl: data.profileUrl,
-        mainImageUrl: data.profilePhoto,
-        type: 'profile'
+        mainImageUrl: publicUrl, // Agora usamos a imagem real do card!
+        type: 'ranking' // Mudamos para 'ranking' para melhor identificação
       };
       const url = await generateCard(cardData);
       setShareUrl(url);
-      toast.success('Link de compartilhamento gerado!');
+      toast.success('Link de compartilhamento gerado com preview!');
     } catch (error: any) {
       console.error('Erro ao gerar link:', error);
       toast.error('Falha ao gerar o link de compartilhamento.');

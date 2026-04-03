@@ -160,7 +160,7 @@ export interface CardData {
   date?: string;
   profileUrl: string;
   mainImageUrl?: string;
-  type?: 'post' | 'certificate' | 'clip' | 'profile';
+  type?: 'post' | 'certificate' | 'clip' | 'profile' | 'ranking';
   realId?: string;
 }
 

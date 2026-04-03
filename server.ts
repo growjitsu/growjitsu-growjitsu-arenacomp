@@ -687,13 +687,21 @@ async function startServer() {
   });
 
   // 4. OG Tag Injection for Share Links
+  let vite: any = null;
+  if (process.env.NODE_ENV !== "production") {
+    vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+  }
+
   app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
     const { id, type } = req.params;
     let cardData: any = null;
 
     try {
       // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      if (id.length > 50) {
+      if (id && id.length > 50) {
         try {
           const jsonString = Buffer.from(id, 'base64').toString('utf-8');
           cardData = JSON.parse(jsonString);
@@ -721,7 +729,7 @@ async function startServer() {
               title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp'
             };
           }
-        } else if (type === 'profile') {
+        } else if (type === 'profile' || type === 'ranking') {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
@@ -731,9 +739,9 @@ async function startServer() {
           if (profile) {
             cardData = {
               athleteName: profile.full_name || 'Atleta Arena',
-              achievement: 'Confira meu perfil na ArenaComp!',
+              achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
               mainImageUrl: profile.profile_photo,
-              title: 'Perfil ArenaComp'
+              title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp'
             };
           }
         } else if (type === 'certificate') {
@@ -789,9 +797,17 @@ async function startServer() {
 
     const title = cardData?.title || "Conquista ArenaComp";
     const description = `${cardData?.athleteName || "Atleta"} conquistou ${cardData?.achievement || "um novo marco"} na ArenaComp! 🔥`;
+    
     // For the image, we can use a generic one or the athlete's photo if available
-    const imageUrl = cardData?.mainImageUrl || "https://arenacomp.com.br/og-image.png"; 
-    const url = `${process.env.APP_URL || 'https://arenacomp.com.br'}/share/${type ? type + '/' : ''}${id}`;
+    let imageUrl = cardData?.mainImageUrl || "https://arenacomp.com.br/og-image.png"; 
+    
+    // Ensure imageUrl is a full URL
+    if (imageUrl && imageUrl.startsWith('/')) {
+      const baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
+      imageUrl = `${baseUrl}${imageUrl}`;
+    }
+
+    const url = `${process.env.APP_URL || `https://${req.get('host')}`}/share/${type ? type + '/' : ''}${id}`;
 
     const ogTags = `
       <title>${title}</title>
@@ -799,8 +815,11 @@ async function startServer() {
       <meta property="og:title" content="${title}">
       <meta property="og:description" content="${description}">
       <meta property="og:image" content="${imageUrl}">
+      <meta property="og:image:type" content="image/png">
+      <meta property="og:image:alt" content="${title}">
       <meta property="og:url" content="${url}">
       <meta property="og:type" content="website">
+      <meta property="og:site_name" content="ArenaComp">
       <meta name="twitter:card" content="summary_large_image">
       <meta name="twitter:title" content="${title}">
       <meta name="twitter:description" content="${description}">
@@ -808,8 +827,24 @@ async function startServer() {
     `;
 
     if (process.env.NODE_ENV !== "production") {
-      // In dev, we let the Vite middleware handle the SPA routing
-      return next();
+      try {
+        const fs = await import("fs");
+        const indexPath = path.join(process.cwd(), 'index.html');
+        let html = fs.readFileSync(indexPath, 'utf8');
+        
+        // Transform index.html with Vite to handle scripts/styles
+        if (vite) {
+          html = await vite.transformIndexHtml(req.url, html);
+        }
+
+        // Inject tags before </head>
+        html = html.replace('</head>', `${ogTags}</head>`);
+        
+        return res.send(html);
+      } catch (err) {
+        console.error("[OG-TAGS] Erro ao carregar index.html em dev:", err);
+        return next();
+      }
     } else {
       try {
         const fs = await import("fs");
@@ -827,12 +862,8 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  // Vite middleware for development (already handled above if not production)
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
