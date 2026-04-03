@@ -1,8 +1,8 @@
 import { AthleteProfile, Gender, Belt } from '../types';
 
-export const getCompetitionAge = (birthDate: string): number => {
+export const getCompetitionAge = (birthDate: string, referenceYear?: number): number => {
   const birthYear = new Date(birthDate + 'T00:00:00').getFullYear();
-  const currentYear = new Date().getFullYear();
+  const currentYear = referenceYear || new Date().getFullYear();
   return currentYear - birthYear;
 };
 
@@ -10,20 +10,18 @@ export const getCompetitionAge = (birthDate: string): number => {
 export const calculateCompetitiveAge = getCompetitionAge;
 
 export const getAgeCategory = (age: number): string => {
-  if (age <= 5) return 'PRÉ MIRIM';
-  if (age <= 7) return 'MIRIM';
-  if (age <= 9) return 'INFANTIL A';
-  if (age <= 11) return 'INFANTIL B';
-  if (age <= 13) return 'INFANTO A';
-  if (age <= 15) return 'INFANTO B';
-  if (age <= 17) return 'JUVENIL';
-  if (age <= 29) return 'ADULTO';
-  if (age <= 35) return 'MASTER 1';
-  if (age <= 40) return 'MASTER 2';
-  if (age <= 45) return 'MASTER 3';
-  if (age <= 50) return 'MASTER 4';
-  if (age <= 55) return 'MASTER 5';
-  return 'MASTER 6';
+  if (age <= 5) return 'Pré-Mirim';
+  if (age <= 7) return 'Mirim';
+  if (age <= 11) return 'Infantil';
+  if (age <= 15) return 'Infanto Juvenil';
+  if (age <= 17) return 'Juvenil';
+  if (age <= 29) return 'Adulto';
+  if (age <= 35) return 'Master 1';
+  if (age <= 40) return 'Master 2';
+  if (age <= 45) return 'Master 3';
+  if (age <= 50) return 'Master 4';
+  if (age <= 55) return 'Master 5';
+  return 'Master 6';
 };
 
 const getFemaleCategoryAdult = (weight: number) => {

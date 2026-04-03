@@ -4,7 +4,7 @@ import { X, Trophy, Target, MapPin, Calendar, User, Save, Camera, Award, Shield,
 import { supabase } from '../services/supabase';
 import { modalities, ageCategories, belts } from '../utils/data';
 import { calculateAndUpdateStats } from '../services/arenaService';
-import { getWeightCategory } from '../services/categorization';
+import { getWeightCategory, getAgeCategory, getCompetitionAge } from '../services/categorization';
 import { ChampionshipPlacement, ArenaChampionshipResult, Gender } from '../types';
 
 interface RegisterChampionshipModalProps {
@@ -21,39 +21,6 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.foto_podio_url || null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [athleteGender, setAthleteGender] = useState<Gender | null>(null);
-
-  useEffect(() => {
-    if (isOpen && athleteId) {
-      const fetchAthleteData = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('atletas')
-            .select('genero, peso_kg, categoria_idade, categoria_peso')
-            .eq('usuario_id', athleteId)
-            .maybeSingle();
-          
-          if (data) {
-            setAthleteGender(data.genero as Gender);
-            
-            // Pre-fill weight and categories if it's a new registration
-            if (!initialData) {
-              setFormData(prev => ({
-                ...prev,
-                peso_atleta: data.peso_kg?.toString() || '',
-                categoria_idade: data.categoria_idade || prev.categoria_idade,
-                peso: data.categoria_peso || prev.peso
-              }));
-            }
-          }
-        } catch (err) {
-          console.error('Erro ao buscar dados do atleta:', err);
-        }
-      };
-      fetchAthleteData();
-    }
-  }, [isOpen, athleteId, initialData]);
-
   const [formData, setFormData] = useState({
     championship_name: initialData?.championship_name || '',
     modalidade: initialData?.modalidade || 'Jiu Jitsu',
@@ -66,6 +33,74 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
     data_evento: initialData?.data_evento || new Date().toISOString().split('T')[0],
     resultado: (initialData?.resultado || 'Campeão') as ChampionshipPlacement
   });
+
+  const [athleteData, setAthleteData] = useState<{
+    genero: Gender;
+    data_nascimento: string;
+    peso_kg: number;
+    categoria_idade: string;
+    categoria_peso: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (isOpen && athleteId) {
+      const fetchAthleteData = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('atletas')
+            .select('genero, data_nascimento, peso_kg, categoria_idade, categoria_peso')
+            .eq('usuario_id', athleteId)
+            .maybeSingle();
+          
+          if (data) {
+            setAthleteData(data as any);
+            
+            // Pre-fill weight and categories if it's a new registration
+            if (!initialData) {
+              setFormData(prev => {
+                const fullWeightCat = data.categoria_idade && data.categoria_peso 
+                  ? `${data.categoria_idade} / ${data.categoria_peso}`
+                  : (data.categoria_peso || prev.peso);
+
+                return {
+                  ...prev,
+                  peso_atleta: data.peso_kg?.toString() || '',
+                  categoria_idade: data.categoria_idade || prev.categoria_idade,
+                  peso: fullWeightCat
+                };
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao buscar dados do atleta:', err);
+        }
+      };
+      fetchAthleteData();
+    }
+  }, [isOpen, athleteId, initialData]);
+
+  // Efeito para recálculo automático de categorias (igual ao cadastro)
+  useEffect(() => {
+    if (formData.modalidade === 'Jiu Jitsu' && athleteData?.data_nascimento && formData.peso_atleta && formData.data_evento) {
+      const weightNum = parseFloat(formData.peso_atleta.replace(',', '.'));
+      if (!isNaN(weightNum) && weightNum > 0) {
+        const eventYear = new Date(formData.data_evento + 'T00:00:00').getFullYear();
+        const age = getCompetitionAge(athleteData.data_nascimento, eventYear);
+        const ageCat = getAgeCategory(age);
+        const weightCat = getWeightCategory(athleteData.genero || 'Masculino', weightNum, ageCat);
+        
+        // Só atualiza se for diferente para evitar loops
+        const fullWeightCat = `${ageCat} / ${weightCat}`;
+        if (formData.categoria_idade !== ageCat || formData.peso !== fullWeightCat) {
+          setFormData(prev => ({
+            ...prev,
+            categoria_idade: ageCat,
+            peso: fullWeightCat
+          }));
+        }
+      }
+    }
+  }, [formData.peso_atleta, formData.data_evento, formData.modalidade, athleteData]);
 
   useEffect(() => {
     if (initialData) {
@@ -104,7 +139,8 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
     if (modality !== 'Jiu Jitsu') return formData.peso;
     
     // Usar lógica centralizada que agora suporta feminino corretamente
-    return getWeightCategory(athleteGender || 'Masculino', weight, ageCategory);
+    const weightCat = getWeightCategory(athleteData?.genero || 'Masculino', weight, ageCategory);
+    return `${ageCategory} / ${weightCat}`;
   };
 
   const handleWeightChange = (val: string) => {
@@ -329,7 +365,7 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                       value={formData.modalidade}
                       onChange={e => {
                         const newModality = e.target.value;
-                        const weightNum = parseFloat(formData.peso_atleta);
+                        const weightNum = parseFloat(formData.peso_atleta.replace(',', '.'));
                         const category = !isNaN(weightNum) ? calculateWeightCategory(weightNum, newModality, formData.categoria_idade) : formData.peso;
                         setFormData({...formData, modalidade: newModality, peso: category});
                       }}
@@ -395,11 +431,16 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
                       <span>Categoria de Peso</span>
                     </label>
                     <input
-                      readOnly
+                      readOnly={formData.modalidade === 'Jiu Jitsu'}
                       type="text"
                       value={formData.peso}
-                      className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl px-4 py-3 text-sm text-[var(--text-muted)] outline-none cursor-not-allowed"
-                      placeholder="Calculado automaticamente"
+                      onChange={e => setFormData({...formData, peso: e.target.value})}
+                      className={`w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-2xl px-4 py-3 text-sm outline-none transition-all ${
+                        formData.modalidade === 'Jiu Jitsu' 
+                          ? 'bg-[var(--bg)]/50 text-[var(--text-muted)] cursor-not-allowed' 
+                          : 'text-[var(--text-main)] focus:border-[var(--primary)]'
+                      }`}
+                      placeholder={formData.modalidade === 'Jiu Jitsu' ? "Calculado automaticamente" : "Ex: Médio"}
                     />
                   </div>
 
