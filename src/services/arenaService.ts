@@ -229,6 +229,28 @@ export const shareWhatsApp = (url: string, text: string = 'Veja minha conquista 
   window.open(`https://wa.me/?text=${message}`, '_blank');
 };
 
+export const shareToArenaComp = async (data: CardData, shareUrl: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Usuário não autenticado');
+
+  // Formatar conteúdo do post
+  const content = `COMPARTILHOU UMA CONQUISTA: ${data.title || data.achievement}`.toUpperCase();
+  
+  // Criar postagem no feed
+  const { error } = await supabase
+    .from('posts')
+    .insert({
+      author_id: user.id,
+      content: content,
+      type: 'image',
+      media_url: data.mainImageUrl || null,
+      hashtags: '#ARENACOMP #CONQUISTA #JIUJITSU'
+    });
+
+  if (error) throw error;
+  return true;
+};
+
 export const shareToSocial = async (imageUrl: string, text: string) => {
   try {
     console.log('[shareToSocial] Iniciando compartilhamento social:', { imageUrl: imageUrl.substring(0, 50) + '...', text });

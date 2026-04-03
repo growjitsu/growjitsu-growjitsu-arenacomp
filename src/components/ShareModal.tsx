@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Share2, Copy, Trophy, X, Check, Award } from 'lucide-react';
+import { Share2, Copy, Trophy, X, Check, Award, Plus, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { shareToArenaComp, CardData } from '../services/arenaService';
+import { toast } from 'sonner';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -22,6 +24,29 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   followerCount 
 }) => {
   const [copied, setCopied] = useState(false);
+  const [sharingArena, setSharingArena] = useState(false);
+
+  const handleArenaShare = async () => {
+    setSharingArena(true);
+    try {
+      const cardData: CardData = {
+        title: title,
+        athleteName: subtitle || title,
+        achievement: 'Confira este conteúdo no ArenaComp!',
+        modality: 'Arena',
+        profileUrl: url,
+        type: 'post'
+      };
+      await shareToArenaComp(cardData, url);
+      toast.success('Compartilhado com sucesso no ArenaComp!');
+      onClose();
+    } catch (error: any) {
+      console.error('Erro ao compartilhar no ArenaComp:', error);
+      toast.error('Falha ao compartilhar no ArenaComp.');
+    } finally {
+      setSharingArena(false);
+    }
+  };
 
   const handleCopyLink = async () => {
     try {
@@ -64,6 +89,28 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
 
             <div className="p-6 space-y-3">
+              {/* Option 0: Share on ArenaComp */}
+              <button
+                onClick={handleArenaShare}
+                disabled={sharingArena}
+                className="w-full p-4 rounded-2xl border bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/20 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-4 text-left">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-amber-500 text-black">
+                    {sharingArena ? <Loader2 className="w-6 h-6 animate-spin" /> : <Trophy size={24} />}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase italic text-amber-500">Compartilhar no ArenaComp</h4>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                      Postar no feed da comunidade
+                    </p>
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-500 group-hover:scale-110 transition-transform">
+                  <Plus size={16} />
+                </div>
+              </button>
+
               {/* Option 1: Generate Card */}
               <button
                 onClick={() => {

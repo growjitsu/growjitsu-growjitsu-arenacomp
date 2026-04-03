@@ -18,7 +18,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ data, className = "" }
   } = data;
 
   return (
-    <div className={`relative w-full aspect-[9/16] bg-gradient-to-br from-[#001F3F] via-[#003366] to-[#D4AF37] overflow-hidden shadow-2xl ${className}`}>
+    <div className={`relative w-full aspect-[9/16] bg-gradient-to-br from-[#001F3F] via-[#003366] to-[#D4AF37] overflow-hidden shadow-2xl [container-type:inline-size] ${className}`}>
       {/* Background Overlay for texture */}
       <div className="absolute inset-0 opacity-30 mix-blend-overlay">
         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_20%_20%,_rgba(255,255,255,0.2)_0%,_transparent_50%)]" />
@@ -62,9 +62,9 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ data, className = "" }
             <h1 
               className="font-black uppercase text-white tracking-tighter drop-shadow-2xl text-center"
               style={{ 
-                fontSize: 'clamp(22px, 5vw, 42px)',
+                fontSize: 'clamp(20px, 8cqw, 36px)',
                 fontWeight: 900,
-                maxWidth: '90%',
+                maxWidth: '95%',
                 margin: '0 auto',
                 whiteSpace: 'normal',
                 wordBreak: 'break-word',
@@ -90,7 +90,7 @@ export const CardPreview: React.FC<CardPreviewProps> = ({ data, className = "" }
             <p 
               className="font-black uppercase italic text-white drop-shadow-lg break-words"
               style={{ 
-                fontSize: 'clamp(18px, 3vw, 32px)',
+                fontSize: 'clamp(16px, 6cqw, 28px)',
                 lineHeight: '1.3'
               }}
             >
