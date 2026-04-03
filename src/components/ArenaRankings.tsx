@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database } from 'lucide-react';
+import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database, Share2 } from 'lucide-react';
 import { EliteArena } from './EliteArena';
+import { RankingShareModal } from './RankingShareModal';
 import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
+import { getAthleteRankings } from '../services/arenaService';
 
 interface TeamRanking {
   team_id: string;
@@ -24,6 +26,9 @@ export const ArenaRankings: React.FC = () => {
   const [dbCities, setDbCities] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [seeding, setSeeding] = useState(false);
+  const [currentUser, setCurrentUser] = useState<ArenaProfile | null>(null);
+  const [userRankings, setUserRankings] = useState<{world: number, national: number, city: number} | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [filter, setFilter] = useState({
     scope: 'Mundial',
     modality: 'Todas',
@@ -34,7 +39,30 @@ export const ArenaRankings: React.FC = () => {
   useEffect(() => {
     fetchAvailableLocations();
     fetchDbCountries();
+    fetchCurrentUser();
   }, []);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (error) throw error;
+        if (profile) {
+          setCurrentUser(profile);
+          const rankings = await getAthleteRankings(profile);
+          setUserRankings(rankings);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching current user for rankings:', error);
+    }
+  };
 
   useEffect(() => {
     if (filter.country !== 'Todas') {
@@ -369,11 +397,25 @@ export const ArenaRankings: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-[var(--text-main)] italic">
-          Arena <span className="text-[var(--primary)]">Rankings</span>
-        </h1>
-        <p className="text-[var(--text-muted)] text-xs uppercase tracking-[0.3em] font-bold">O topo do esporte nacional</p>
+      <div className="text-center space-y-4">
+        <div className="space-y-2">
+          <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-[var(--text-main)] italic">
+            Arena <span className="text-[var(--primary)]">Rankings</span>
+          </h1>
+          <p className="text-[var(--text-muted)] text-xs uppercase tracking-[0.3em] font-bold">O topo do esporte nacional</p>
+        </div>
+
+        {currentUser && userRankings && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => setIsShareModalOpen(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
+          >
+            <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
+            <span>Compartilhar Meu Ranking</span>
+          </motion.button>
+        )}
       </div>
 
       {/* Elite Arena Section */}
@@ -605,6 +647,28 @@ export const ArenaRankings: React.FC = () => {
           </div>
         )}
       </div>
+
+      {currentUser && userRankings && (
+        <RankingShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          data={{
+            athleteName: currentUser.full_name,
+            profilePhoto: currentUser.profile_photo || currentUser.avatar_url,
+            position: filter.scope === 'Mundial' ? userRankings.world : 
+                      filter.scope === 'Nacional' ? userRankings.national : 
+                      userRankings.city,
+            modality: currentUser.modality || 'Atleta',
+            score: currentUser.arena_score,
+            category: currentUser.category,
+            scope: filter.scope,
+            location: filter.scope === 'Mundial' ? 'Mundo' : 
+                      filter.scope === 'Nacional' ? currentUser.country : 
+                      currentUser.city,
+            profileUrl: `${window.location.origin}/user/@${currentUser.username}`
+          }}
+        />
+      )}
     </div>
   );
 };
