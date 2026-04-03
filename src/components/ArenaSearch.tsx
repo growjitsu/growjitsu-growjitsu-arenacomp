@@ -130,23 +130,23 @@ export const ArenaSearch: React.FC = () => {
             key={query ? 'search-results' : 'initial-suggestions'}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="space-y-8 md:space-y-12"
+            className="space-y-8 md:space-y-12 w-full"
           >
             {/* Athletes */}
             {results.athletes.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2 flex items-center justify-between gap-2 overflow-hidden">
                   <span className="truncate">Atletas</span>
                   <span className="text-[9px] opacity-50 font-bold shrink-0">{results.athletes.length} resultados</span>
                 </h3>
-                <div className="grid gap-3">
+                <div className="grid gap-3 w-full">
                   {results.athletes.map((athlete, index) => (
                     <motion.div 
                       key={athlete.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-between gap-3 hover:bg-[var(--primary)]/5 transition-all group hover:border-[var(--primary)]/30"
+                      className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-between gap-3 hover:bg-[var(--primary)]/5 transition-all group hover:border-[var(--primary)]/30 w-full min-w-0 overflow-hidden"
                     >
                       <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
                         <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-[var(--bg)] overflow-hidden border border-[var(--border-ui)] shrink-0 relative group-hover:scale-105 transition-transform duration-500">
@@ -159,8 +159,8 @@ export const ArenaSearch: React.FC = () => {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-sm md:text-base text-[var(--text-main)] uppercase tracking-tighter italic truncate">
-                            {athlete.full_name}
+                          <h4 className="font-black text-sm md:text-base text-[var(--text-main)] uppercase tracking-tighter italic truncate block w-full">
+                            {athlete.full_name || athlete.name}
                           </h4>
                           <div className="flex items-center space-x-2 min-w-0">
                             <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs truncate">@{athlete.username}</p>
@@ -169,12 +169,12 @@ export const ArenaSearch: React.FC = () => {
                             )}
                           </div>
                           <div className="flex items-center space-x-2 mt-1 min-w-0">
-                            <span className="text-[8px] md:text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest bg-[var(--bg)] px-2 py-0.5 rounded-full border border-[var(--border-ui)] truncate">
+                            <span className="text-[8px] md:text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest bg-[var(--bg)] px-2 py-0.5 rounded-full border border-[var(--border-ui)] truncate shrink-0">
                               {athlete.modality || 'Atleta'}
                             </span>
                             {athlete.city && (
-                              <div className="flex items-center space-x-1 text-[8px] md:text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest truncate">
-                                <MapPin size={8} className="md:size-2.5" />
+                              <div className="flex items-center space-x-1 text-[8px] md:text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest truncate min-w-0">
+                                <MapPin size={8} className="md:size-2.5 shrink-0" />
                                 <span className="truncate">{athlete.city}</span>
                               </div>
                             )}
@@ -195,25 +195,25 @@ export const ArenaSearch: React.FC = () => {
 
             {/* Gyms */}
             {results.gyms.length > 0 && (
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
                 <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2 overflow-hidden truncate">Academias</h3>
-                <div className="grid gap-3">
+                <div className="grid gap-3 w-full">
                   {results.gyms.map((gym, index) => (
                     <motion.div 
                       key={gym.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: (results.athletes.length + index) * 0.05 }}
-                      className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] flex items-center justify-between gap-3 hover:bg-[var(--primary)]/5 transition-all cursor-pointer group hover:border-[var(--primary)]/30"
+                      className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-[1.2rem] md:rounded-[1.5rem] flex items-center justify-between gap-3 hover:bg-[var(--primary)]/5 transition-all cursor-pointer group hover:border-[var(--primary)]/30 w-full min-w-0 overflow-hidden"
                     >
                       <div className="flex items-center space-x-3 md:space-x-4 min-w-0 flex-1">
                         <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-[var(--bg)] overflow-hidden flex items-center justify-center border border-[var(--border-ui)] shrink-0 group-hover:scale-105 transition-transform">
                           {gym.logo_url ? <img src={gym.logo_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Dumbbell size={20} className="text-[var(--text-muted)] md:size-6" />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-xs md:text-sm text-[var(--text-main)] uppercase italic tracking-tight truncate">{gym.name}</h4>
+                          <h4 className="font-black text-xs md:text-sm text-[var(--text-main)] uppercase italic tracking-tight truncate block w-full">{gym.name}</h4>
                           <div className="flex items-center space-x-1 mt-0.5 min-w-0">
-                            <MapPin size={8} className="text-[var(--primary)] md:size-2.5" />
+                            <MapPin size={8} className="text-[var(--primary)] md:size-2.5 shrink-0" />
                             <p className="text-[9px] md:text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest truncate">{gym.city}, {gym.state}</p>
                           </div>
                         </div>
