@@ -217,7 +217,7 @@ function AppContent() {
     }
     
     return (
-      <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-24 transition-all duration-500">
+      <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[var(--bg)] text-[var(--text-main)] pb-20 md:pb-0 md:pl-24 transition-all duration-500">
         <ArenaNavbar 
           activeTab={tabId} 
           setActiveTab={(tab) => navigate(`/${tab === 'feed' ? '' : tab}`)} 
@@ -321,7 +321,7 @@ function AppContent() {
           )}
         </AnimatePresence>
 
-        <main className={`${(tabId === 'clips' || tabId === 'feed') ? 'max-w-none pt-16 pb-20 md:pb-0 md:pt-20 h-screen overflow-hidden' : 'max-w-7xl pt-16 md:pt-20'} mx-auto`}>
+        <main className={`w-full ${(tabId === 'clips' || tabId === 'feed') ? 'max-w-none pt-16 pb-20 md:pb-0 md:pt-20 h-screen overflow-hidden' : 'max-w-7xl pt-16 md:pt-20'} mx-auto`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={tabId}

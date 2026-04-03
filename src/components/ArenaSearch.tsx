@@ -85,7 +85,7 @@ export const ArenaSearch: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-6 md:py-8 px-4 space-y-6 md:space-y-8 min-h-[80vh] overflow-x-hidden">
+    <div className="w-full max-w-4xl mx-auto py-6 md:py-8 px-4 space-y-6 md:space-y-8 min-h-[80vh] overflow-x-hidden">
       {/* Search Bar */}
       <div className="relative group">
         <div className={`absolute inset-0 bg-[var(--primary)]/10 blur-2xl rounded-full transition-opacity duration-500 ${isFocused ? 'opacity-100' : 'opacity-0'}`} />
@@ -119,10 +119,10 @@ export const ArenaSearch: React.FC = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="flex items-center space-x-2 px-2 mb-2"
+              className="flex items-center space-x-2 px-2 mb-2 overflow-hidden"
             >
-              <TrendingUp size={14} className="text-[var(--primary)]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Sugestões para você</span>
+              <TrendingUp size={14} className="text-[var(--primary)] shrink-0" />
+              <span className="text-[10px] font-black uppercase tracking-[0.1em] md:tracking-[0.3em] text-[var(--text-muted)] truncate">Sugestões para você</span>
             </motion.div>
           )}
 
@@ -135,9 +135,9 @@ export const ArenaSearch: React.FC = () => {
             {/* Athletes */}
             {results.athletes.length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2 flex items-center justify-between">
-                  <span>Atletas</span>
-                  <span className="text-[9px] opacity-50 font-bold">{results.athletes.length} resultados</span>
+                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2 flex items-center justify-between gap-2 overflow-hidden">
+                  <span className="truncate">Atletas</span>
+                  <span className="text-[9px] opacity-50 font-bold shrink-0">{results.athletes.length} resultados</span>
                 </h3>
                 <div className="grid gap-3">
                   {results.athletes.map((athlete, index) => (
@@ -196,7 +196,7 @@ export const ArenaSearch: React.FC = () => {
             {/* Gyms */}
             {results.gyms.length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2">Academias</h3>
+                <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] px-2 overflow-hidden truncate">Academias</h3>
                 <div className="grid gap-3">
                   {results.gyms.map((gym, index) => (
                     <motion.div 
