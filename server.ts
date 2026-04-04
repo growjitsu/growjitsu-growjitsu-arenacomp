@@ -101,13 +101,28 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Initialize Vite variable at the top of the scope
+  let vite: any = null;
+  if (process.env.NODE_ENV !== "production") {
+    vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+  }
+
   // 0. INFRASTRUCTURE LOGGING - MUST BE ABSOLUTELY FIRST
   app.use((req, res, next) => {
     const timestamp = new Date().toISOString();
     const userAgent = req.get('User-Agent') || 'Unknown';
-    if (userAgent.includes('WhatsApp') || userAgent.includes('facebookexternalhit') || userAgent.includes('Twitterbot')) {
+    const isCrawler = userAgent.includes('WhatsApp') || 
+                      userAgent.includes('facebookexternalhit') || 
+                      userAgent.includes('Twitterbot') || 
+                      userAgent.includes('Slackbot') ||
+                      userAgent.includes('LinkedInBot');
+
+    if (isCrawler) {
       console.log(`[CRAWLER-LOG] [${timestamp}] ${req.method} ${req.url} | UA: ${userAgent}`);
-    } else {
+    } else if (req.url.startsWith('/api') || req.url.startsWith('/share')) {
       console.log(`[INFRA-LOG] [${timestamp}] ${req.method} ${req.url}`);
     }
     next();
@@ -117,13 +132,12 @@ async function startServer() {
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
-    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | UA: ${userAgent}`);
+    console.log(`[OG-TAGS] Processing request for id: ${id}, type: ${type} | UA: ${userAgent}`);
     
     let cardData: any = null;
 
     try {
       // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      // Se o ID for longo e não tiver type, é provável que seja Base64
       if (id && id.length > 40 && !type) {
         try {
           const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
@@ -135,12 +149,12 @@ async function startServer() {
         }
       }
 
-      // 2. Se não decodificou e temos type, busca no Supabase
+      // 2. Se não decodificou e temos type, busca no Supabase usando ADMIN para garantir acesso
       if (!cardData && type && id) {
-        console.log(`[OG-TAGS] Fetching from Supabase: type=${type}, id=${id}`);
+        console.log(`[OG-TAGS] Fetching from Supabase (Admin): type=${type}, id=${id}`);
         
         if (type === 'post' || type === 'clip') {
-          const { data: post, error: postError } = await supabase
+          const { data: post, error: postError } = await supabaseAdmin
             .from('posts')
             .select('*, profiles(username, full_name, profile_photo, modality)')
             .eq('id', id)
@@ -157,7 +171,7 @@ async function startServer() {
             };
           }
         } else if (type === 'profile' || type === 'ranking') {
-          const { data: profile, error: profError } = await supabase
+          const { data: profile, error: profError } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', id)
@@ -174,7 +188,7 @@ async function startServer() {
             };
           }
         } else if (type === 'certificate') {
-          const { data: cert, error: certError } = await supabase
+          const { data: cert, error: certError } = await supabaseAdmin
             .from('certificates')
             .select('*, profiles(username, full_name, modality)')
             .eq('id', id)
@@ -191,7 +205,7 @@ async function startServer() {
             };
           }
         } else if (type === 'championship') {
-           const { data: champ, error: champError } = await supabase
+           const { data: champ, error: champError } = await supabaseAdmin
             .from('championship_results')
             .select('*, profiles(username, full_name, modality)')
             .eq('id', id)
@@ -208,7 +222,7 @@ async function startServer() {
             };
           }
         } else if (type === 'fight') {
-           const { data: fight, error: fightError } = await supabase
+           const { data: fight, error: fightError } = await supabaseAdmin
             .from('fights')
             .select('*, profiles(username, full_name, modality)')
             .eq('id', id)
@@ -231,7 +245,8 @@ async function startServer() {
     }
 
     const title = cardData?.title || "ArenaComp - Conquista";
-    const description = cardData?.achievement || `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
+    const athleteName = cardData?.athleteName || "Atleta";
+    const description = cardData?.achievement || `${athleteName} compartilhou uma conquista na ArenaComp! 🔥`;
     
     const currentHost = req.get('host');
     const protocol = 'https';
@@ -261,9 +276,12 @@ async function startServer() {
       `<meta property="og:title" content="${title}">`,
       `<meta property="og:description" content="${description}">`,
       `<meta property="og:image" content="${finalImageUrl}">`,
+      `<meta property="og:image:url" content="${finalImageUrl}">`,
       `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
+      `<meta property="og:image:type" content="image/jpeg">`,
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
+      `<meta property="og:image:alt" content="${title} - ${athleteName}">`,
       `<meta property="og:url" content="${url}">`,
       `<meta property="og:type" content="website">`,
       `<meta property="og:site_name" content="ArenaComp">`,
@@ -292,15 +310,15 @@ async function startServer() {
           html = await vite.transformIndexHtml(req.url, html);
         }
 
-        // 1. Remove any existing title tags to avoid duplicates
-        html = html.replace(/<title>[\s\S]*?<\/title>/gi, '');
+        // 1. Remove any existing title tags to avoid duplicates (including those with attributes)
+        html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
         
         // 2. Remove any existing OG/Twitter tags that might be in the base template
-        html = html.replace(/<meta property="og:.*?" content=".*?" \/>/gi, '');
-        html = html.replace(/<meta name="twitter:.*?" content=".*?" \/>/gi, '');
+        html = html.replace(/<meta property="og:.*?" content=".*?" \/?>/gi, '');
+        html = html.replace(/<meta name="twitter:.*?" content=".*?" \/?>/gi, '');
+        html = html.replace(/<meta name="description" content=".*?" \/?>/gi, '');
         
         // 3. Inject new tags right after <head>
-        // We use a more robust regex for <head> that handles attributes and case
         html = html.replace(/(<head[^>]*>)/i, `$1\n    ${ogTags}`);
 
         // 4. Ensure the <html> tag has the correct prefix
@@ -309,14 +327,14 @@ async function startServer() {
         }
         
         // 5. Add a marker to verify injection
-        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED -->\n</body>');
+        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED-V3 -->\n</body>');
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=3600');
-        // Explicitly disable range requests for this dynamic response to avoid 206 issues
         res.setHeader('Accept-Ranges', 'none');
+        res.setHeader('X-Arena-OG', 'injected');
         
-        console.log(`[OG-TAGS] Successfully serving HTML for ${req.url} with title: ${title}`);
+        console.log(`[OG-TAGS] Successfully serving injected HTML for ${req.url}`);
         return res.status(200).send(html);
       } catch (err) {
         console.error(`[OG-TAGS] Error serving HTML (${isDev ? 'dev' : 'prod'}):`, err);
@@ -919,15 +937,6 @@ async function startServer() {
       path: req.path
     });
   });
-
-  // 4. OG Tag Injection for Share Links
-  let vite: any = null;
-  if (process.env.NODE_ENV !== "production") {
-    vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-  }
 
   // Vite middleware for development (already handled above if not production)
   if (process.env.NODE_ENV !== "production") {
