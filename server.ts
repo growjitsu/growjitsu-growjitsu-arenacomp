@@ -2,6 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
+import fs from "fs";
 import cors from "cors";
 import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
@@ -113,7 +114,7 @@ async function startServer() {
   });
 
   // 1. OG Tag Injection for Share Links - MOVED TO TOP for priority
-  app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
+  const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | UA: ${userAgent}`);
@@ -122,19 +123,20 @@ async function startServer() {
 
     try {
       // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      if (id && id.length > 40) {
+      // Se o ID for longo e não tiver type, é provável que seja Base64
+      if (id && id.length > 40 && !type) {
         try {
           const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
           const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
           cardData = JSON.parse(jsonString);
-          console.log(`[OG-TAGS] Decoded Base64 data for ${type}`);
+          console.log(`[OG-TAGS] Decoded Base64 data`);
         } catch (e) {
           console.log("[OG-TAGS] ID long but not valid Base64 JSON");
         }
       }
 
       // 2. Se não decodificou e temos type, busca no Supabase
-      if (!cardData && type && id && id.length <= 40) {
+      if (!cardData && type && id) {
         console.log(`[OG-TAGS] Fetching from Supabase: type=${type}, id=${id}`);
         
         if (type === 'post' || type === 'clip') {
@@ -279,7 +281,11 @@ async function startServer() {
 
     const serveHtml = async (indexPath: string, isDev: boolean) => {
       try {
-        const fs = await import("fs");
+        if (!fs.existsSync(indexPath)) {
+          console.error(`[OG-TAGS] Index file not found: ${indexPath}`);
+          return next();
+        }
+
         let html = fs.readFileSync(indexPath, 'utf8');
         
         if (isDev && vite) {
@@ -302,9 +308,16 @@ async function startServer() {
           html = html.replace(/(<html[^>]*)/i, '$1 prefix="og: http://ogp.me/ns#"');
         }
         
+        // 5. Add a marker to verify injection
+        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED -->\n</body>');
+        
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.send(html);
+        // Explicitly disable range requests for this dynamic response to avoid 206 issues
+        res.setHeader('Accept-Ranges', 'none');
+        
+        console.log(`[OG-TAGS] Successfully serving HTML for ${req.url} with title: ${title}`);
+        return res.status(200).send(html);
       } catch (err) {
         console.error(`[OG-TAGS] Error serving HTML (${isDev ? 'dev' : 'prod'}):`, err);
         return next();
@@ -314,9 +327,19 @@ async function startServer() {
     if (process.env.NODE_ENV !== "production") {
       return serveHtml(path.join(process.cwd(), 'index.html'), true);
     } else {
-      return serveHtml(path.join(process.cwd(), 'dist', 'index.html'), false);
+      const distIndex = path.join(process.cwd(), 'dist', 'index.html');
+      const rootIndex = path.join(process.cwd(), 'index.html');
+      
+      if (fs.existsSync(distIndex)) {
+        return serveHtml(distIndex, false);
+      } else {
+        return serveHtml(rootIndex, false);
+      }
     }
-  });
+  };
+
+  app.get("/share/:type/:id", handleShareRequest);
+  app.get("/share/:id", handleShareRequest);
 
   // API Endpoints using Supabase Admin (Secret Key)
   app.get("/api/getTopAtletas", async (req, res) => {
