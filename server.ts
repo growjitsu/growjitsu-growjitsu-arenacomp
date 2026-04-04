@@ -103,8 +103,219 @@ async function startServer() {
   // 0. INFRASTRUCTURE LOGGING - MUST BE ABSOLUTELY FIRST
   app.use((req, res, next) => {
     const timestamp = new Date().toISOString();
-    console.log(`[INFRA-LOG] [${timestamp}] ${req.method} ${req.url}`);
+    const userAgent = req.get('User-Agent') || 'Unknown';
+    if (userAgent.includes('WhatsApp') || userAgent.includes('facebookexternalhit') || userAgent.includes('Twitterbot')) {
+      console.log(`[CRAWLER-LOG] [${timestamp}] ${req.method} ${req.url} | UA: ${userAgent}`);
+    } else {
+      console.log(`[INFRA-LOG] [${timestamp}] ${req.method} ${req.url}`);
+    }
     next();
+  });
+
+  // 1. OG Tag Injection for Share Links - MOVED TO TOP for priority
+  app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
+    const { id, type } = req.params;
+    const userAgent = req.get('User-Agent') || '';
+    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | UA: ${userAgent}`);
+    
+    let cardData: any = null;
+
+    try {
+      // 1. Tenta decodificar como Base64 (formato antigo/fallback)
+      if (id && id.length > 40) {
+        try {
+          const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
+          cardData = JSON.parse(jsonString);
+          console.log(`[OG-TAGS] Decoded Base64 data for ${type}`);
+        } catch (e) {
+          console.log("[OG-TAGS] ID long but not valid Base64 JSON");
+        }
+      }
+
+      // 2. Se não decodificou e temos type, busca no Supabase
+      if (!cardData && type && id && id.length <= 40) {
+        console.log(`[OG-TAGS] Fetching from Supabase: type=${type}, id=${id}`);
+        
+        if (type === 'post' || type === 'clip') {
+          const { data: post, error: postError } = await supabase
+            .from('posts')
+            .select('*, profiles(username, full_name, profile_photo, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (postError) console.error(`[OG-TAGS] Supabase error (post):`, postError.message);
+
+          if (post) {
+            cardData = {
+              athleteName: post.profiles?.full_name || 'Atleta Arena',
+              achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+              mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+              title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp'
+            };
+          }
+        } else if (type === 'profile' || type === 'ranking') {
+          const { data: profile, error: profError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', id)
+            .single();
+          
+          if (profError) console.error(`[OG-TAGS] Supabase error (profile):`, profError.message);
+
+          if (profile) {
+            cardData = {
+              athleteName: profile.full_name || 'Atleta Arena',
+              achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
+              mainImageUrl: profile.profile_photo,
+              title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp'
+            };
+          }
+        } else if (type === 'certificate') {
+          const { data: cert, error: certError } = await supabase
+            .from('certificates')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (certError) console.error(`[OG-TAGS] Supabase error (cert):`, certError.message);
+
+          if (cert) {
+            cardData = {
+              athleteName: cert.profiles?.full_name || 'Atleta Arena',
+              achievement: `Certificado: ${cert.name}`,
+              mainImageUrl: cert.media_url,
+              title: 'Certificado ArenaComp'
+            };
+          }
+        } else if (type === 'championship') {
+           const { data: champ, error: champError } = await supabase
+            .from('championship_results')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (champError) console.error(`[OG-TAGS] Supabase error (champ):`, champError.message);
+
+          if (champ) {
+            cardData = {
+              athleteName: champ.profiles?.full_name || 'Atleta Arena',
+              achievement: `${champ.resultado} no ${champ.evento}`,
+              mainImageUrl: champ.media_url,
+              title: 'Conquista ArenaComp'
+            };
+          }
+        } else if (type === 'fight') {
+           const { data: fight, error: fightError } = await supabase
+            .from('fights')
+            .select('*, profiles(username, full_name, modality)')
+            .eq('id', id)
+            .single();
+          
+          if (fightError) console.error(`[OG-TAGS] Supabase error (fight):`, fightError.message);
+
+          if (fight) {
+            cardData = {
+              athleteName: fight.profiles?.full_name || 'Atleta Arena',
+              achievement: `Luta no ${fight.evento}`,
+              mainImageUrl: fight.media_url,
+              title: 'Luta ArenaComp'
+            };
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[OG-TAGS] Error loading data:", err);
+    }
+
+    const title = cardData?.title || "ArenaComp - Conquista";
+    const description = cardData?.achievement || `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
+    
+    const currentHost = req.get('host');
+    const protocol = 'https';
+    const baseUrl = process.env.APP_URL || `${protocol}://${currentHost}`;
+
+    let imageUrl = cardData?.mainImageUrl;
+    
+    if (imageUrl && imageUrl.startsWith('/')) {
+      imageUrl = `${baseUrl}${imageUrl}`;
+    }
+    if (imageUrl && imageUrl.startsWith('http:')) {
+      imageUrl = imageUrl.replace('http:', 'https:');
+    }
+
+    // Fallback image - use a reliable one
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      imageUrl = `https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop`;
+    }
+
+    const imageCacheBuster = `v=${Date.now()}`;
+    const finalImageUrl = imageUrl.includes('?') ? `${imageUrl}&${imageCacheBuster}` : `${imageUrl}?${imageCacheBuster}`;
+    const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+
+    const ogTags = [
+      `<title>${title}</title>`,
+      `<meta name="description" content="${description}">`,
+      `<meta property="og:title" content="${title}">`,
+      `<meta property="og:description" content="${description}">`,
+      `<meta property="og:image" content="${finalImageUrl}">`,
+      `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
+      `<meta property="og:image:width" content="1200">`,
+      `<meta property="og:image:height" content="630">`,
+      `<meta property="og:url" content="${url}">`,
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:site_name" content="ArenaComp">`,
+      `<meta property="og:locale" content="pt_BR">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:title" content="${title}">`,
+      `<meta name="twitter:description" content="${description}">`,
+      `<meta name="twitter:image" content="${finalImageUrl}">`,
+      `<meta name="twitter:image:src" content="${finalImageUrl}">`,
+      `<meta itemprop="name" content="${title}">`,
+      `<meta itemprop="description" content="${description}">`,
+      `<meta itemprop="image" content="${finalImageUrl}">`,
+      `<link rel="canonical" href="${url}">`
+    ].join('\n    ');
+
+    const serveHtml = async (indexPath: string, isDev: boolean) => {
+      try {
+        const fs = await import("fs");
+        let html = fs.readFileSync(indexPath, 'utf8');
+        
+        if (isDev && vite) {
+          html = await vite.transformIndexHtml(req.url, html);
+        }
+
+        // 1. Remove any existing title tags to avoid duplicates
+        html = html.replace(/<title>[\s\S]*?<\/title>/gi, '');
+        
+        // 2. Remove any existing OG/Twitter tags that might be in the base template
+        html = html.replace(/<meta property="og:.*?" content=".*?" \/>/gi, '');
+        html = html.replace(/<meta name="twitter:.*?" content=".*?" \/>/gi, '');
+        
+        // 3. Inject new tags right after <head>
+        // We use a more robust regex for <head> that handles attributes and case
+        html = html.replace(/(<head[^>]*>)/i, `$1\n    ${ogTags}`);
+
+        // 4. Ensure the <html> tag has the correct prefix
+        if (!html.includes('prefix="og: http://ogp.me/ns#"')) {
+          html = html.replace(/(<html[^>]*)/i, '$1 prefix="og: http://ogp.me/ns#"');
+        }
+        
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(html);
+      } catch (err) {
+        console.error(`[OG-TAGS] Error serving HTML (${isDev ? 'dev' : 'prod'}):`, err);
+        return next();
+      }
+    };
+
+    if (process.env.NODE_ENV !== "production") {
+      return serveHtml(path.join(process.cwd(), 'index.html'), true);
+    } else {
+      return serveHtml(path.join(process.cwd(), 'dist', 'index.html'), false);
+    }
   });
 
   // API Endpoints using Supabase Admin (Secret Key)
@@ -694,216 +905,6 @@ async function startServer() {
       appType: "spa",
     });
   }
-
-  app.get(["/share/:id", "/share/:type/:id"], async (req, res, next) => {
-    const { id, type } = req.params;
-    let cardData: any = null;
-
-    try {
-      // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      // Se o ID for longo, provavelmente é um JSON Base64
-      if (id && id.length > 40) {
-        try {
-          // Tornamos o Base64 URL-safe de volta para o formato padrão
-          const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
-          // Decodificamos de forma segura para UTF-8 no Node.js
-          const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
-          cardData = JSON.parse(jsonString);
-          console.log(`[OG-TAGS] Dados decodificados via Base64 URL-Safe para ${type}`);
-        } catch (e) {
-          console.log("[OG-TAGS] ID longo mas não é Base64 JSON válido ou erro de decodificação");
-        }
-      }
-
-      // 2. Se não decodificou e temos type, busca no Supabase
-      if (!cardData && type && id && id.length <= 40) {
-        console.log(`[OG-TAGS] Buscando dados no Supabase para type: ${type}, id: ${id}`);
-        
-        if (type === 'post' || type === 'clip') {
-          const { data: post } = await supabase
-            .from('posts')
-            .select('*, profiles(username, full_name, profile_photo, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (post) {
-            cardData = {
-              athleteName: post.profiles?.full_name || 'Atleta Arena',
-              achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-              mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-              title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp'
-            };
-          }
-        } else if (type === 'profile' || type === 'ranking') {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', id)
-            .single();
-          
-          if (profile) {
-            cardData = {
-              athleteName: profile.full_name || 'Atleta Arena',
-              achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-              mainImageUrl: profile.profile_photo,
-              title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp'
-            };
-          }
-        } else if (type === 'certificate') {
-          const { data: cert } = await supabase
-            .from('certificates')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (cert) {
-            cardData = {
-              athleteName: cert.profiles?.full_name || 'Atleta Arena',
-              achievement: `Certificado: ${cert.name}`,
-              mainImageUrl: cert.media_url,
-              title: 'Certificado ArenaComp'
-            };
-          }
-        } else if (type === 'championship') {
-           const { data: champ } = await supabase
-            .from('championship_results')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (champ) {
-            cardData = {
-              athleteName: champ.profiles?.full_name || 'Atleta Arena',
-              achievement: `${champ.resultado} no ${champ.evento}`,
-              mainImageUrl: champ.media_url,
-              title: 'Conquista ArenaComp'
-            };
-          }
-        } else if (type === 'fight') {
-           const { data: fight } = await supabase
-            .from('fights')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (fight) {
-            cardData = {
-              athleteName: fight.profiles?.full_name || 'Atleta Arena',
-              achievement: `Luta no ${fight.evento}`,
-              mainImageUrl: fight.media_url,
-              title: 'Luta ArenaComp'
-            };
-          }
-        }
-      }
-    } catch (err) {
-      console.error("[OG-TAGS] Erro ao carregar dados para OG tags:", err);
-    }
-
-    const title = cardData?.title || "ArenaComp - Conquista";
-    const description = cardData?.achievement || `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
-    
-    // Get the current host dynamically to avoid domain mismatch
-    const currentHost = req.get('host');
-    const protocol = 'https'; // Force https for OG tags as it's more reliable for crawlers
-    const baseUrl = process.env.APP_URL || `${protocol}://${currentHost}`;
-
-    // For the image, we can use a generic one or the athlete's photo if available
-    let imageUrl = cardData?.mainImageUrl || `${baseUrl}/og-image.png`; 
-    
-    // Ensure imageUrl is a full URL and uses https
-    if (imageUrl && imageUrl.startsWith('/')) {
-      imageUrl = `${baseUrl}${imageUrl}`;
-    }
-    if (imageUrl && imageUrl.startsWith('http:')) {
-      imageUrl = imageUrl.replace('http:', 'https:');
-    }
-
-    // Fallback if the image is still not a full URL or is the missing og-image.png
-    if (!imageUrl || !imageUrl.startsWith('http')) {
-      imageUrl = `https://picsum.photos/seed/arenacomp/1200/630`;
-    }
-
-    // Add a cache buster to the image URL to force WhatsApp to re-crawl if needed
-    const imageCacheBuster = `v=${Date.now()}`;
-    const finalImageUrl = imageUrl.includes('?') ? `${imageUrl}&${imageCacheBuster}` : `${imageUrl}?${imageCacheBuster}`;
-
-    const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
-
-    console.log(`[OG-TAGS] Gerando tags para: ${url}`);
-    console.log(`[OG-TAGS] Image URL: ${finalImageUrl}`);
-
-    // Clean up meta tags to avoid whitespace issues and ensure they are standard
-    const ogTags = [
-      `<meta property="og:title" content="${title}">`,
-      `<meta property="og:description" content="${description}">`,
-      `<meta property="og:image" content="${finalImageUrl}">`,
-      `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
-      `<meta property="og:image:type" content="image/jpeg">`,
-      `<meta property="og:image:width" content="1200">`,
-      `<meta property="og:image:height" content="630">`,
-      `<meta property="og:image:alt" content="${title}">`,
-      `<meta property="og:url" content="${url}">`,
-      `<meta property="og:type" content="website">`,
-      `<meta property="og:site_name" content="ArenaComp">`,
-      `<meta property="og:locale" content="pt_BR">`,
-      `<meta name="twitter:card" content="summary_large_image">`,
-      `<meta name="twitter:title" content="${title}">`,
-      `<meta name="twitter:description" content="${description}">`,
-      `<meta name="twitter:image" content="${finalImageUrl}">`,
-      `<meta name="twitter:image:src" content="${finalImageUrl}">`,
-      `<meta name="description" content="${description}">`,
-      `<meta itemprop="name" content="${title}">`,
-      `<meta itemprop="description" content="${description}">`,
-      `<meta itemprop="image" content="${finalImageUrl}">`,
-      `<link rel="canonical" href="${url}">`
-    ].join('\n');
-
-    if (process.env.NODE_ENV !== "production") {
-      try {
-        const fs = await import("fs");
-        const indexPath = path.join(process.cwd(), 'index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        
-        // Transform index.html with Vite to handle scripts/styles
-        if (vite) {
-          html = await vite.transformIndexHtml(req.url, html);
-        }
-
-        // Replace existing title and inject tags at the beginning of head
-        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
-        html = html.replace('<head>', `<head>${ogTags}`);
-        html = html.replace('<html', '<html prefix="og: http://ogp.me/ns#"');
-        
-        // Ensure the response is treated as HTML and add cache control
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.send(html);
-      } catch (err) {
-        console.error("[OG-TAGS] Erro ao carregar index.html em dev:", err);
-        return next();
-      }
-    } else {
-      try {
-        const fs = await import("fs");
-        const indexPath = path.join(process.cwd(), 'dist', 'index.html');
-        let html = fs.readFileSync(indexPath, 'utf8');
-        
-        // Replace existing title and inject tags at the beginning of head
-        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
-        html = html.replace('<head>', `<head>${ogTags}`);
-        html = html.replace('<html', '<html prefix="og: http://ogp.me/ns#"');
-        
-        // Ensure the response is treated as HTML and add cache control
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.send(html);
-      } catch (err) {
-        console.error("[OG-TAGS] Erro ao carregar index.html:", err);
-        return res.redirect(`/share/${id}`);
-      }
-    }
-  });
 
   // Vite middleware for development (already handled above if not production)
   if (process.env.NODE_ENV !== "production") {
