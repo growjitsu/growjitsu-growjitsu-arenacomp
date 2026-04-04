@@ -188,13 +188,14 @@ export const generateCard = async (data: CardData) => {
 
   try {
     // Encode data to Base64 to create a shareable ID (Fallback para compatibilidade)
+    // Usamos encodeURIComponent + unescape para garantir suporte a caracteres UTF-8 (acentos, etc)
     const jsonString = JSON.stringify(data);
-    const base64Data = btoa(jsonString);
+    const base64Data = btoa(unescape(encodeURIComponent(jsonString)));
     
     // Use the new format /share/${type}/${id}
     const type = data.type || 'post';
     const shareUrl = `${window.location.origin}/share/${type}/${base64Data}`;
-    console.log('[arenaService] URL de compartilhamento gerada (Base64):', shareUrl);
+    console.log('[arenaService] URL de compartilhamento gerada (Base64 UTF-8):', shareUrl);
     
     return shareUrl;
   } catch (error: any) {

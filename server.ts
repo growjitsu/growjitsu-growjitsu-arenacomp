@@ -795,35 +795,62 @@ async function startServer() {
       console.error("[OG-TAGS] Erro ao carregar dados para OG tags:", err);
     }
 
-    const title = cardData?.title || "Conquista ArenaComp";
-    const description = `${cardData?.athleteName || "Atleta"} conquistou ${cardData?.achievement || "um novo marco"} na ArenaComp! 🔥`;
+    const title = cardData?.title || "ArenaComp - Conquista";
+    const description = `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
     
+    // Get the current host dynamically to avoid domain mismatch
+    const currentHost = req.get('host');
+    const protocol = 'https'; // Force https for OG tags as it's more reliable for crawlers
+    const baseUrl = process.env.APP_URL || `${protocol}://${currentHost}`;
+
     // For the image, we can use a generic one or the athlete's photo if available
-    let imageUrl = cardData?.mainImageUrl || "https://arenacomp.com.br/og-image.png"; 
+    let imageUrl = cardData?.mainImageUrl || `${baseUrl}/og-image.png`; 
     
-    // Ensure imageUrl is a full URL
+    // Ensure imageUrl is a full URL and uses https
     if (imageUrl && imageUrl.startsWith('/')) {
-      const baseUrl = process.env.APP_URL || `https://${req.get('host')}`;
       imageUrl = `${baseUrl}${imageUrl}`;
     }
+    if (imageUrl && imageUrl.startsWith('http:')) {
+      imageUrl = imageUrl.replace('http:', 'https:');
+    }
 
-    const url = `${process.env.APP_URL || `https://${req.get('host')}`}/share/${type ? type + '/' : ''}${id}`;
+    // Fallback if the image is still not a full URL or is the missing og-image.png
+    if (!imageUrl || !imageUrl.startsWith('http')) {
+      imageUrl = `https://picsum.photos/seed/arenacomp/1200/630`;
+    }
+
+    // Add a cache buster to the image URL to force WhatsApp to re-crawl if needed
+    const imageCacheBuster = `v=${Date.now()}`;
+    const finalImageUrl = imageUrl.includes('?') ? `${imageUrl}&${imageCacheBuster}` : `${imageUrl}?${imageCacheBuster}`;
+
+    const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+
+    console.log(`[OG-TAGS] Gerando tags para: ${url}`);
+    console.log(`[OG-TAGS] Image URL: ${finalImageUrl}`);
 
     const ogTags = `
-      <title>${title}</title>
-      <meta name="description" content="${description}">
       <meta property="og:title" content="${title}">
       <meta property="og:description" content="${description}">
-      <meta property="og:image" content="${imageUrl}">
-      <meta property="og:image:type" content="image/png">
+      <meta property="og:image" content="${finalImageUrl}">
+      <meta property="og:image:secure_url" content="${finalImageUrl}">
+      <meta property="og:image:type" content="image/jpeg">
+      <meta property="og:image:width" content="1200">
+      <meta property="og:image:height" content="630">
       <meta property="og:image:alt" content="${title}">
       <meta property="og:url" content="${url}">
       <meta property="og:type" content="website">
       <meta property="og:site_name" content="ArenaComp">
+      <meta property="og:locale" content="pt_BR">
       <meta name="twitter:card" content="summary_large_image">
       <meta name="twitter:title" content="${title}">
       <meta name="twitter:description" content="${description}">
-      <meta name="twitter:image" content="${imageUrl}">
+      <meta name="twitter:image" content="${finalImageUrl}">
+      <meta name="twitter:image:src" content="${finalImageUrl}">
+      <meta name="description" content="${description}">
+      <meta itemprop="name" content="${title}">
+      <meta itemprop="description" content="${description}">
+      <meta itemprop="image" content="${finalImageUrl}">
+      <link rel="canonical" href="${url}">
     `;
 
     if (process.env.NODE_ENV !== "production") {
@@ -837,9 +864,14 @@ async function startServer() {
           html = await vite.transformIndexHtml(req.url, html);
         }
 
-        // Inject tags before </head>
-        html = html.replace('</head>', `${ogTags}</head>`);
+        // Replace existing title and inject tags at the beginning of head
+        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+        html = html.replace('<head>', `<head>${ogTags}`);
+        html = html.replace('<html', '<html prefix="og: http://ogp.me/ns#"');
         
+        // Ensure the response is treated as HTML and add cache control
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
         return res.send(html);
       } catch (err) {
         console.error("[OG-TAGS] Erro ao carregar index.html em dev:", err);
@@ -851,9 +883,14 @@ async function startServer() {
         const indexPath = path.join(process.cwd(), 'dist', 'index.html');
         let html = fs.readFileSync(indexPath, 'utf8');
         
-        // Inject tags before </head>
-        html = html.replace('</head>', `${ogTags}</head>`);
+        // Replace existing title and inject tags at the beginning of head
+        html = html.replace(/<title>.*?<\/title>/, `<title>${title}</title>`);
+        html = html.replace('<head>', `<head>${ogTags}`);
+        html = html.replace('<html', '<html prefix="og: http://ogp.me/ns#"');
         
+        // Ensure the response is treated as HTML and add cache control
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
         return res.send(html);
       } catch (err) {
         console.error("[OG-TAGS] Erro ao carregar index.html:", err);

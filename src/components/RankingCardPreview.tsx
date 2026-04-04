@@ -101,27 +101,27 @@ export const RankingCardPreview: React.FC<RankingCardPreviewProps> = ({ data, cl
           </div>
 
           {/* Athlete Info */}
-          <div className="text-center w-full px-4 flex flex-col items-center gap-3">
-            <h2 className="text-[1.5rem] md:text-[1.75rem] font-black uppercase italic text-white tracking-tighter leading-[1.1] max-w-full break-words">
+          <div className="text-center w-full px-6 flex flex-col items-center gap-2">
+            <h2 className="text-[1.25rem] md:text-[1.5rem] font-black uppercase italic text-white tracking-tighter leading-[1.1] max-w-full break-words text-center">
               {athleteName}
             </h2>
             <div className="flex flex-col items-center gap-2">
-              <div className="flex flex-wrap justify-center items-center gap-2">
-                <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
-                  <span className="text-[9px] font-black text-[var(--primary)] uppercase tracking-[0.15em]">
+              <div className="flex flex-wrap justify-center items-center gap-1.5">
+                <div className="px-2.5 py-0.5 bg-white/5 rounded-full border border-white/10">
+                  <span className="text-[8px] font-black text-[var(--primary)] uppercase tracking-[0.15em]">
                     {modality}
                   </span>
                 </div>
                 {category && (
-                  <div className="px-3 py-1 bg-white/5 rounded-full border border-white/10">
-                    <span className="text-[9px] font-bold text-white/60 uppercase tracking-widest">
+                  <div className="px-2.5 py-0.5 bg-white/5 rounded-full border border-white/10">
+                    <span className="text-[8px] font-bold text-white/60 uppercase tracking-widest">
                       {category}
                     </span>
                   </div>
                 )}
               </div>
               {location && (
-                <p className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] italic">
+                <p className="text-[8px] font-black text-white/30 uppercase tracking-[0.2em] italic">
                   {location}
                 </p>
               )}

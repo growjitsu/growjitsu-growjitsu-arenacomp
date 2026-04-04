@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { generateCard, shareCard, shareWhatsApp, shareToSocial, shareToArenaComp, CardData } from '../services/arenaService';
 import { RankingCardPreview } from './RankingCardPreview';
 import { supabase } from '../services/supabase';
-import { toPng } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import { toast } from 'sonner';
 
 interface RankingShareModalProps {
@@ -44,10 +44,11 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
     setLoading(true);
     try {
       // 1. Gerar a imagem do card visual para o preview social
-      const dataUrl = await toPng(cardRef.current, {
+      // Usamos JPEG com qualidade 0.8 para reduzir o tamanho do arquivo (melhor para WhatsApp)
+      const dataUrl = await toJpeg(cardRef.current, {
         cacheBust: true,
-        quality: 1,
-        pixelRatio: 2,
+        quality: 0.8,
+        pixelRatio: 1.5,
         backgroundColor: '#000',
       });
 
@@ -61,13 +62,13 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
-      const fileName = `ranking-share-${user.id}-${Date.now()}.png`;
+      const fileName = `ranking-share-${user.id}-${Date.now()}.jpg`;
       const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('posts')
         .upload(filePath, blob, {
-          contentType: 'image/png',
+          contentType: 'image/jpeg',
           upsert: true
         });
 
