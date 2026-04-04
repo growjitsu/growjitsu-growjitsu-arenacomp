@@ -244,9 +244,17 @@ async function startServer() {
       console.error("[OG-TAGS] Error loading data:", err);
     }
 
-    const title = cardData?.title || "ArenaComp - Conquista";
     const athleteName = cardData?.athleteName || "Atleta";
-    const description = cardData?.achievement || `${athleteName} compartilhou uma conquista na ArenaComp! 🔥`;
+    let title = cardData?.title || "Conquista";
+    // Remove brand indication from title as per WhatsApp docs
+    title = title.replace("ArenaComp", "").replace("-", "").trim();
+    if (!title) title = "Conquista";
+
+    let description = cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`;
+    // WhatsApp limit: 80 characters
+    if (description.length > 80) {
+      description = description.substring(0, 77) + "...";
+    }
     
     const currentHost = req.get('host');
     const protocol = 'https';
@@ -275,6 +283,7 @@ async function startServer() {
       `<meta name="description" content="${description}">`,
       `<meta property="og:title" content="${title}">`,
       `<meta property="og:description" content="${description}">`,
+      `<meta property="og:url" content="${url}">`,
       `<meta property="og:image" content="${finalImageUrl}">`,
       `<meta property="og:image:url" content="${finalImageUrl}">`,
       `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
@@ -282,7 +291,6 @@ async function startServer() {
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
       `<meta property="og:image:alt" content="${title} - ${athleteName}">`,
-      `<meta property="og:url" content="${url}">`,
       `<meta property="og:type" content="website">`,
       `<meta property="og:site_name" content="ArenaComp">`,
       `<meta property="og:locale" content="pt_BR">`,
