@@ -701,17 +701,22 @@ async function startServer() {
 
     try {
       // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      if (id && id.length > 50) {
+      // Se o ID for longo, provavelmente é um JSON Base64
+      if (id && id.length > 40) {
         try {
-          const jsonString = Buffer.from(id, 'base64').toString('utf-8');
+          // Tornamos o Base64 URL-safe de volta para o formato padrão
+          const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
+          // Decodificamos de forma segura para UTF-8 no Node.js
+          const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
           cardData = JSON.parse(jsonString);
+          console.log(`[OG-TAGS] Dados decodificados via Base64 URL-Safe para ${type}`);
         } catch (e) {
-          console.log("[OG-TAGS] ID longo mas não é Base64 JSON válido");
+          console.log("[OG-TAGS] ID longo mas não é Base64 JSON válido ou erro de decodificação");
         }
       }
 
       // 2. Se não decodificou e temos type, busca no Supabase
-      if (!cardData && type) {
+      if (!cardData && type && id && id.length <= 40) {
         console.log(`[OG-TAGS] Buscando dados no Supabase para type: ${type}, id: ${id}`);
         
         if (type === 'post' || type === 'clip') {
@@ -796,7 +801,7 @@ async function startServer() {
     }
 
     const title = cardData?.title || "ArenaComp - Conquista";
-    const description = `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
+    const description = cardData?.achievement || `${cardData?.athleteName || "Atleta"} compartilhou uma conquista na ArenaComp! 🔥`;
     
     // Get the current host dynamically to avoid domain mismatch
     const currentHost = req.get('host');
@@ -828,30 +833,31 @@ async function startServer() {
     console.log(`[OG-TAGS] Gerando tags para: ${url}`);
     console.log(`[OG-TAGS] Image URL: ${finalImageUrl}`);
 
-    const ogTags = `
-      <meta property="og:title" content="${title}">
-      <meta property="og:description" content="${description}">
-      <meta property="og:image" content="${finalImageUrl}">
-      <meta property="og:image:secure_url" content="${finalImageUrl}">
-      <meta property="og:image:type" content="image/jpeg">
-      <meta property="og:image:width" content="1200">
-      <meta property="og:image:height" content="630">
-      <meta property="og:image:alt" content="${title}">
-      <meta property="og:url" content="${url}">
-      <meta property="og:type" content="website">
-      <meta property="og:site_name" content="ArenaComp">
-      <meta property="og:locale" content="pt_BR">
-      <meta name="twitter:card" content="summary_large_image">
-      <meta name="twitter:title" content="${title}">
-      <meta name="twitter:description" content="${description}">
-      <meta name="twitter:image" content="${finalImageUrl}">
-      <meta name="twitter:image:src" content="${finalImageUrl}">
-      <meta name="description" content="${description}">
-      <meta itemprop="name" content="${title}">
-      <meta itemprop="description" content="${description}">
-      <meta itemprop="image" content="${finalImageUrl}">
-      <link rel="canonical" href="${url}">
-    `;
+    // Clean up meta tags to avoid whitespace issues and ensure they are standard
+    const ogTags = [
+      `<meta property="og:title" content="${title}">`,
+      `<meta property="og:description" content="${description}">`,
+      `<meta property="og:image" content="${finalImageUrl}">`,
+      `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
+      `<meta property="og:image:type" content="image/jpeg">`,
+      `<meta property="og:image:width" content="1200">`,
+      `<meta property="og:image:height" content="630">`,
+      `<meta property="og:image:alt" content="${title}">`,
+      `<meta property="og:url" content="${url}">`,
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:site_name" content="ArenaComp">`,
+      `<meta property="og:locale" content="pt_BR">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:title" content="${title}">`,
+      `<meta name="twitter:description" content="${description}">`,
+      `<meta name="twitter:image" content="${finalImageUrl}">`,
+      `<meta name="twitter:image:src" content="${finalImageUrl}">`,
+      `<meta name="description" content="${description}">`,
+      `<meta itemprop="name" content="${title}">`,
+      `<meta itemprop="description" content="${description}">`,
+      `<meta itemprop="image" content="${finalImageUrl}">`,
+      `<link rel="canonical" href="${url}">`
+    ].join('\n');
 
     if (process.env.NODE_ENV !== "production") {
       try {

@@ -25,9 +25,11 @@ export const SharePage = () => {
         // 1. Tenta decodificar como Base64 (formato antigo/fallback)
         if (id.length > 50) {
           try {
+            // Tornamos o Base64 URL-safe de volta para o formato padrão
+            const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
             // Usamos decodeURIComponent + escape para garantir suporte a caracteres UTF-8 (acentos, etc)
-            data = JSON.parse(decodeURIComponent(escape(atob(id))));
-            console.log('Dados decodificados via Base64 (UTF-8):', data);
+            data = JSON.parse(decodeURIComponent(escape(atob(base64))));
+            console.log('Dados decodificados via Base64 URL-Safe (UTF-8):', data);
           } catch (e) {
             console.log('ID longo mas não é Base64 JSON válido ou erro de decodificação UTF-8');
           }
