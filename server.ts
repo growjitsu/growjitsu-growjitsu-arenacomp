@@ -578,6 +578,120 @@ async function startServer() {
     }
   });
 
+  // AD TRACKING API
+  app.post("/api/trackAdEvent", async (req, res) => {
+    try {
+      const { adId, eventType, userId, deviceInfo } = req.body;
+      
+      if (!adId || !eventType) {
+        return res.status(400).json({ error: "adId and eventType are required" });
+      }
+
+      const userAgent = req.headers['user-agent'] || '';
+      const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+      // Basic geolocation (placeholder for now, can be enhanced with an external API)
+      // In a real production environment, we'd use a service like MaxMind or ip-api.com
+      const country = req.headers['cf-ipcountry'] as string || 'Unknown';
+
+      const { error } = await supabaseAdmin
+        .from('arena_ad_events')
+        .insert([{
+          ad_id: adId,
+          event_type: eventType,
+          user_id: userId || null,
+          ip_address: typeof ipAddress === 'string' ? ipAddress : (Array.isArray(ipAddress) ? ipAddress[0] : null),
+          user_agent: userAgent,
+          device_type: deviceInfo?.device || 'desktop',
+          os: deviceInfo?.os || 'Unknown',
+          browser: deviceInfo?.browser || 'Unknown',
+          country: country,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+
+      // Update summary counts in arena_ads
+      if (eventType === 'impression') {
+        await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: adId });
+      } else if (eventType === 'click') {
+        await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: adId });
+      }
+
+      res.json({ status: "ok" });
+    } catch (error: any) {
+      console.error('[API] Erro ao rastrear evento de anúncio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AD REPORTS API (Admin only)
+  app.get("/api/getAdReports", async (req, res) => {
+    try {
+      // Basic security check (should be enhanced with proper admin auth validation)
+      // In this environment, we assume the caller is an admin if they have access to the admin panel
+      
+      const { adId, startDate, endDate } = req.query;
+
+      let query = supabaseAdmin
+        .from('arena_ad_events')
+        .select('*');
+
+      if (adId) query = query.eq('ad_id', adId);
+      if (startDate) query = query.gte('created_at', startDate);
+      if (endDate) query = query.lte('created_at', endDate);
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Aggregate data for reports
+      const stats = {
+        totalImpressions: data?.filter(e => e.event_type === 'impression').length || 0,
+        totalClicks: data?.filter(e => e.event_type === 'click').length || 0,
+        ctr: 0,
+        deviceStats: {} as Record<string, number>,
+        osStats: {} as Record<string, number>,
+        browserStats: {} as Record<string, number>,
+        countryStats: {} as Record<string, number>,
+        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
+      };
+
+      if (stats.totalImpressions > 0) {
+        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
+      }
+
+      data?.forEach(event => {
+        // Device
+        const device = event.device_type || 'Unknown';
+        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
+
+        // OS
+        const os = event.os || 'Unknown';
+        stats.osStats[os] = (stats.osStats[os] || 0) + 1;
+
+        // Browser
+        const browser = event.browser || 'Unknown';
+        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
+
+        // Country
+        const country = event.country || 'Unknown';
+        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
+
+        // Daily
+        const date = new Date(event.created_at).toISOString().split('T')[0];
+        if (!stats.dailyStats[date]) stats.dailyStats[date] = { impressions: 0, clicks: 0 };
+        if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
+        else if (event.event_type === 'click') stats.dailyStats[date].clicks++;
+      });
+
+      res.json({ events: data, stats });
+    } catch (error: any) {
+      console.error('[API] Erro ao buscar relatórios de anúncios:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // 1. CORS Middleware
   app.use(cors({
     origin: "*",

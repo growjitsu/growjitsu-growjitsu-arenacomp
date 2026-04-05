@@ -119,6 +119,9 @@ export interface ArenaAd {
   link_url?: string;
   placement: 'feed_top' | 'feed_between' | 'sidebar' | 'profile';
   active: boolean;
+  order: number;
+  total_impressions: number;
+  total_clicks: number;
   created_at: string;
 }
 

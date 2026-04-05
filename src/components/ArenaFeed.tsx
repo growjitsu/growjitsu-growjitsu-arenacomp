@@ -8,6 +8,7 @@ import { PostModal } from './PostModal';
 import { ShareModal } from './ShareModal';
 import { AchievementCard } from './AchievementCard';
 import { generateCard, CardData } from '../services/arenaService';
+import { trackAdEvent } from '../services/adService';
 
 export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
   const [posts, setPosts] = useState<ArenaPost[]>([]);
@@ -54,6 +55,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const [loadingPromoted, setLoadingPromoted] = useState(false);
+  const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
   const { id: urlPostId } = useParams<{ id?: string }>();
 
   useEffect(() => {
@@ -1090,28 +1092,48 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         </motion.div>
 
                         {/* Interstitial Ad */}
-                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement === 'feed_between').length > 0 && (
-                          <div className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center relative overflow-hidden group/ad">
-                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
-                            <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
-                            <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
-                              {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].title}
-                            </h4>
-                            <p className="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto leading-relaxed">
-                              {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].content}
-                            </p>
-                            {ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url && (
-                              <a 
-                                href={ads.filter(ad => ad.placement === 'feed_between')[Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length].link_url!} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-block px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
-                              >
-                                Conhecer Agora
-                              </a>
-                            )}
-                          </div>
-                        )}
+                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement === 'feed_between').length > 0 && (() => {
+                          const adIndex = Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length;
+                          const ad = ads.filter(ad => ad.placement === 'feed_between')[adIndex];
+                          
+                          return (
+                            <div 
+                              className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center relative overflow-hidden group/ad"
+                              ref={(el) => {
+                                if (el && !trackedAds.has(ad.id)) {
+                                  const observer = new IntersectionObserver((entries) => {
+                                    if (entries[0].isIntersecting) {
+                                      trackAdEvent(ad.id, 'impression', userProfile?.id);
+                                      setTrackedAds(prev => new Set(prev).add(ad.id));
+                                      observer.disconnect();
+                                    }
+                                  }, { threshold: 0.5 });
+                                  observer.observe(el);
+                                }
+                              }}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
+                              <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
+                              <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
+                                {ad.title}
+                              </h4>
+                              <p className="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto leading-relaxed">
+                                {ad.content}
+                              </p>
+                              {ad.link_url && (
+                                <a 
+                                  href={ad.link_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                                  className="inline-block px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
+                                >
+                                  Conhecer Agora
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </React.Fragment>
                     ))}
 

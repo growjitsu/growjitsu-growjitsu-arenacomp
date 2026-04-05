@@ -3,9 +3,10 @@ import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, delet
 import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown, Upload, Calendar, Lock } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown, Upload, Calendar, Lock, BarChart2, Zap, Layout, Eye, MousePointer2, TrendingUp, Download, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../../services/supabase';
+import { ArenaAd } from '../../types';
 
 interface Banner {
   id: string;
@@ -28,10 +29,20 @@ interface Banner {
 }
 
 export const AdminAds: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'landing' | 'feed' | 'analytics'>('landing');
   const [banners, setBanners] = useState<Banner[]>([]);
+  const [feedAds, setFeedAds] = useState<ArenaAd[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isFeedModalOpen, setIsFeedModalOpen] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [editingFeedAd, setEditingFeedAd] = useState<ArenaAd | null>(null);
+  
+  // Analytics state
+  const [reportData, setReportData] = useState<any>(null);
+  const [loadingReport, setLoadingReport] = useState(false);
+  const [selectedAdId, setSelectedAdId] = useState<string>('all');
+
   const [formData, setFormData] = useState({
     image_url: '',
     mobile_image_url: '',
@@ -61,6 +72,16 @@ export const AdminAds: React.FC = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [fbUser, setFbUser] = useState<any>(null);
   const [isFirebaseAuthReady, setIsFirebaseAuthReady] = useState(false);
+
+  const [feedFormData, setFeedFormData] = useState({
+    title: '',
+    content: '',
+    media_url: '',
+    link_url: '',
+    placement: 'feed_between' as ArenaAd['placement'],
+    active: true,
+    order: 0
+  });
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -104,9 +125,48 @@ export const AdminAds: React.FC = () => {
     });
 
     fetchCountries();
+    fetchFeedAds();
 
     return () => unsubscribe();
   }, []);
+
+  const fetchFeedAds = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('arena_ads')
+        .select('*')
+        .order('order', { ascending: true });
+      
+      if (error) throw error;
+      setFeedAds(data || []);
+    } catch (error) {
+      console.error('Error fetching feed ads:', error);
+      toast.error('Erro ao carregar anúncios do feed.');
+    }
+  };
+
+  const fetchAnalytics = async (adId: string = 'all') => {
+    setLoadingReport(true);
+    try {
+      const url = adId === 'all' ? '/api/getAdReports' : `/api/getAdReports?adId=${adId}`;
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setReportData(data);
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      toast.error('Erro ao carregar relatórios.');
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'analytics') {
+      fetchAnalytics(selectedAdId);
+    }
+  }, [activeTab, selectedAdId]);
 
   const fetchCountries = async () => {
     const { data } = await supabase.from('countries').select('*').order('name');
@@ -445,128 +505,575 @@ export const AdminAds: React.FC = () => {
     }
   };
 
+  const handleOpenFeedModal = (ad?: ArenaAd) => {
+    if (ad) {
+      setEditingFeedAd(ad);
+      setFeedFormData({
+        title: ad.title,
+        content: ad.content,
+        media_url: ad.media_url || '',
+        link_url: ad.link_url || '',
+        placement: ad.placement,
+        active: ad.active,
+        order: ad.order || 0
+      });
+    } else {
+      setEditingFeedAd(null);
+      setFeedFormData({
+        title: '',
+        content: '',
+        media_url: '',
+        link_url: '',
+        placement: 'feed_between',
+        active: true,
+        order: feedAds.length
+      });
+    }
+    setIsFeedModalOpen(true);
+  };
+
+  const handleSaveFeedAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const toastId = toast.loading('Salvando anúncio...');
+    try {
+      if (editingFeedAd) {
+        const { error } = await supabase
+          .from('arena_ads')
+          .update(feedFormData)
+          .eq('id', editingFeedAd.id);
+        if (error) throw error;
+        toast.success('Anúncio atualizado!', { id: toastId });
+      } else {
+        const { error } = await supabase
+          .from('arena_ads')
+          .insert([feedFormData]);
+        if (error) throw error;
+        toast.success('Anúncio criado!', { id: toastId });
+      }
+      setIsFeedModalOpen(false);
+      fetchFeedAds();
+    } catch (error: any) {
+      console.error('Error saving feed ad:', error);
+      toast.error('Erro ao salvar anúncio: ' + error.message, { id: toastId });
+    }
+  };
+
+  const handleDeleteFeedAd = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este anúncio?')) return;
+    try {
+      const { error } = await supabase
+        .from('arena_ads')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      toast.success('Anúncio excluído!');
+      fetchFeedAds();
+    } catch (error: any) {
+      console.error('Error deleting feed ad:', error);
+      toast.error('Erro ao excluir anúncio.');
+    }
+  };
+
+  const exportToCSV = (data: any[]) => {
+    if (!data || data.length === 0) return;
+    
+    const headers = ['Data', 'Evento', 'Dispositivo', 'OS', 'Navegador', 'País'];
+    const rows = data.map(e => [
+      new Date(e.created_at).toLocaleString(),
+      e.event_type,
+      e.device_type,
+      e.os,
+      e.browser,
+      e.country
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(r => r.join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `relatorio_anuncios_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
-          <h2 className="text-xl font-black uppercase italic tracking-tight">Arena Ads</h2>
-          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Gestão de Patrocínios e Destaques</p>
+          <h2 className="text-xl font-black uppercase italic tracking-tight">Arena Ads & Analytics</h2>
+          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Gestão de Patrocínios e Performance</p>
         </div>
         
         <div className="flex items-center space-x-3">
-          <button
-            onClick={handleFirebaseLogin}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-              fbUser 
-                ? 'bg-green-600/10 text-green-500 border-green-600/20 hover:bg-green-600 hover:text-white' 
-                : 'bg-rose-600/10 text-rose-500 border-rose-600/20 hover:bg-rose-600 hover:text-white'
-            }`}
-          >
-            <Lock size={14} />
-            <span>{fbUser ? `Logado: ${fbUser.email?.split('@')[0]}` : 'Login Firebase'}</span>
-          </button>
+          <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+            <button 
+              onClick={() => setActiveTab('landing')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'landing' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+            >
+              <Layout size={14} />
+              <span>Landing</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('feed')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'feed' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+            >
+              <Zap size={14} />
+              <span>Feed</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('analytics')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'analytics' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+            >
+              <BarChart2 size={14} />
+              <span>Analytics</span>
+            </button>
+          </div>
+
+          {activeTab === 'landing' && (
+            <button
+              onClick={handleFirebaseLogin}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
+                fbUser 
+                  ? 'bg-green-600/10 text-green-500 border-green-600/20 hover:bg-green-600 hover:text-white' 
+                  : 'bg-rose-600/10 text-rose-500 border-rose-600/20 hover:bg-rose-600 hover:text-white'
+              }`}
+            >
+              <Lock size={14} />
+              <span>{fbUser ? `Firebase OK` : 'Login Firebase'}</span>
+            </button>
+          )}
           
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
-          >
-            <Plus size={16} />
-            <span>Novo Banner</span>
-          </button>
+          {activeTab !== 'analytics' && (
+            <button 
+              onClick={() => activeTab === 'landing' ? handleOpenModal() : handleOpenFeedModal()}
+              className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
+            >
+              <Plus size={16} />
+              <span>{activeTab === 'landing' ? 'Novo Banner' : 'Novo Anúncio'}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        </div>
-      ) : banners.length === 0 ? (
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
-          <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
-            <ImageIcon size={32} />
-          </div>
-          <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum banner configurado</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {banners.map((banner, index) => (
-            <div 
-              key={banner.id}
-              className={`bg-white/5 border border-white/10 rounded-3xl p-4 flex flex-col md:flex-row items-center gap-6 transition-all ${!banner.is_active ? 'opacity-50 grayscale' : ''}`}
-            >
-              {/* Preview */}
-              <div className="w-full md:w-48 h-28 bg-black rounded-2xl overflow-hidden border border-white/10 relative group">
-                <img src={banner.image_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="text-[8px] font-black uppercase tracking-widest text-white">Preview</span>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-black uppercase italic text-sm truncate">{banner.title || 'Sem Título'}</h3>
-                  {!banner.is_active && (
-                    <span className="px-2 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[8px] font-black uppercase tracking-widest">Inativo</span>
-                  )}
-                </div>
-                <p className="text-[10px] text-gray-500 truncate flex items-center space-x-2">
-                  <LinkIcon size={10} />
-                  <span>{banner.link}</span>
-                </p>
-                <div className="flex items-center space-x-4 pt-2">
-                  <div className="flex items-center space-x-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                    <Clock size={10} />
-                    <span>{banner.display_time}s</span>
-                  </div>
-                  <div className="flex items-center space-x-1 text-[9px] font-bold text-blue-500 uppercase tracking-widest">
-                    <span>Ordem: {banner.order}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center space-x-2">
-                <div className="flex flex-col space-y-1 mr-4">
-                  <button 
-                    onClick={() => reorder(banner, 'up')}
-                    disabled={index === 0}
-                    className="p-1.5 text-gray-500 hover:text-white disabled:opacity-20"
-                  >
-                    <ChevronUp size={16} />
-                  </button>
-                  <button 
-                    onClick={() => reorder(banner, 'down')}
-                    disabled={index === banners.length - 1}
-                    className="p-1.5 text-gray-500 hover:text-white disabled:opacity-20"
-                  >
-                    <ChevronDown size={16} />
-                  </button>
-                </div>
-
-                <button 
-                  onClick={() => toggleStatus(banner)}
-                  className={`p-3 rounded-xl border transition-all ${banner.is_active ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-white/5 border-white/10 text-gray-500'}`}
-                >
-                  <Check size={18} />
-                </button>
-                <button 
-                  onClick={() => handleOpenModal(banner)}
-                  className="p-3 bg-white/5 border border-white/10 text-gray-400 hover:text-white rounded-xl transition-all"
-                >
-                  <Edit2 size={18} />
-                </button>
-                <button 
-                  onClick={() => handleDelete(banner.id)}
-                  className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
+      {activeTab === 'landing' && (
+        <div className="space-y-6">
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
-          ))}
+          ) : banners.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
+              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
+                <ImageIcon size={32} />
+              </div>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum banner configurado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {banners.map((banner, index) => (
+                <div 
+                  key={banner.id}
+                  className={`bg-white/5 border border-white/10 rounded-3xl p-4 flex flex-col md:flex-row items-center gap-6 transition-all ${!banner.is_active ? 'opacity-50 grayscale' : ''}`}
+                >
+                  {/* Preview */}
+                  <div className="w-full md:w-48 h-28 bg-black rounded-2xl overflow-hidden border border-white/10 relative group">
+                    <img src={banner.image_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-white">Preview</span>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-black uppercase italic text-sm truncate">{banner.title || 'Sem Título'}</h3>
+                      {!banner.is_active && (
+                        <span className="px-2 py-0.5 bg-rose-500/10 text-rose-500 rounded text-[8px] font-black uppercase tracking-widest">Inativo</span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-500 truncate flex items-center space-x-2">
+                      <LinkIcon size={10} />
+                      <span>{banner.link}</span>
+                    </p>
+                    <div className="flex items-center space-x-4 pt-2">
+                      <div className="flex items-center space-x-1 text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                        <Clock size={10} />
+                        <span>{banner.display_time}s</span>
+                      </div>
+                      <div className="flex items-center space-x-1 text-[9px] font-bold text-blue-500 uppercase tracking-widest">
+                        <span>Ordem: {banner.order}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center space-x-2">
+                    <div className="flex flex-col space-y-1 mr-4">
+                      <button 
+                        onClick={() => reorder(banner, 'up')}
+                        disabled={index === 0}
+                        className="p-1.5 text-gray-500 hover:text-white disabled:opacity-20"
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button 
+                        onClick={() => reorder(banner, 'down')}
+                        disabled={index === banners.length - 1}
+                        className="p-1.5 text-gray-500 hover:text-white disabled:opacity-20"
+                      >
+                        <ChevronDown size={16} />
+                      </button>
+                    </div>
+
+                    <button 
+                      onClick={() => toggleStatus(banner)}
+                      className={`p-3 rounded-xl border transition-all ${banner.is_active ? 'bg-green-500/10 border-green-500/20 text-green-500' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                    >
+                      <Check size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleOpenModal(banner)}
+                      className="p-3 bg-white/5 border border-white/10 text-gray-400 hover:text-white rounded-xl transition-all"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(banner.id)}
+                      className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white rounded-xl transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
+
+      {activeTab === 'feed' && (
+        <div className="space-y-6">
+          {feedAds.length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
+              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
+                <Zap size={32} />
+              </div>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum anúncio de feed configurado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {feedAds.map((ad) => (
+                <div 
+                  key={ad.id}
+                  className={`bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 transition-all ${!ad.active ? 'opacity-50 grayscale' : ''}`}
+                >
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <h3 className="font-black uppercase italic text-lg text-white">{ad.title}</h3>
+                      <span className="px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-blue-500/20">
+                        {ad.placement}
+                      </span>
+                      {!ad.active && (
+                        <span className="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-rose-500/20">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-400 line-clamp-2">{ad.content}</p>
+                    <div className="flex items-center space-x-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <div className="flex items-center space-x-1">
+                        <LinkIcon size={12} />
+                        <span className="truncate max-w-[200px]">{ad.link_url || 'Sem link'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => {
+                        setSelectedAdId(ad.id);
+                        setActiveTab('analytics');
+                      }}
+                      className="p-4 bg-emerald-600/10 text-emerald-500 border border-emerald-600/20 rounded-2xl hover:bg-emerald-600 hover:text-white transition-all flex items-center space-x-2"
+                    >
+                      <BarChart2 size={18} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Stats</span>
+                    </button>
+                    <button 
+                      onClick={() => handleOpenFeedModal(ad)}
+                      className="p-4 bg-blue-600/10 text-blue-500 border border-blue-600/20 rounded-2xl hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteFeedAd(ad.id)}
+                      className="p-4 bg-rose-600/10 text-rose-500 border border-rose-600/20 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'analytics' && (
+        <div className="space-y-8">
+          {/* Filters */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/5 p-6 rounded-[2rem] border border-white/10">
+            <div className="flex items-center space-x-4 w-full md:w-auto">
+              <select 
+                value={selectedAdId}
+                onChange={(e) => setSelectedAdId(e.target.value)}
+                className="bg-black border border-white/10 rounded-xl px-4 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500 w-full"
+              >
+                <option value="all">Todos os Anúncios</option>
+                {feedAds.map(ad => (
+                  <option key={ad.id} value={ad.id}>{ad.title}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <button 
+                onClick={() => fetchAnalytics(selectedAdId)}
+                className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-gray-400"
+              >
+                <RotateCcw size={18} />
+              </button>
+              <button 
+                onClick={() => exportToCSV(reportData?.events)}
+                className="flex items-center space-x-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20"
+              >
+                <Download size={16} />
+                <span>Exportar CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {loadingReport ? (
+            <div className="flex justify-center py-20">
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : reportData ? (
+            <div className="space-y-8">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-500">
+                      <Eye size={24} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Impressões Totais</p>
+                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.totalImpressions.toLocaleString()}</h3>
+                </div>
+
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
+                      <MousePointer2 size={24} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Cliques Totais</p>
+                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.totalClicks.toLocaleString()}</h3>
+                </div>
+
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                      <TrendingUp size={24} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">CTR Médio</p>
+                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.ctr.toFixed(2)}%</h3>
+                </div>
+
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500">
+                      <Zap size={24} />
+                    </div>
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Eventos Recentes</p>
+                  <h3 className="text-3xl font-black tracking-tight">{reportData.events.length.toLocaleString()}</h3>
+                </div>
+              </div>
+
+              {/* Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] p-8">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Performance por Dispositivo</h4>
+                  <div className="space-y-4">
+                    {Object.entries(reportData.stats.deviceStats).map(([device, count]: any) => (
+                      <div key={device} className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-white">{device}</span>
+                          <span className="text-gray-500">{count} eventos</span>
+                        </div>
+                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-600 rounded-full" 
+                            style={{ width: `${(count / reportData.events.length) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] p-8">
+                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Performance por Navegador</h4>
+                  <div className="space-y-4">
+                    {Object.entries(reportData.stats.browserStats).map(([browser, count]: any) => (
+                      <div key={browser} className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-white">{browser}</span>
+                          <span className="text-gray-500">{count} eventos</span>
+                        </div>
+                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-600 rounded-full" 
+                            style={{ width: `${(count / reportData.events.length) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center">
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum dado de analytics disponível</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Feed Ad Modal */}
+      <AnimatePresence>
+        {isFeedModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-white/10 flex justify-between items-center">
+                <h3 className="text-xl font-black uppercase italic tracking-tight">
+                  {editingFeedAd ? 'Editar Anúncio' : 'Novo Anúncio de Feed'}
+                </h3>
+                <button onClick={() => setIsFeedModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-all">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveFeedAd} className="p-8 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Título</label>
+                    <input 
+                      type="text"
+                      required
+                      value={feedFormData.title}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, title: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      placeholder="Título do anúncio"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Posicionamento</label>
+                    <select 
+                      value={feedFormData.placement}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, placement: e.target.value as any })}
+                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                    >
+                      <option value="feed_top">Topo do Feed</option>
+                      <option value="feed_between">Entre Posts</option>
+                      <option value="sidebar">Barra Lateral</option>
+                      <option value="profile">Perfil</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Conteúdo / Descrição</label>
+                  <textarea 
+                    required
+                    value={feedFormData.content}
+                    onChange={(e) => setFeedFormData({ ...feedFormData, content: e.target.value })}
+                    className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all h-32 resize-none"
+                    placeholder="Texto do anúncio..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">URL da Imagem</label>
+                    <input 
+                      type="url"
+                      value={feedFormData.media_url}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, media_url: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Link de Destino</label>
+                    <input 
+                      type="url"
+                      value={feedFormData.link_url}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, link_url: e.target.value })}
+                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                  <div className="flex items-center space-x-3">
+                    <div className={`w-3 h-3 rounded-full ${feedFormData.active ? 'bg-green-500' : 'bg-gray-500'}`} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Anúncio Ativo</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setFeedFormData({ ...feedFormData, active: !feedFormData.active })}
+                    className={`w-12 h-6 rounded-full transition-all relative ${feedFormData.active ? 'bg-blue-600' : 'bg-gray-700'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${feedFormData.active ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="flex justify-end space-x-4 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setIsFeedModalOpen(false)}
+                    className="px-8 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
+                  >
+                    Salvar Anúncio
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modal */}
       <AnimatePresence>
