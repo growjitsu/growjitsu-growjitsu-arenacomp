@@ -69,6 +69,8 @@ export const AdminAds: React.FC = () => {
   const [mobileFile, setMobileFile] = useState<File | null>(null);
   const [desktopPreview, setDesktopPreview] = useState<string>('');
   const [mobilePreview, setMobilePreview] = useState<string>('');
+  const [feedAdFile, setFeedAdFile] = useState<File | null>(null);
+  const [feedAdPreview, setFeedAdPreview] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [fbUser, setFbUser] = useState<any>(null);
   const [isFirebaseAuthReady, setIsFirebaseAuthReady] = useState(false);
@@ -506,8 +508,10 @@ export const AdminAds: React.FC = () => {
   };
 
   const handleOpenFeedModal = (ad?: ArenaAd) => {
+    setFeedAdFile(null);
     if (ad) {
       setEditingFeedAd(ad);
+      setFeedAdPreview(ad.media_url || '');
       setFeedFormData({
         title: ad.title,
         content: ad.content,
@@ -519,6 +523,7 @@ export const AdminAds: React.FC = () => {
       });
     } else {
       setEditingFeedAd(null);
+      setFeedAdPreview('');
       setFeedFormData({
         title: '',
         content: '',
@@ -534,19 +539,32 @@ export const AdminAds: React.FC = () => {
 
   const handleSaveFeedAd = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUploading) return;
     const toastId = toast.loading('Salvando anúncio...');
+    setIsUploading(true);
     try {
+      let finalMediaUrl = feedFormData.media_url;
+
+      if (feedAdFile) {
+        finalMediaUrl = await uploadImage(feedAdFile, 'feed_ads');
+      }
+
+      const dataToSave = {
+        ...feedFormData,
+        media_url: finalMediaUrl
+      };
+
       if (editingFeedAd) {
         const { error } = await supabase
           .from('arena_ads')
-          .update(feedFormData)
+          .update(dataToSave)
           .eq('id', editingFeedAd.id);
         if (error) throw error;
         toast.success('Anúncio atualizado!', { id: toastId });
       } else {
         const { error } = await supabase
           .from('arena_ads')
-          .insert([feedFormData]);
+          .insert([dataToSave]);
         if (error) throw error;
         toast.success('Anúncio criado!', { id: toastId });
       }
@@ -555,6 +573,8 @@ export const AdminAds: React.FC = () => {
     } catch (error: any) {
       console.error('Error saving feed ad:', error);
       toast.error('Erro ao salvar anúncio: ' + error.message, { id: toastId });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -967,106 +987,229 @@ export const AdminAds: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden"
+              className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
             >
-              <div className="p-8 border-b border-white/10 flex justify-between items-center">
-                <h3 className="text-xl font-black uppercase italic tracking-tight">
-                  {editingFeedAd ? 'Editar Anúncio' : 'Novo Anúncio de Feed'}
-                </h3>
+              <div className="p-6 md:p-8 border-b border-white/10 flex justify-between items-center shrink-0">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black uppercase italic tracking-tight">
+                    {editingFeedAd ? 'Editar Anúncio' : 'Novo Anúncio de Feed'}
+                  </h3>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Configure os detalhes do anúncio no feed</p>
+                </div>
                 <button onClick={() => setIsFeedModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-all">
                   <X size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveFeedAd} className="p-8 space-y-6">
+              <form onSubmit={handleSaveFeedAd} className="p-6 md:p-8 space-y-6 overflow-y-auto custom-scrollbar">
+                {/* Preview Section */}
+                {feedAdPreview && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Preview da Mídia</label>
+                    <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 relative group">
+                      <img src={feedAdPreview} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-white">Preview do Anúncio</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Título</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Anúncio</label>
                     <input 
                       type="text"
                       required
                       value={feedFormData.title}
                       onChange={(e) => setFeedFormData({ ...feedFormData, title: e.target.value })}
-                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                      placeholder="Título do anúncio"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      placeholder="Ex: Patrocinador Oficial"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Posicionamento</label>
-                    <select 
-                      value={feedFormData.placement}
-                      onChange={(e) => setFeedFormData({ ...feedFormData, placement: e.target.value as any })}
-                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                    >
-                      <option value="feed_top">Topo do Feed</option>
-                      <option value="feed_between">Entre Posts</option>
-                      <option value="sidebar">Barra Lateral</option>
-                      <option value="profile">Perfil</option>
-                    </select>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link de Destino</label>
+                    <div className="relative">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
+                        <LinkIcon size={14} />
+                      </div>
+                      <input 
+                        type="url"
+                        value={feedFormData.link_url}
+                        onChange={(e) => setFeedFormData({ ...feedFormData, link_url: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                        placeholder="https://exemplo.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Posicionamentos</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { id: 'all', label: 'Todos os Posicionamentos' },
+                      { id: 'feed_top', label: 'Topo do Feed' },
+                      { id: 'feed_between', label: 'Entre Posts' },
+                      { id: 'sidebar', label: 'Barra Lateral' },
+                      { id: 'profile', label: 'Perfil' }
+                    ].map((pos) => {
+                      const isAll = pos.id === 'all';
+                      const isSelected = isAll 
+                        ? feedFormData.placement === 'feed_top,feed_between,sidebar,profile'
+                        : feedFormData.placement.includes(pos.id);
+                      const isDisabled = !isAll && feedFormData.placement === 'feed_top,feed_between,sidebar,profile';
+
+                      return (
+                        <button
+                          key={pos.id}
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => {
+                            if (isAll) {
+                              setFeedFormData({
+                                ...feedFormData,
+                                placement: isSelected ? 'feed_between' : 'feed_top,feed_between,sidebar,profile'
+                              });
+                            } else {
+                              const currentPlacements = feedFormData.placement.split(',').filter(p => p);
+                              let newPlacements;
+                              if (isSelected) {
+                                newPlacements = currentPlacements.filter(p => p !== pos.id);
+                                if (newPlacements.length === 0) newPlacements = ['feed_between'];
+                              } else {
+                                newPlacements = [...currentPlacements, pos.id];
+                              }
+                              setFeedFormData({
+                                ...feedFormData,
+                                placement: newPlacements.join(',')
+                              });
+                            }
+                          }}
+                          className={`flex items-center space-x-3 p-4 rounded-2xl border transition-all text-left ${
+                            isSelected 
+                              ? 'bg-blue-600/10 border-blue-600/30 text-blue-500' 
+                              : 'bg-white/5 border-white/10 text-gray-500 hover:bg-white/10'
+                          } ${isDisabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+                        >
+                          <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all ${
+                            isSelected ? 'bg-blue-600 border-blue-600' : 'border-white/20'
+                          }`}>
+                            {isSelected && <Check size={12} className="text-white" />}
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-widest">{pos.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Conteúdo / Descrição</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Conteúdo / Descrição</label>
                   <textarea 
                     required
                     value={feedFormData.content}
                     onChange={(e) => setFeedFormData({ ...feedFormData, content: e.target.value })}
-                    className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all h-32 resize-none"
-                    placeholder="Texto do anúncio..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all h-32 resize-none"
+                    placeholder="Descreva o anúncio de forma atrativa..."
                   />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">URL da Imagem</label>
-                    <input 
-                      type="url"
-                      value={feedFormData.media_url}
-                      onChange={(e) => setFeedFormData({ ...feedFormData, media_url: e.target.value })}
-                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Link de Destino</label>
-                    <input 
-                      type="url"
-                      value={feedFormData.link_url}
-                      onChange={(e) => setFeedFormData({ ...feedFormData, link_url: e.target.value })}
-                      className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                      placeholder="https://..."
-                    />
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Mídia do Anúncio</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest ml-2">Upload de Imagem</p>
+                      <div className="relative group">
+                        <input 
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setFeedAdFile(file);
+                              const reader = new FileReader();
+                              reader.onloadend = () => setFeedAdPreview(reader.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center space-y-3 group-hover:bg-white/10 transition-all">
+                          <div className="p-3 bg-blue-600/10 rounded-xl text-blue-500">
+                            <Upload size={20} />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white">Selecionar Imagem</p>
+                            <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">PNG, JPG ou WebP (Máx 2MB)</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest ml-2">Ou URL Direta</p>
+                      <div className="relative">
+                        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
+                          <ImageIcon size={14} />
+                        </div>
+                        <input 
+                          type="url"
+                          value={feedFormData.media_url}
+                          onChange={(e) => {
+                            setFeedFormData({ ...feedFormData, media_url: e.target.value });
+                            setFeedAdPreview(e.target.value);
+                          }}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                          placeholder="https://..."
+                        />
+                      </div>
+                      <p className="text-[8px] text-gray-600 font-bold uppercase tracking-widest ml-2 italic">Dica: Use upload para melhor performance</p>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                <div className="flex flex-col sm:flex-row items-center justify-between p-6 bg-white/5 rounded-3xl border border-white/10 gap-4">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${feedFormData.active ? 'bg-green-500' : 'bg-gray-500'}`} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Anúncio Ativo</span>
+                    <div className={`w-3 h-3 rounded-full ${feedFormData.active ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-gray-500'}`} />
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-black uppercase tracking-widest block">Status do Anúncio</span>
+                      <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest">{feedFormData.active ? 'Visível no Feed' : 'Oculto'}</span>
+                    </div>
                   </div>
                   <button 
                     type="button"
                     onClick={() => setFeedFormData({ ...feedFormData, active: !feedFormData.active })}
-                    className={`w-12 h-6 rounded-full transition-all relative ${feedFormData.active ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    className={`w-14 h-7 rounded-full transition-all relative ${feedFormData.active ? 'bg-blue-600' : 'bg-gray-700'}`}
                   >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${feedFormData.active ? 'right-1' : 'left-1'}`} />
+                    <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-lg transition-all ${feedFormData.active ? 'right-1' : 'left-1'}`} />
                   </button>
                 </div>
 
-                <div className="flex justify-end space-x-4 pt-4">
+                <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 pt-4 shrink-0">
                   <button 
                     type="button"
                     onClick={() => setIsFeedModalOpen(false)}
-                    className="px-8 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                    className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-white/10"
                   >
                     Cancelar
                   </button>
                   <button 
                     type="submit"
-                    className="px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20"
+                    disabled={isUploading}
+                    className="w-full sm:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
-                    Salvar Anúncio
+                    {isUploading ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Processando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save size={14} />
+                        <span>Salvar Anúncio</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

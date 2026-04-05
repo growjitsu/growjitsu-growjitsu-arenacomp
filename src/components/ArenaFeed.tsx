@@ -740,7 +740,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : (
               <div className="space-y-8">
                 {/* Top Ad */}
-                {ads.filter(ad => ad.placement === 'feed_top').map(ad => (
+                {ads.filter(ad => ad.placement.includes('feed_top')).map(ad => (
                   <div key={ad.id} className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6">
                     {ad.media_url && (
                       <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
@@ -1092,9 +1092,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         </motion.div>
 
                         {/* Interstitial Ad */}
-                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement === 'feed_between').length > 0 && (() => {
-                          const adIndex = Math.floor(index / 3) % ads.filter(ad => ad.placement === 'feed_between').length;
-                          const ad = ads.filter(ad => ad.placement === 'feed_between')[adIndex];
+                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement.includes('feed_between')).length > 0 && (() => {
+                          const adIndex = Math.floor(index / 3) % ads.filter(ad => ad.placement.includes('feed_between')).length;
+                          const ad = ads.filter(ad => ad.placement.includes('feed_between'))[adIndex];
                           
                           return (
                             <div 

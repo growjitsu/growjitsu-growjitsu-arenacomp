@@ -117,7 +117,7 @@ export interface ArenaAd {
   content: string;
   media_url?: string;
   link_url?: string;
-  placement: 'feed_top' | 'feed_between' | 'sidebar' | 'profile';
+  placement: string;
   active: boolean;
   order: number;
   total_impressions: number;
