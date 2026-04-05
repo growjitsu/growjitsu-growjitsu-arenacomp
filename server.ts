@@ -132,10 +132,14 @@ async function startServer() {
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
-    console.log(`[OG-TAGS] Processing request for id: ${id}, type: ${type} | UA: ${userAgent}`);
+    console.log(`[OG-TAGS] Processing request for id: ${id}, type: ${type} | URL: ${req.url} | UA: ${userAgent}`);
     
-    let cardData: any = null;
+    if (req.url.startsWith('/api')) {
+      console.log(`[OG-TAGS] API request detected in share handler, passing to next()`);
+      return next();
+    }
 
+    let cardData: any = null;
     try {
       // 1. Tenta decodificar como Base64 (formato antigo/fallback)
       if (id && id.length > 40 && !type) {
@@ -382,11 +386,9 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  app.get("/share/:type/:id", handleShareRequest);
-  app.get("/share/:id", handleShareRequest);
-
-  // API Endpoints using Supabase Admin (Secret Key)
+  // API Endpoints using Supabase Admin (Secret Key) - Move to top for priority
   app.all("/api/getAdReports", async (req, res) => {
+    console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
     try {
       const { adId, startDate, endDate } = req.query;
       console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
@@ -483,6 +485,9 @@ async function startServer() {
       res.status(500).json({ success: false, error: error.message || "Erro interno no servidor" });
     }
   });
+
+  app.get("/share/:type/:id", handleShareRequest);
+  app.get("/share/:id", handleShareRequest);
 
   app.get("/api/getTopAtletas", async (req, res) => {
     try {
@@ -863,11 +868,6 @@ async function startServer() {
   app.all("/api/cards/generate-card", cardGenerationHandler);
   app.all("/api/cards/generate", cardGenerationHandler);
 
-  // Catch-all for /api routes to prevent falling through to static files
-  app.all("/api/*", (req, res) => {
-    res.status(404).json({ success: false, error: "API route not found", path: req.path });
-  });
-
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "ArenaComp API is running" });
   });
@@ -1098,6 +1098,11 @@ async function startServer() {
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
+  });
+
+  // Catch-all for /api routes to prevent falling through to static files
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ success: false, error: "API route not found", path: req.path });
   });
 
   // Global Error Handler (Standardizing all errors to JSON)

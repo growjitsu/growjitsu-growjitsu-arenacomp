@@ -179,9 +179,12 @@ export const AdminAds: React.FC = () => {
     setLoadingReport(true);
     try {
       const url = adId === 'all' ? '/api/getAdReports' : `/api/getAdReports?adId=${adId}`;
+      console.log(`[DEBUG] Calling analytics API: ${url}`);
       const response = await fetch(url);
       
       const contentType = response.headers.get("content-type");
+      console.log(`[DEBUG] Response status: ${response.status}, content-type: ${contentType}`);
+      
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error('Non-JSON response received:', text.substring(0, 200));
