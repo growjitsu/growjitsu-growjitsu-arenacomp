@@ -1002,19 +1002,6 @@ export const AdminAds: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveFeedAd} className="p-6 md:p-8 space-y-6 overflow-y-auto custom-scrollbar">
-                {/* Preview Section */}
-                {feedAdPreview && (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Preview da Mídia</label>
-                    <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 relative group">
-                      <img src={feedAdPreview} alt="Preview" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-white">Preview do Anúncio</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Anúncio</label>
@@ -1117,10 +1104,36 @@ export const AdminAds: React.FC = () => {
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Mídia do Anúncio</label>
+                  
+                  {/* Preview Section - More prominent */}
+                  {feedAdPreview && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-500">
+                      <div className="flex items-center justify-between ml-2">
+                        <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Preview da Mídia</p>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setFeedAdFile(null);
+                            setFeedAdPreview(feedFormData.media_url || '');
+                          }}
+                          className="text-[8px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors"
+                        >
+                          Remover Seleção
+                        </button>
+                      </div>
+                      <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 relative group shadow-2xl shadow-black/50">
+                        <img src={feedAdPreview} alt="Preview" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                          <p className="text-[10px] text-white/70 font-medium italic">Visualização do anúncio no feed</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest ml-2">Upload de Imagem</p>
-                      <div className="relative group">
+                      <div className="relative">
                         <input 
                           type="file"
                           accept="image/*"
@@ -1131,19 +1144,28 @@ export const AdminAds: React.FC = () => {
                               const reader = new FileReader();
                               reader.onloadend = () => setFeedAdPreview(reader.result as string);
                               reader.readAsDataURL(file);
+                              toast.success('Imagem selecionada com sucesso!');
                             }
                           }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                          className="hidden"
+                          id="feed-ad-upload"
                         />
-                        <div className="bg-white/5 border border-dashed border-white/10 rounded-2xl p-8 flex flex-col items-center justify-center space-y-3 group-hover:bg-white/10 transition-all">
-                          <div className="p-3 bg-blue-600/10 rounded-xl text-blue-500">
+                        <label 
+                          htmlFor="feed-ad-upload"
+                          className={`flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:bg-white/10 ${feedAdFile ? 'border-blue-500/50 bg-blue-600/5' : 'border-white/10 hover:border-blue-500/50'}`}
+                        >
+                          <div className={`p-3 rounded-xl mb-2 ${feedAdFile ? 'bg-blue-600/20 text-blue-400' : 'bg-white/5 text-gray-500'}`}>
                             <Upload size={20} />
                           </div>
-                          <div className="text-center">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white">Selecionar Imagem</p>
-                            <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">PNG, JPG ou WebP (Máx 2MB)</p>
+                          <div className="text-center px-4">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white truncate max-w-[200px]">
+                              {feedAdFile ? feedAdFile.name : 'Selecionar Imagem'}
+                            </p>
+                            <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                              {feedAdFile ? `${(feedAdFile.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG ou WebP (Máx 2MB)'}
+                            </p>
                           </div>
-                        </div>
+                        </label>
                       </div>
                     </div>
 
@@ -1159,6 +1181,7 @@ export const AdminAds: React.FC = () => {
                           onChange={(e) => {
                             setFeedFormData({ ...feedFormData, media_url: e.target.value });
                             setFeedAdPreview(e.target.value);
+                            if (e.target.value) setFeedAdFile(null);
                           }}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
                           placeholder="https://..."
