@@ -116,12 +116,24 @@ export interface ArenaAd {
   title: string;
   content: string;
   media_url?: string;
+  media_url_feed_top?: string;
+  media_url_feed_between?: string;
+  media_url_sidebar?: string;
+  media_url_profile?: string;
   link_url?: string;
   placement: string;
   active: boolean;
   order: number;
   total_impressions: number;
   total_clicks: number;
+  start_date?: string | null;
+  end_date?: string | null;
+  country_id?: string;
+  state_id?: string;
+  city_id?: string;
+  country?: string;
+  state?: string;
+  city?: string;
   created_at: string;
 }
 

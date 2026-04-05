@@ -112,3 +112,22 @@ CREATE INDEX IF NOT EXISTS arena_ad_events_created_at_idx ON arena_ad_events (cr
 
 -- 12. Automação: Removida para controle manual via frontend (authService.ts)
 -- O cadastro manual permite maior controle sobre os tipos de usuário e perfis ativos.
+
+-- 13. Funções RPC para métricas de anúncios
+CREATE OR REPLACE FUNCTION increment_ad_impressions(ad_id_param UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE arena_ads
+  SET total_impressions = total_impressions + 1
+  WHERE id = ad_id_param;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION increment_ad_clicks(ad_id_param UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE arena_ads
+  SET total_clicks = total_clicks + 1
+  WHERE id = ad_id_param;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

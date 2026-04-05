@@ -740,30 +740,40 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : (
               <div className="space-y-8">
                 {/* Top Ad */}
-                {ads.filter(ad => ad.placement.includes('feed_top')).map(ad => (
-                  <div key={ad.id} className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6">
-                    {ad.media_url && (
-                      <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
-                        <img src={ad.media_url} alt="" className="w-full h-full object-cover" />
-                      </div>
-                    )}
-                    <div className="flex-1 text-center md:text-left">
-                      <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2 block">PATROCINADO</span>
-                      <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic">{ad.title}</h4>
-                      <p className="text-xs text-gray-400 mb-4">{ad.content}</p>
-                      {ad.link_url && (
-                        <a 
-                          href={ad.link_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-block px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-500 transition-all"
-                        >
-                          Saiba Mais
-                        </a>
+                {ads.filter(ad => ad.placement.includes('feed_top')).map(ad => {
+                  const adMediaUrl = ad.media_url_feed_top || ad.media_url;
+                  const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
+
+                  return (
+                    <div key={ad.id} className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/ad">
+                      {adMediaUrl && (
+                        <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-black">
+                          {isVideo ? (
+                            <video src={adMediaUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                          ) : (
+                            <img src={adMediaUrl} alt="" className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
+                          )}
+                        </div>
                       )}
+                      <div className="flex-1 text-center md:text-left">
+                        <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2 block">PATROCINADO</span>
+                        <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic">{ad.title}</h4>
+                        <p className="text-xs text-gray-400 mb-4">{ad.content}</p>
+                        {ad.link_url && (
+                          <a 
+                            href={ad.link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                            className="inline-block px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
+                          >
+                            Saiba Mais
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Promoted Profiles Section */}
                 {promotedProfiles.length > 0 && (
@@ -1096,9 +1106,13 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           const adIndex = Math.floor(index / 3) % ads.filter(ad => ad.placement.includes('feed_between')).length;
                           const ad = ads.filter(ad => ad.placement.includes('feed_between'))[adIndex];
                           
+                          // Determine the best media URL for this placement
+                          const adMediaUrl = ad.media_url_feed_between || ad.media_url;
+                          const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
+
                           return (
                             <div 
-                              className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-12 text-center relative overflow-hidden group/ad"
+                              className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-8 md:p-12 text-center relative overflow-hidden group/ad"
                               ref={(el) => {
                                 if (el && !trackedAds.has(ad.id)) {
                                   const observer = new IntersectionObserver((entries) => {
@@ -1114,6 +1128,29 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             >
                               <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
                               <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
+                              
+                              {adMediaUrl && (
+                                <div className="mb-8 rounded-2xl overflow-hidden border border-white/5 shadow-2xl shadow-black/50 aspect-video bg-black">
+                                  {isVideo ? (
+                                    <video 
+                                      src={adMediaUrl} 
+                                      className="w-full h-full object-cover" 
+                                      autoPlay 
+                                      muted 
+                                      loop 
+                                      playsInline 
+                                    />
+                                  ) : (
+                                    <img 
+                                      src={adMediaUrl} 
+                                      alt={ad.title} 
+                                      className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-700" 
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  )}
+                                </div>
+                              )}
+
                               <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
                                 {ad.title}
                               </h4>

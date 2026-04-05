@@ -79,10 +79,38 @@ export const AdminAds: React.FC = () => {
     title: '',
     content: '',
     media_url: '',
+    media_url_feed_top: '',
+    media_url_feed_between: '',
+    media_url_sidebar: '',
+    media_url_profile: '',
     link_url: '',
     placement: 'feed_between' as ArenaAd['placement'],
     active: true,
-    order: 0
+    order: 0,
+    start_date: '',
+    end_date: '',
+    country: '',
+    state: '',
+    city: '',
+    country_id: '',
+    state_id: '',
+    city_id: ''
+  });
+
+  const [feedFiles, setFeedFiles] = useState<{ [key: string]: File | null }>({
+    main: null,
+    feed_top: null,
+    feed_between: null,
+    sidebar: null,
+    profile: null
+  });
+
+  const [feedPreviews, setFeedPreviews] = useState<{ [key: string]: string }>({
+    main: '',
+    feed_top: '',
+    feed_between: '',
+    sidebar: '',
+    profile: ''
   });
 
   useEffect(() => {
@@ -481,16 +509,6 @@ export const AdminAds: React.FC = () => {
     }
   };
 
-  const toggleStatus = async (banner: Banner) => {
-    try {
-      await updateDoc(doc(db, 'featured_banners', banner.id), {
-        is_active: !banner.is_active
-      });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'featured_banners');
-    }
-  };
-
   const reorder = async (banner: Banner, direction: 'up' | 'down') => {
     const currentIndex = banners.findIndex(b => b.id === banner.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
@@ -507,32 +525,106 @@ export const AdminAds: React.FC = () => {
     }
   };
 
+  const toggleStatus = async (banner: Banner) => {
+    try {
+      await updateDoc(doc(db, 'featured_banners', banner.id), {
+        is_active: !banner.is_active
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'featured_banners');
+    }
+  };
+
+  const handleFeedFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFeedFiles(prev => ({ ...prev, [type]: file }));
+      setFeedPreviews(prev => ({ ...prev, [type]: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleOpenFeedModal = (ad?: ArenaAd) => {
-    setFeedAdFile(null);
+    setFeedFiles({
+      main: null,
+      feed_top: null,
+      feed_between: null,
+      sidebar: null,
+      profile: null
+    });
+    
     if (ad) {
       setEditingFeedAd(ad);
-      setFeedAdPreview(ad.media_url || '');
+      setFeedPreviews({
+        main: ad.media_url || '',
+        feed_top: ad.media_url_feed_top || '',
+        feed_between: ad.media_url_feed_between || '',
+        sidebar: ad.media_url_sidebar || '',
+        profile: ad.media_url_profile || ''
+      });
       setFeedFormData({
         title: ad.title,
         content: ad.content,
         media_url: ad.media_url || '',
+        media_url_feed_top: ad.media_url_feed_top || '',
+        media_url_feed_between: ad.media_url_feed_between || '',
+        media_url_sidebar: ad.media_url_sidebar || '',
+        media_url_profile: ad.media_url_profile || '',
         link_url: ad.link_url || '',
         placement: ad.placement,
         active: ad.active,
-        order: ad.order || 0
+        order: ad.order || 0,
+        start_date: formatDateForInput(ad.start_date),
+        end_date: formatDateForInput(ad.end_date),
+        country: ad.country || '',
+        state: ad.state || '',
+        city: ad.city || '',
+        country_id: ad.country_id || '',
+        state_id: ad.state_id || '',
+        city_id: ad.city_id || ''
       });
+      if (ad.country_id) fetchStates(ad.country_id);
+      if (ad.state_id) fetchCities(ad.state_id);
     } else {
       setEditingFeedAd(null);
-      setFeedAdPreview('');
+      setFeedPreviews({
+        main: '',
+        feed_top: '',
+        feed_between: '',
+        sidebar: '',
+        profile: ''
+      });
       setFeedFormData({
         title: '',
         content: '',
         media_url: '',
+        media_url_feed_top: '',
+        media_url_feed_between: '',
+        media_url_sidebar: '',
+        media_url_profile: '',
         link_url: '',
         placement: 'feed_between',
         active: true,
-        order: feedAds.length
+        order: feedAds.length,
+        start_date: '',
+        end_date: '',
+        country: '',
+        state: '',
+        city: '',
+        country_id: '',
+        state_id: '',
+        city_id: ''
       });
+      setStates([]);
+      setCities([]);
     }
     setIsFeedModalOpen(true);
   };
@@ -544,14 +636,39 @@ export const AdminAds: React.FC = () => {
     setIsUploading(true);
     try {
       let finalMediaUrl = feedFormData.media_url;
+      let finalMediaUrlFeedTop = feedFormData.media_url_feed_top;
+      let finalMediaUrlFeedBetween = feedFormData.media_url_feed_between;
+      let finalMediaUrlSidebar = feedFormData.media_url_sidebar;
+      let finalMediaUrlProfile = feedFormData.media_url_profile;
 
-      if (feedAdFile) {
-        finalMediaUrl = await uploadImage(feedAdFile, 'feed_ads');
+      // Upload main media if exists
+      if (feedFiles.main) {
+        finalMediaUrl = await uploadImage(feedFiles.main, 'feed_ads');
+      }
+
+      // Upload specific media per placement
+      if (feedFiles.feed_top) {
+        finalMediaUrlFeedTop = await uploadImage(feedFiles.feed_top, 'feed_ads/feed_top');
+      }
+      if (feedFiles.feed_between) {
+        finalMediaUrlFeedBetween = await uploadImage(feedFiles.feed_between, 'feed_ads/feed_between');
+      }
+      if (feedFiles.sidebar) {
+        finalMediaUrlSidebar = await uploadImage(feedFiles.sidebar, 'feed_ads/sidebar');
+      }
+      if (feedFiles.profile) {
+        finalMediaUrlProfile = await uploadImage(feedFiles.profile, 'feed_ads/profile');
       }
 
       const dataToSave = {
         ...feedFormData,
-        media_url: finalMediaUrl
+        media_url: finalMediaUrl,
+        media_url_feed_top: finalMediaUrlFeedTop,
+        media_url_feed_between: finalMediaUrlFeedBetween,
+        media_url_sidebar: finalMediaUrlSidebar,
+        media_url_profile: finalMediaUrlProfile,
+        start_date: feedFormData.start_date ? new Date(feedFormData.start_date).toISOString() : null,
+        end_date: feedFormData.end_date ? new Date(feedFormData.end_date).toISOString() : null,
       };
 
       if (editingFeedAd) {
@@ -1031,6 +1148,110 @@ export const AdminAds: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data de Início (Opcional)</label>
+                    <div className="relative">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
+                        <Calendar size={14} />
+                      </div>
+                      <input 
+                        type="datetime-local"
+                        value={feedFormData.start_date}
+                        onChange={(e) => setFeedFormData({ ...feedFormData, start_date: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data de Término (Opcional)</label>
+                    <div className="relative">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
+                        <Calendar size={14} />
+                      </div>
+                      <input 
+                        type="datetime-local"
+                        value={feedFormData.end_date}
+                        onChange={(e) => setFeedFormData({ ...feedFormData, end_date: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Segmentação Geográfica (Opcional)</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <select
+                        value={feedFormData.country_id}
+                        onChange={(e) => {
+                          const country = countries.find(c => c.id === e.target.value);
+                          setFeedFormData({ 
+                            ...feedFormData, 
+                            country_id: e.target.value, 
+                            country: country?.name || '',
+                            state_id: '',
+                            state: '',
+                            city_id: '',
+                            city: ''
+                          });
+                          if (e.target.value) fetchStates(e.target.value);
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all appearance-none"
+                      >
+                        <option value="">Todos os Países</option>
+                        {countries.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <select
+                        value={feedFormData.state_id}
+                        disabled={!feedFormData.country_id}
+                        onChange={(e) => {
+                          const state = states.find(s => s.id === e.target.value);
+                          setFeedFormData({ 
+                            ...feedFormData, 
+                            state_id: e.target.value, 
+                            state: state?.name || '',
+                            city_id: '',
+                            city: ''
+                          });
+                          if (e.target.value) fetchCities(e.target.value);
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all appearance-none disabled:opacity-50"
+                      >
+                        <option value="">Todos os Estados</option>
+                        {states.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <select
+                        value={feedFormData.city_id}
+                        disabled={!feedFormData.state_id}
+                        onChange={(e) => {
+                          const city = cities.find(c => c.id === e.target.value);
+                          setFeedFormData({ 
+                            ...feedFormData, 
+                            city_id: e.target.value, 
+                            city: city?.name || ''
+                          });
+                        }}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all appearance-none disabled:opacity-50"
+                      >
+                        <option value="">Todas as Cidades</option>
+                        {cities.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Posicionamentos</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1103,91 +1324,128 @@ export const AdminAds: React.FC = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Mídia do Anúncio</label>
-                  
-                  {/* Preview Section - More prominent */}
-                  {feedAdPreview && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-4 duration-500">
-                      <div className="flex items-center justify-between ml-2">
-                        <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">Preview da Mídia</p>
-                        <button 
-                          type="button"
-                          onClick={() => {
-                            setFeedAdFile(null);
-                            setFeedAdPreview(feedFormData.media_url || '');
-                          }}
-                          className="text-[8px] font-black uppercase tracking-widest text-red-500 hover:text-red-400 transition-colors"
-                        >
-                          Remover Seleção
-                        </button>
-                      </div>
-                      <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-white/10 relative group shadow-2xl shadow-black/50">
-                        <img src={feedAdPreview} alt="Preview" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                          <p className="text-[10px] text-white/70 font-medium italic">Visualização do anúncio no feed</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Mídias por Posicionamento</label>
+                  <div className="space-y-6">
+                    {/* Main Media (Fallback) */}
                     <div className="space-y-2">
-                      <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest ml-2">Upload de Imagem</p>
-                      <div className="relative">
-                        <input 
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              setFeedAdFile(file);
-                              const reader = new FileReader();
-                              reader.onloadend = () => setFeedAdPreview(reader.result as string);
-                              reader.readAsDataURL(file);
-                              toast.success('Imagem selecionada com sucesso!');
-                            }
-                          }}
-                          className="hidden"
-                          id="feed-ad-upload"
-                        />
-                        <label 
-                          htmlFor="feed-ad-upload"
-                          className={`flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed rounded-2xl cursor-pointer transition-all hover:bg-white/10 ${feedAdFile ? 'border-blue-500/50 bg-blue-600/5' : 'border-white/10 hover:border-blue-500/50'}`}
-                        >
-                          <div className={`p-3 rounded-xl mb-2 ${feedAdFile ? 'bg-blue-600/20 text-blue-400' : 'bg-white/5 text-gray-500'}`}>
+                      <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400 ml-2">Mídia Principal (Fallback)</label>
+                      <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                          <input 
+                            type="text"
+                            value={feedFormData.media_url}
+                            onChange={(e) => setFeedFormData({ ...feedFormData, media_url: e.target.value })}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                            placeholder="URL da imagem ou vídeo"
+                          />
+                        </div>
+                        <div className="relative">
+                          <input 
+                            type="file"
+                            id="feed-media-main"
+                            className="hidden"
+                            accept="image/*,video/*"
+                            onChange={(e) => handleFeedFileChange(e, 'main')}
+                          />
+                          <label 
+                            htmlFor="feed-media-main"
+                            className="flex items-center justify-center w-14 h-14 bg-blue-600/20 border border-blue-600/30 rounded-2xl text-blue-500 cursor-pointer hover:bg-blue-600/30 transition-all"
+                          >
                             <Upload size={20} />
-                          </div>
-                          <div className="text-center px-4">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-white truncate max-w-[200px]">
-                              {feedAdFile ? feedAdFile.name : 'Selecionar Imagem'}
-                            </p>
-                            <p className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mt-1">
-                              {feedAdFile ? `${(feedAdFile.size / 1024 / 1024).toFixed(2)} MB` : 'PNG, JPG ou WebP (Máx 2MB)'}
-                            </p>
-                          </div>
-                        </label>
+                          </label>
+                        </div>
                       </div>
+                      {feedPreviews.main && (
+                        <div className="mt-2 relative w-32 h-20 rounded-xl overflow-hidden border border-white/10">
+                          {feedPreviews.main.includes('video') || feedPreviews.main.startsWith('data:video') ? (
+                            <video src={feedPreviews.main} className="w-full h-full object-cover" />
+                          ) : (
+                            <img src={feedPreviews.main} className="w-full h-full object-cover" />
+                          )}
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              setFeedPreviews(prev => ({ ...prev, main: '' }));
+                              setFeedFiles(prev => ({ ...prev, main: null }));
+                              setFeedFormData(prev => ({ ...prev, media_url: '' }));
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-rose-500 transition-colors"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    <div className="space-y-2">
-                      <p className="text-[9px] font-bold text-gray-600 uppercase tracking-widest ml-2">Ou URL Direta</p>
-                      <div className="relative">
-                        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
-                          <ImageIcon size={14} />
-                        </div>
-                        <input 
-                          type="url"
-                          value={feedFormData.media_url}
-                          onChange={(e) => {
-                            setFeedFormData({ ...feedFormData, media_url: e.target.value });
-                            setFeedAdPreview(e.target.value);
-                            if (e.target.value) setFeedAdFile(null);
-                          }}
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                          placeholder="https://..."
-                        />
-                      </div>
-                      <p className="text-[8px] text-gray-600 font-bold uppercase tracking-widest ml-2 italic">Dica: Use upload para melhor performance</p>
+                    {/* Specific Placements */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {[
+                        { id: 'feed_top', label: 'Topo do Feed', dim: '1200x300' },
+                        { id: 'feed_between', label: 'Entre Posts', dim: '1200x630' },
+                        { id: 'sidebar', label: 'Barra Lateral', dim: '600x800' },
+                        { id: 'profile', label: 'Perfil', dim: '1200x400' }
+                      ].map((pos) => {
+                        const isSelected = feedFormData.placement.includes(pos.id);
+                        if (!isSelected) return null;
+
+                        const fieldName = `media_url_${pos.id}` as keyof typeof feedFormData;
+                        const preview = feedPreviews[pos.id];
+
+                        return (
+                          <div key={pos.id} className="space-y-2 p-4 bg-white/5 border border-white/10 rounded-2xl">
+                            <div className="flex justify-between items-center mb-2">
+                              <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">{pos.label}</label>
+                              <span className="text-[8px] font-medium text-gray-500">Recomendado: {pos.dim}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex-1">
+                                <input 
+                                  type="text"
+                                  value={feedFormData[fieldName] as string}
+                                  onChange={(e) => setFeedFormData({ ...feedFormData, [fieldName]: e.target.value })}
+                                  className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-blue-500 transition-all"
+                                  placeholder="URL específica"
+                                />
+                              </div>
+                              <div className="relative">
+                                <input 
+                                  type="file"
+                                  id={`feed-media-${pos.id}`}
+                                  className="hidden"
+                                  accept="image/*,video/*"
+                                  onChange={(e) => handleFeedFileChange(e, pos.id)}
+                                />
+                                <label 
+                                  htmlFor={`feed-media-${pos.id}`}
+                                  className="flex items-center justify-center w-10 h-10 bg-white/5 border border-white/10 rounded-xl text-gray-400 cursor-pointer hover:bg-white/10 transition-all"
+                                >
+                                  <Upload size={16} />
+                                </label>
+                              </div>
+                            </div>
+                            {preview && (
+                              <div className="mt-2 relative w-full h-24 rounded-xl overflow-hidden border border-white/10">
+                                {preview.includes('video') || preview.startsWith('data:video') ? (
+                                  <video src={preview} className="w-full h-full object-cover" />
+                                ) : (
+                                  <img src={preview} className="w-full h-full object-cover" />
+                                )}
+                                <button 
+                                  type="button"
+                                  onClick={() => {
+                                    setFeedPreviews(prev => ({ ...prev, [pos.id]: '' }));
+                                    setFeedFiles(prev => ({ ...prev, [pos.id]: null }));
+                                    setFeedFormData(prev => ({ ...prev, [fieldName]: '' }));
+                                  }}
+                                  className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-rose-500 transition-colors"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

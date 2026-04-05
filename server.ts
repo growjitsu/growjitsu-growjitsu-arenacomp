@@ -564,10 +564,20 @@ async function startServer() {
   app.get("/api/getAds", async (req, res) => {
     try {
       console.log('[API] Buscando anúncios...');
-      const { data, error } = await supabaseAdmin
+      const now = new Date().toISOString();
+      
+      // Query for active ads
+      let query = supabaseAdmin
         .from('arena_ads')
         .select('*')
-        .eq('active', true)
+        .eq('active', true);
+
+      // Filter by date range if columns exist
+      // Note: We use .or() to handle null values as fallback
+      // (start_date is null OR start_date <= now) AND (end_date is null OR end_date >= now)
+      const { data, error } = await query
+        .or(`start_date.is.null,start_date.lte.${now}`)
+        .or(`end_date.is.null,end_date.gte.${now}`)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -628,9 +638,6 @@ async function startServer() {
   // AD REPORTS API (Admin only)
   app.get("/api/getAdReports", async (req, res) => {
     try {
-      // Basic security check (should be enhanced with proper admin auth validation)
-      // In this environment, we assume the caller is an admin if they have access to the admin panel
-      
       const { adId, startDate, endDate } = req.query;
 
       let query = supabaseAdmin
@@ -641,53 +648,45 @@ async function startServer() {
       if (startDate) query = query.gte('created_at', startDate);
       if (endDate) query = query.lte('created_at', endDate);
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      const { data: events, error } = await query;
 
       if (error) throw error;
 
-      // Aggregate data for reports
-      const stats = {
-        totalImpressions: data?.filter(e => e.event_type === 'impression').length || 0,
-        totalClicks: data?.filter(e => e.event_type === 'click').length || 0,
+      // Aggregate data
+      const reports = {
+        total_impressions: events?.filter(e => e.event_type === 'impression').length || 0,
+        total_clicks: events?.filter(e => e.event_type === 'click').length || 0,
         ctr: 0,
-        deviceStats: {} as Record<string, number>,
-        osStats: {} as Record<string, number>,
-        browserStats: {} as Record<string, number>,
-        countryStats: {} as Record<string, number>,
-        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
+        by_device: {} as Record<string, number>,
+        by_country: {} as Record<string, number>,
+        daily_stats: {} as Record<string, { impressions: number, clicks: number }>
       };
 
-      if (stats.totalImpressions > 0) {
-        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
+      if (reports.total_impressions > 0) {
+        reports.ctr = (reports.total_clicks / reports.total_impressions) * 100;
       }
 
-      data?.forEach(event => {
-        // Device
-        const device = event.device_type || 'Unknown';
-        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
+      events?.forEach(event => {
+        // Device stats
+        const device = event.device_type || 'unknown';
+        reports.by_device[device] = (reports.by_device[device] || 0) + 1;
 
-        // OS
-        const os = event.os || 'Unknown';
-        stats.osStats[os] = (stats.osStats[os] || 0) + 1;
-
-        // Browser
-        const browser = event.browser || 'Unknown';
-        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
-
-        // Country
+        // Country stats
         const country = event.country || 'Unknown';
-        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
+        reports.by_country[country] = (reports.by_country[country] || 0) + 1;
 
-        // Daily
-        const date = new Date(event.created_at).toISOString().split('T')[0];
-        if (!stats.dailyStats[date]) stats.dailyStats[date] = { impressions: 0, clicks: 0 };
-        if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
-        else if (event.event_type === 'click') stats.dailyStats[date].clicks++;
+        // Daily stats
+        const date = event.created_at.split('T')[0];
+        if (!reports.daily_stats[date]) {
+          reports.daily_stats[date] = { impressions: 0, clicks: 0 };
+        }
+        if (event.event_type === 'impression') reports.daily_stats[date].impressions++;
+        if (event.event_type === 'click') reports.daily_stats[date].clicks++;
       });
 
-      res.json({ events: data, stats });
+      res.json(reports);
     } catch (error: any) {
-      console.error('[API] Erro ao buscar relatórios de anúncios:', error);
+      console.error('[API] Erro ao obter relatórios de anúncios:', error);
       res.status(500).json({ error: error.message });
     }
   });
