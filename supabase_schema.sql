@@ -68,6 +68,18 @@ CREATE TABLE IF NOT EXISTS arena_ads (
   "order" INTEGER DEFAULT 0,
   total_impressions INTEGER DEFAULT 0,
   total_clicks INTEGER DEFAULT 0,
+  start_date TIMESTAMPTZ,
+  end_date TIMESTAMPTZ,
+  country_id TEXT,
+  state_id TEXT,
+  city_id TEXT,
+  country TEXT,
+  state TEXT,
+  city TEXT,
+  media_url_feed_top TEXT,
+  media_url_feed_between TEXT,
+  media_url_sidebar TEXT,
+  media_url_profile TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
