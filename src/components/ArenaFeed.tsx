@@ -740,7 +740,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : (
               <div className="space-y-8">
                 {/* Top Ad */}
-                {ads.filter(ad => ad.placement.includes('feed_top')).map(ad => {
+                {ads.filter(ad => (ad.placement || '').includes('feed_top')).map(ad => {
                   const adMediaUrl = ad.media_url_feed_top || ad.media_url;
                   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
 
@@ -1101,10 +1101,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
                         </motion.div>
 
-                        {/* Interstitial Ad */}
-                        {(index + 1) % 3 === 0 && ads.filter(ad => ad.placement.includes('feed_between')).length > 0 && (() => {
-                          const adIndex = Math.floor(index / 3) % ads.filter(ad => ad.placement.includes('feed_between')).length;
-                          const ad = ads.filter(ad => ad.placement.includes('feed_between'))[adIndex];
+                        {/* Interstitial Ad - Show every 3 posts, or after the first post if it's the only one */}
+                        {((index + 1) % 3 === 0 || (posts.length < 3 && index === 0)) && ads.filter(ad => (ad.placement || '').includes('feed_between')).length > 0 && (() => {
+                          const feedBetweenAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+                          const adIndex = Math.floor(index / 3) % feedBetweenAds.length;
+                          const ad = feedBetweenAds[adIndex];
                           
                           // Determine the best media URL for this placement
                           const adMediaUrl = ad.media_url_feed_between || ad.media_url;
@@ -1112,6 +1113,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
                           return (
                             <div 
+                              key={`ad-${ad.id}-${index}`}
                               className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-8 md:p-12 text-center relative overflow-hidden group/ad"
                               ref={(el) => {
                                 if (el && !trackedAds.has(ad.id)) {

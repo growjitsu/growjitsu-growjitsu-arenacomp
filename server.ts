@@ -581,25 +581,36 @@ async function startServer() {
 
   app.get("/api/getAds", async (req, res) => {
     try {
-      console.log('[API] Buscando anúncios...');
-      const now = new Date().toISOString();
+      console.log('[API] Buscando anúncios ativos...');
       
       // Query for active ads
-      let query = supabaseAdmin
+      // We fetch all active ads and filter by date in JS for maximum robustness
+      const { data, error } = await supabaseAdmin
         .from('arena_ads')
         .select('*')
-        .eq('active', true);
-
-      // Filter by date range if columns exist
-      // Note: We use .or() to handle null values as fallback
-      // (start_date is null OR start_date <= now) AND (end_date is null OR end_date >= now)
-      const { data, error } = await query
-        .or(`start_date.is.null,start_date.lte.${now}`)
-        .or(`end_date.is.null,end_date.gte.${now}`)
+        .eq('active', true)
+        .order('order', { ascending: true })
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      res.json(data || []);
+      if (error) {
+        console.error('[API] Erro do Supabase ao buscar anúncios:', error);
+        throw error;
+      }
+
+      const now = new Date();
+      const filteredAds = (data || []).filter(ad => {
+        // Safe date parsing
+        const startDate = ad.start_date ? new Date(ad.start_date) : null;
+        const endDate = ad.end_date ? new Date(ad.end_date) : null;
+        
+        const isStarted = !startDate || startDate <= now;
+        const isNotEnded = !endDate || endDate >= now;
+        
+        return isStarted && isNotEnded;
+      });
+
+      console.log(`[API] Anúncios encontrados: ${data?.length || 0}, Filtrados por data: ${filteredAds.length}`);
+      res.json(filteredAds);
     } catch (error: any) {
       console.error('[API] Erro ao buscar anúncios:', error);
       res.status(500).json({ error: error.message });
