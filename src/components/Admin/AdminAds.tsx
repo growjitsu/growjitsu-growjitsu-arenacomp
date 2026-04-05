@@ -180,12 +180,19 @@ export const AdminAds: React.FC = () => {
     try {
       const url = adId === 'all' ? '/api/getAdReports' : `/api/getAdReports?adId=${adId}`;
       const response = await fetch(url);
+      
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error('Non-JSON response received:', text.substring(0, 200));
+        throw new Error(`O servidor retornou um formato inesperado (HTML). Verifique se a rota da API está correta.`);
+      }
+
+      const data = await response.json();
       if (response.ok) {
-        const data = await response.json();
         setReportData(data);
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
     } catch (error: any) {
       console.error('Error fetching analytics:', error);

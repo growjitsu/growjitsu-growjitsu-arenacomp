@@ -386,6 +386,104 @@ async function startServer() {
   app.get("/share/:id", handleShareRequest);
 
   // API Endpoints using Supabase Admin (Secret Key)
+  app.all("/api/getAdReports", async (req, res) => {
+    try {
+      const { adId, startDate, endDate } = req.query;
+      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
+
+      if (!supabaseAdmin) {
+        console.error('[API] Supabase Admin client not initialized!');
+        return res.status(500).json({ success: false, error: "Database client not initialized" });
+      }
+
+      let query = supabaseAdmin
+        .from('arena_ad_events')
+        .select('*');
+
+      if (adId && adId !== 'all') query = query.eq('ad_id', adId);
+      if (startDate) query = query.gte('created_at', startDate);
+      if (endDate) query = query.lte('created_at', endDate);
+
+      const { data: events, error } = await query;
+
+      if (error) {
+        console.error('[API] Erro Supabase em getAdReports:', error);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+
+      if (!events) {
+        return res.json({
+          success: true,
+          stats: {
+            totalImpressions: 0,
+            totalClicks: 0,
+            ctr: 0,
+            deviceStats: {},
+            browserStats: {},
+            countryStats: {},
+            dailyStats: {}
+          },
+          events: []
+        });
+      }
+
+      // Aggregate data
+      const stats = {
+        totalImpressions: events.filter(e => e.event_type === 'impression').length || 0,
+        totalClicks: events.filter(e => e.event_type === 'click').length || 0,
+        ctr: 0,
+        deviceStats: {} as Record<string, number>,
+        browserStats: {} as Record<string, number>,
+        countryStats: {} as Record<string, number>,
+        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
+      };
+
+      if (stats.totalImpressions > 0) {
+        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
+      }
+
+      events.forEach(event => {
+        if (!event.created_at) return;
+        
+        // Device stats
+        const device = event.device_type || 'desktop';
+        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
+
+        // Browser stats
+        const browser = event.browser || 'Unknown';
+        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
+
+        // Country stats
+        const country = event.country || 'Unknown';
+        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
+
+        // Daily stats
+        try {
+          const date = typeof event.created_at === 'string' 
+            ? event.created_at.split('T')[0] 
+            : new Date(event.created_at).toISOString().split('T')[0];
+            
+          if (!stats.dailyStats[date]) {
+            stats.dailyStats[date] = { impressions: 0, clicks: 0 };
+          }
+          if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
+          if (event.event_type === 'click') stats.dailyStats[date].clicks++;
+        } catch (e) {
+          console.warn('[API] Erro ao processar data do evento:', event.created_at);
+        }
+      });
+
+      res.json({
+        success: true,
+        stats,
+        events: events
+      });
+    } catch (error: any) {
+      console.error('[API] Erro crítico ao obter relatórios de anúncios:', error);
+      res.status(500).json({ success: false, error: error.message || "Erro interno no servidor" });
+    }
+  });
+
   app.get("/api/getTopAtletas", async (req, res) => {
     try {
       console.log('[API] Buscando melhores atletas (Elite Arena)...');
@@ -664,72 +762,6 @@ async function startServer() {
     }
   });
 
-  // AD REPORTS API (Admin only)
-  app.get("/api/getAdReports", async (req, res) => {
-    try {
-      const { adId, startDate, endDate } = req.query;
-      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate}`);
-
-      let query = supabaseAdmin
-        .from('arena_ad_events')
-        .select('*');
-
-      if (adId) query = query.eq('ad_id', adId);
-      if (startDate) query = query.gte('created_at', startDate);
-      if (endDate) query = query.lte('created_at', endDate);
-
-      const { data: events, error } = await query;
-
-      if (error) throw error;
-
-      // Aggregate data
-      const stats = {
-        totalImpressions: events?.filter(e => e.event_type === 'impression').length || 0,
-        totalClicks: events?.filter(e => e.event_type === 'click').length || 0,
-        ctr: 0,
-        deviceStats: {} as Record<string, number>,
-        browserStats: {} as Record<string, number>,
-        countryStats: {} as Record<string, number>,
-        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
-      };
-
-      if (stats.totalImpressions > 0) {
-        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
-      }
-
-      events?.forEach(event => {
-        if (!event.created_at) return;
-        
-        // Device stats
-        const device = event.device_type || 'unknown';
-        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
-
-        // Browser stats
-        const browser = event.browser || 'Unknown';
-        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
-
-        // Country stats
-        const country = event.country || 'Unknown';
-        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
-
-        // Daily stats
-        const date = event.created_at.split('T')[0];
-        if (!stats.dailyStats[date]) {
-          stats.dailyStats[date] = { impressions: 0, clicks: 0 };
-        }
-        if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
-        if (event.event_type === 'click') stats.dailyStats[date].clicks++;
-      });
-
-      res.json({
-        stats,
-        events: events || []
-      });
-    } catch (error: any) {
-      console.error('[API] Erro ao obter relatórios de anúncios:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   // NEW ROBUST API STRUCTURE
   const cardGenerationHandler = async (req: any, res: any) => {
