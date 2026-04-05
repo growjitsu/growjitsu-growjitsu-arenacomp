@@ -5,6 +5,7 @@ import { Trophy, Users, ChevronRight, ChevronLeft, Star, TrendingUp, Shield, Zap
 import { supabase } from '../services/supabase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { trackAdEvent } from '../services/adService';
 import { PublicHeader } from '../components/PublicHeader';
 import { PublicFooter } from '../components/PublicFooter';
 import { ArenaProfile } from '../types';
@@ -150,8 +151,13 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
     }, (currentBanner?.display_time || 15) * 1000);
 
+    // Track impression for current banner
+    if (currentBanner?.id) {
+      trackAdEvent(currentBanner.id, 'impression', userProfile?.id);
+    }
+
     return () => clearTimeout(timer);
-  }, [banners, currentBannerIndex]);
+  }, [banners, currentBannerIndex, userProfile?.id]);
 
   const nextBanner = () => setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
   const prevBanner = () => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length);
@@ -170,6 +176,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                 href={banners[currentBannerIndex].link}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackAdEvent(banners[currentBannerIndex].id, 'click', userProfile?.id)}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}

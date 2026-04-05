@@ -364,6 +364,24 @@ async function startServer() {
     }
   };
 
+  // 1. CORS Middleware
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    credentials: true,
+    maxAge: 86400
+  }));
+
+  // Handle OPTIONS preflight explicitly for all routes
+  app.options("*", (req, res) => {
+    res.sendStatus(200);
+  });
+
+  // 3. Body Parsing
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
 
@@ -653,61 +671,51 @@ async function startServer() {
       if (error) throw error;
 
       // Aggregate data
-      const reports = {
-        total_impressions: events?.filter(e => e.event_type === 'impression').length || 0,
-        total_clicks: events?.filter(e => e.event_type === 'click').length || 0,
+      const stats = {
+        totalImpressions: events?.filter(e => e.event_type === 'impression').length || 0,
+        totalClicks: events?.filter(e => e.event_type === 'click').length || 0,
         ctr: 0,
-        by_device: {} as Record<string, number>,
-        by_country: {} as Record<string, number>,
-        daily_stats: {} as Record<string, { impressions: number, clicks: number }>
+        deviceStats: {} as Record<string, number>,
+        browserStats: {} as Record<string, number>,
+        countryStats: {} as Record<string, number>,
+        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
       };
 
-      if (reports.total_impressions > 0) {
-        reports.ctr = (reports.total_clicks / reports.total_impressions) * 100;
+      if (stats.totalImpressions > 0) {
+        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
       }
 
       events?.forEach(event => {
         // Device stats
         const device = event.device_type || 'unknown';
-        reports.by_device[device] = (reports.by_device[device] || 0) + 1;
+        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
+
+        // Browser stats
+        const browser = event.browser || 'Unknown';
+        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
 
         // Country stats
         const country = event.country || 'Unknown';
-        reports.by_country[country] = (reports.by_country[country] || 0) + 1;
+        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
 
         // Daily stats
         const date = event.created_at.split('T')[0];
-        if (!reports.daily_stats[date]) {
-          reports.daily_stats[date] = { impressions: 0, clicks: 0 };
+        if (!stats.dailyStats[date]) {
+          stats.dailyStats[date] = { impressions: 0, clicks: 0 };
         }
-        if (event.event_type === 'impression') reports.daily_stats[date].impressions++;
-        if (event.event_type === 'click') reports.daily_stats[date].clicks++;
+        if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
+        if (event.event_type === 'click') stats.dailyStats[date].clicks++;
       });
 
-      res.json(reports);
+      res.json({
+        stats,
+        events: events || []
+      });
     } catch (error: any) {
       console.error('[API] Erro ao obter relatórios de anúncios:', error);
       res.status(500).json({ error: error.message });
     }
   });
-
-  // 1. CORS Middleware
-  app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    credentials: true,
-    maxAge: 86400
-  }));
-
-  // Handle OPTIONS preflight explicitly for all routes
-  app.options("*", (req, res) => {
-    res.sendStatus(200);
-  });
-
-  // 3. Body Parsing
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // NEW ROBUST API STRUCTURE
   const cardGenerationHandler = async (req: any, res: any) => {

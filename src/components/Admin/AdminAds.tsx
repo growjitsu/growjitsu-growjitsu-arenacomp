@@ -183,10 +183,13 @@ export const AdminAds: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setReportData(data);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching analytics:', error);
-      toast.error('Erro ao carregar relatórios.');
+      toast.error(`Erro ao carregar relatórios: ${error.message}`);
     } finally {
       setLoadingReport(false);
     }
@@ -973,9 +976,16 @@ export const AdminAds: React.FC = () => {
                 className="bg-black border border-white/10 rounded-xl px-4 py-2 text-xs font-bold text-white focus:outline-none focus:border-blue-500 w-full"
               >
                 <option value="all">Todos os Anúncios</option>
-                {feedAds.map(ad => (
-                  <option key={ad.id} value={ad.id}>{ad.title}</option>
-                ))}
+                <optgroup label="Feed Ads">
+                  {feedAds.map(ad => (
+                    <option key={ad.id} value={ad.id}>{ad.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Landing Page Banners">
+                  {banners.map(banner => (
+                    <option key={banner.id} value={banner.id}>{banner.title || `Banner ${banner.id.slice(0, 8)}`}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             

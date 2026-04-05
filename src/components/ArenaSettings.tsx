@@ -248,9 +248,7 @@ export const ArenaSettings: React.FC = () => {
                         <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
                       ) : null}
                       <span>
-                        {section.title === 'Web3 & Wallet' 
-                          ? (profile?.wallet_address ? 'Desconectar' : 'Conectar')
-                          : (item.danger ? 'Executar' : 'Configurar')}
+                        {item.danger ? 'Executar' : 'Configurar'}
                       </span>
                     </button>
                   )}
