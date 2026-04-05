@@ -668,6 +668,7 @@ async function startServer() {
   app.get("/api/getAdReports", async (req, res) => {
     try {
       const { adId, startDate, endDate } = req.query;
+      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate}`);
 
       let query = supabaseAdmin
         .from('arena_ad_events')
@@ -697,6 +698,8 @@ async function startServer() {
       }
 
       events?.forEach(event => {
+        if (!event.created_at) return;
+        
         // Device stats
         const device = event.device_type || 'unknown';
         stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
