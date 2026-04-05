@@ -58,16 +58,16 @@ export const ArenaSettings: React.FC = () => {
       if (isInIframe) {
         msg = 'O MetaMask pode não ser detectado dentro do iframe do preview. Por favor, abra o aplicativo em uma nova aba para conectar sua carteira.';
       }
-      setMessage({ type: 'error', text: msg });
+      setMessage({ 
+        type: 'error', 
+        text: msg 
+      });
       return;
     }
 
     setConnectingWallet(true);
     try {
-      // Use ethers BrowserProvider for better interaction
-      const provider = new BrowserProvider(ethereum);
-      
-      // Request accounts
+      // Request accounts directly from ethereum object for better compatibility
       const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
       
       if (!accounts || accounts.length === 0) {
@@ -95,7 +95,7 @@ export const ArenaSettings: React.FC = () => {
         errorMsg = 'Conexão rejeitada pelo usuário.';
       } else if (error.code === -32002) {
         errorMsg = 'Solicitação de conexão já pendente no MetaMask. Verifique a extensão.';
-      } else if (error.message && error.message.includes('User rejected')) {
+      } else if (error.message && (error.message.includes('User rejected') || error.message.includes('rejected'))) {
         errorMsg = 'Conexão rejeitada pelo usuário.';
       } else if (isInIframe) {
         // If in iframe, suggest opening in new tab
@@ -289,7 +289,18 @@ export const ArenaSettings: React.FC = () => {
         >
           <div className="flex items-center space-x-3">
             {message.type === 'success' ? <Check size={18} /> : <AlertCircle size={18} />}
-            <span className="text-xs font-bold uppercase tracking-widest">{message.text}</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-bold uppercase tracking-widest">{message.text}</span>
+              {message.type === 'error' && window.self !== window.top && (
+                <button 
+                  onClick={() => window.open(window.location.href, '_blank')}
+                  className="text-[10px] font-black uppercase tracking-widest text-rose-500 underline mt-1 flex items-center space-x-1"
+                >
+                  <ExternalLink size={10} />
+                  <span>Abrir em Nova Aba</span>
+                </button>
+              )}
+            </div>
           </div>
           <button onClick={() => setMessage(null)}><X size={14} /></button>
         </motion.div>

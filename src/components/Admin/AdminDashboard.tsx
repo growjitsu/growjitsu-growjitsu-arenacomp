@@ -116,7 +116,10 @@ export const AdminDashboard: React.FC = () => {
         if (c.name.includes('Web3')) {
           let status: any = hasMetaMask ? 'online' : 'offline';
           if (!hasMetaMask && isInIframe) status = 'checking'; // Show as checking/warning in iframe
-          return { ...c, status, latency: hasMetaMask ? '1ms' : '0ms' };
+          const name = isInIframe && !hasMetaMask 
+            ? 'Web3 Protocol (Iframe Restricted)' 
+            : 'Web3 Protocol (MetaMask)';
+          return { ...c, name, status, latency: hasMetaMask ? '1ms' : '0ms' };
         }
         return c;
       }));
