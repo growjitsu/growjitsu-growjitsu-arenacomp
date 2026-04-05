@@ -2,19 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, Mail, Lock, Shield, Eye, Bell, 
-  Moon, Sun, LogOut, Trash2, Check, AlertCircle, X, Wallet, ExternalLink
+  Moon, Sun, LogOut, Trash2, Check, AlertCircle, X, ExternalLink
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { useTheme } from '../context/ThemeContext';
 import { ArenaProfile } from '../types';
-import { BrowserProvider } from 'ethers';
 
 export const ArenaSettings: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<ArenaProfile | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [connectingWallet, setConnectingWallet] = useState(false);
 
   // ... existing state ...
   
@@ -43,89 +41,6 @@ export const ArenaSettings: React.FC = () => {
       .single();
     
     setProfile(data);
-  };
-
-  const handleConnectWallet = async () => {
-    if (!profile) return;
-    
-    const ethereum = (window as any).ethereum;
-    
-    // Check if we are in an iframe
-    const isInIframe = window.self !== window.top;
-
-    if (!ethereum) {
-      let msg = 'MetaMask não detectado. Por favor, instale a extensão.';
-      if (isInIframe) {
-        msg = 'O MetaMask pode não ser detectado dentro do iframe do preview. Por favor, abra o aplicativo em uma nova aba para conectar sua carteira.';
-      }
-      setMessage({ 
-        type: 'error', 
-        text: msg 
-      });
-      return;
-    }
-
-    setConnectingWallet(true);
-    try {
-      // Request accounts directly from ethereum object for better compatibility
-      const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-      
-      if (!accounts || accounts.length === 0) {
-        throw new Error('Nenhuma conta encontrada.');
-      }
-
-      const address = accounts[0];
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ wallet_address: address })
-        .eq('id', profile.id);
-      
-      if (error) throw error;
-      
-      setProfile({ ...profile, wallet_address: address });
-      setMessage({ type: 'success', text: 'Carteira conectada com sucesso!' });
-    } catch (error: any) {
-      console.error('Wallet connection error:', error);
-      
-      let errorMsg = 'Falha ao conectar com MetaMask.';
-      
-      // Handle specific EIP-1193 error codes
-      if (error.code === 4001) {
-        errorMsg = 'Conexão rejeitada pelo usuário.';
-      } else if (error.code === -32002) {
-        errorMsg = 'Solicitação de conexão já pendente no MetaMask. Verifique a extensão.';
-      } else if (error.message && (error.message.includes('User rejected') || error.message.includes('rejected'))) {
-        errorMsg = 'Conexão rejeitada pelo usuário.';
-      } else if (isInIframe) {
-        // If in iframe, suggest opening in new tab
-        errorMsg = 'O MetaMask bloqueou a conexão dentro do iframe por segurança. Clique no botão "Abrir em Nova Aba" no topo do preview e tente novamente.';
-      } else {
-        errorMsg = error.message || errorMsg;
-      }
-      
-      setMessage({ type: 'error', text: errorMsg });
-    } finally {
-      setConnectingWallet(false);
-    }
-  };
-
-  const handleDisconnectWallet = async () => {
-    if (!profile) return;
-    
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ wallet_address: null })
-        .eq('id', profile.id);
-      
-      if (error) throw error;
-      
-      setProfile({ ...profile, wallet_address: undefined });
-      setMessage({ type: 'success', text: 'Carteira desconectada.' });
-    } catch (error) {
-      setMessage({ type: 'error', text: 'Erro ao desconectar carteira.' });
-    }
   };
 
   const handleUpdatePrivacy = async (field: 'perfil_publico' | 'permitir_seguidores', value: boolean) => {
@@ -240,21 +155,6 @@ export const ArenaSettings: React.FC = () => {
           toggle: true, 
           active: profile?.permitir_seguidores,
           onToggle: () => handleUpdatePrivacy('permitir_seguidores', !profile?.permitir_seguidores)
-        },
-      ]
-    },
-    {
-      title: 'Web3 & Wallet',
-      icon: Wallet,
-      items: [
-        { 
-          label: profile?.wallet_address ? 'Carteira Conectada' : 'Conectar MetaMask', 
-          description: profile?.wallet_address 
-            ? `${profile.wallet_address.slice(0, 6)}...${profile.wallet_address.slice(-4)}` 
-            : 'Conecte sua carteira para recompensas e certificados Web3', 
-          action: profile?.wallet_address ? handleDisconnectWallet : handleConnectWallet,
-          danger: !!profile?.wallet_address,
-          loading: connectingWallet
         },
       ]
     },

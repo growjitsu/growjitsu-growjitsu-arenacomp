@@ -58,7 +58,6 @@ export const AdminDashboard: React.FC = () => {
     { name: 'Storage (arena_media)', status: 'online', latency: '120ms' },
     { name: 'Autenticação', status: 'online', latency: '88ms' },
     { name: 'API de Notificações', status: 'online', latency: '150ms' },
-    { name: 'Web3 Protocol (MetaMask)', status: 'checking', latency: '0ms' },
   ]);
   const [loading, setLoading] = useState(true);
   const [isRecalculating, setIsRecalculating] = useState(false);
@@ -107,22 +106,6 @@ export const AdminDashboard: React.FC = () => {
       setHealthChecks(prev => prev.map(c => 
         c.name.includes('Storage') ? { ...c, status: storageError ? 'degraded' : 'online', latency: '95ms' } : c
       ));
-
-      // Check MetaMask
-      const hasMetaMask = typeof window !== 'undefined' && !!(window as any).ethereum;
-      const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
-      
-      setHealthChecks(prev => prev.map(c => {
-        if (c.name.includes('Web3')) {
-          let status: any = hasMetaMask ? 'online' : 'offline';
-          if (!hasMetaMask && isInIframe) status = 'checking'; // Show as checking/warning in iframe
-          const name = isInIframe && !hasMetaMask 
-            ? 'Web3 Protocol (Iframe Restricted)' 
-            : 'Web3 Protocol (MetaMask)';
-          return { ...c, name, status, latency: hasMetaMask ? '1ms' : '0ms' };
-        }
-        return c;
-      }));
     } catch (error) {
       console.error('Health check error:', error);
     }
