@@ -87,6 +87,7 @@ export const AdminAds: React.FC = () => {
     placement: 'feed_between' as ArenaAd['placement'],
     active: true,
     order: 0,
+    display_time: 15,
     start_date: '',
     end_date: '',
     country: '',
@@ -595,6 +596,7 @@ export const AdminAds: React.FC = () => {
         placement: ad.placement,
         active: ad.active,
         order: ad.order || 0,
+        display_time: ad.display_time || 15,
         start_date: formatDateForInput(ad.start_date),
         end_date: formatDateForInput(ad.end_date),
         country: ad.country || '',
@@ -627,6 +629,7 @@ export const AdminAds: React.FC = () => {
         placement: 'feed_between',
         active: true,
         order: feedAds.length,
+        display_time: 15,
         start_date: '',
         end_date: '',
         country: '',
@@ -1163,6 +1166,24 @@ export const AdminAds: React.FC = () => {
                         onChange={(e) => setFeedFormData({ ...feedFormData, link_url: e.target.value })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
                         placeholder="https://exemplo.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Tempo de Exibição (Segundos)</label>
+                    <div className="relative">
+                      <div className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-500">
+                        <Clock size={14} />
+                      </div>
+                      <input 
+                        type="number"
+                        required
+                        min="1"
+                        max="3600"
+                        value={feedFormData.display_time}
+                        onChange={(e) => setFeedFormData({ ...feedFormData, display_time: parseInt(e.target.value) || 15 })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                        placeholder="Ex: 15"
                       />
                     </div>
                   </div>

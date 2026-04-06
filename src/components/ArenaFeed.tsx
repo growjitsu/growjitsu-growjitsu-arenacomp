@@ -57,17 +57,33 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [trendingPosts, setTrendingPosts] = useState<ArenaPost[]>([]);
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [currentInFeedAdIndex, setCurrentInFeedAdIndex] = useState(0);
+  const [currentTopAdIndex, setCurrentTopAdIndex] = useState(0);
 
+  // Rotation for In-Feed Ads
   useEffect(() => {
     const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
     if (inFeedAds.length <= 1) return;
 
-    const timer = setInterval(() => {
+    const currentAd = inFeedAds[currentInFeedAdIndex];
+    const timer = setTimeout(() => {
       setCurrentInFeedAdIndex(prev => (prev + 1) % inFeedAds.length);
-    }, 15000); // Rotate in-feed ads every 15s
+    }, (currentAd?.display_time || 15) * 1000);
 
-    return () => clearInterval(timer);
-  }, [ads.length]);
+    return () => clearTimeout(timer);
+  }, [ads.length, currentInFeedAdIndex]);
+
+  // Rotation for Top-of-Feed Ads
+  useEffect(() => {
+    const topAds = ads.filter(ad => (ad.placement || '').includes('feed_top'));
+    if (topAds.length <= 1) return;
+
+    const currentAd = topAds[currentTopAdIndex];
+    const timer = setTimeout(() => {
+      setCurrentTopAdIndex(prev => (prev + 1) % topAds.length);
+    }, (currentAd?.display_time || 12) * 1000);
+
+    return () => clearTimeout(timer);
+  }, [ads.length, currentTopAdIndex]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const [loadingPromoted, setLoadingPromoted] = useState(false);
   const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
@@ -760,40 +776,68 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
               </div>
             ) : (
               <div className="space-y-8">
-                {/* Top Ad */}
-                {ads.filter(ad => (ad.placement || '').includes('feed_top')).map(ad => {
+                {/* Top Ad Rotation */}
+                {(() => {
+                  const topAds = ads.filter(ad => (ad.placement || '').includes('feed_top'));
+                  if (topAds.length === 0) return null;
+                  
+                  const ad = topAds[currentTopAdIndex % topAds.length];
                   const adMediaUrl = ad.media_url_feed_top || ad.media_url;
                   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
 
                   return (
-                    <div key={ad.id} className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/ad">
-                      {adMediaUrl && (
-                        <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-black">
-                          {isVideo ? (
-                            <video src={adMediaUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
-                          ) : (
-                            <img src={adMediaUrl} alt="" className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-700" referrerPolicy="no-referrer" />
-                          )}
+                    <AnimatePresence mode="wait">
+                      <motion.div 
+                        key={ad.id}
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 20 }}
+                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/ad overflow-hidden shadow-2xl"
+                      >
+                        {adMediaUrl && (
+                          <div className="w-full md:w-64 aspect-[4/1] md:aspect-[12/3] rounded-xl overflow-hidden flex-shrink-0 bg-black border border-white/5">
+                            {isVideo ? (
+                              <video src={adMediaUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                            ) : (
+                              <img src={adMediaUrl} alt="" className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-1000" referrerPolicy="no-referrer" />
+                            )}
+                          </div>
+                        )}
+                        <div className="flex-1 text-center md:text-left">
+                          <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
+                            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400">PATROCINADO</span>
+                            <div className="w-1 h-1 rounded-full bg-blue-500/40" />
+                            <span className="text-[8px] font-mono text-blue-400/60 uppercase">{ad.title}</span>
+                          </div>
+                          <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic leading-tight">{ad.title}</h4>
+                          <p className="text-xs text-gray-400 mb-4 line-clamp-2 leading-relaxed">{ad.content}</p>
+                          <div className="flex items-center justify-center md:justify-start space-x-4">
+                            <a 
+                              href={ad.link_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                              className="inline-flex items-center space-x-3 px-8 py-2.5 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
+                            >
+                              <span>Saiba Mais</span>
+                              <ChevronRight size={14} />
+                            </a>
+                            {topAds.length > 1 && (
+                              <div className="flex space-x-1">
+                                {topAds.map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    className={`w-1.5 h-1.5 rounded-full transition-all duration-500 ${i === currentTopAdIndex ? 'bg-blue-500 w-4' : 'bg-blue-500/20'}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <div className="flex-1 text-center md:text-left">
-                        <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2 block">PATROCINADO</span>
-                        <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic">{ad.title}</h4>
-                        <p className="text-xs text-gray-400 mb-4 line-clamp-2">{ad.content}</p>
-                        <a 
-                          href={ad.link_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
-                          className="inline-flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all"
-                        >
-                          <span>Ver Mais</span>
-                          <ChevronRight size={12} />
-                        </a>
-                      </div>
-                    </div>
+                      </motion.div>
+                    </AnimatePresence>
                   );
-                })}
+                })()}
 
                 {/* Promoted Profiles Section */}
                 {promotedProfiles.length > 0 && (
@@ -1132,40 +1176,58 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             initial={{ opacity: 0, scale: 0.95 }}
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
-                            className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/ad"
+                            className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/ad shadow-2xl"
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Patrocinado</span>
-                              <ExternalLink size={14} className="text-[var(--text-muted)]" />
+                              <div className="flex items-center space-x-2">
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Patrocinado</span>
+                                <div className="w-1 h-1 rounded-full bg-blue-500/40" />
+                                <span className="text-[9px] font-mono text-blue-400/40 uppercase">{currentAd.title}</span>
+                              </div>
+                              <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/ad:text-blue-400 transition-colors" />
                             </div>
                             
-                            <div className="flex flex-col md:flex-row gap-6 items-center">
+                            <div className="flex flex-col md:flex-row gap-8 items-center">
                               { (currentAd.media_url_feed_between || currentAd.media_url) && (
-                                <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-black flex-shrink-0">
+                                <div className="w-full md:w-72 aspect-[1200/630] rounded-2xl overflow-hidden bg-black flex-shrink-0 border border-white/5 shadow-lg">
                                   { (currentAd.media_url_feed_between || currentAd.media_url)?.match(/\.(mp4|webm|ogg|mov)$/i) ? (
                                     <video src={currentAd.media_url_feed_between || currentAd.media_url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                                   ) : (
-                                    <img src={currentAd.media_url_feed_between || currentAd.media_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                    <img src={currentAd.media_url_feed_between || currentAd.media_url} alt="" className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" referrerPolicy="no-referrer" />
                                   )}
                                 </div>
                               )}
-                              <div className="flex-1 text-center md:text-left space-y-3">
-                                <h4 className="text-xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight">
+                              <div className="flex-1 text-center md:text-left space-y-4">
+                                <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight group-hover/ad:text-blue-400 transition-colors">
                                   {currentAd.title}
                                 </h4>
-                                <p className="text-sm text-[var(--text-muted)] line-clamp-3">
+                                <p className="text-sm text-[var(--text-muted)] line-clamp-3 leading-relaxed">
                                   {currentAd.content}
                                 </p>
-                                <a 
-                                  href={currentAd.link_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  onClick={() => trackAdEvent(currentAd.id, 'click', userProfile?.id)}
-                                  className="inline-flex items-center space-x-3 px-8 py-3 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20"
-                                >
-                                  <span>Saiba Mais</span>
-                                  <ChevronRight size={14} />
-                                </a>
+                                <div className="flex items-center justify-center md:justify-start space-x-6">
+                                  <a 
+                                    href={currentAd.link_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    onClick={() => trackAdEvent(currentAd.id, 'click', userProfile?.id)}
+                                    className="inline-flex items-center space-x-3 px-10 py-3.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+                                  >
+                                    <span>Saiba Mais</span>
+                                    <ChevronRight size={16} />
+                                  </a>
+                                  
+                                  {/* Rotation Indicator for In-Feed */}
+                                  {inFeedAds.length > 1 && (
+                                    <div className="hidden md:flex items-center space-x-1.5">
+                                      {inFeedAds.map((_, i) => (
+                                        <div 
+                                          key={i} 
+                                          className={`h-1 rounded-full transition-all duration-500 ${i === currentInFeedAdIndex ? 'bg-blue-500 w-6' : 'bg-blue-500/20 w-2'}`}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </motion.div>

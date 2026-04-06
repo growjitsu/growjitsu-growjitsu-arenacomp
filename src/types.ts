@@ -134,6 +134,7 @@ export interface ArenaAd {
   country?: string;
   state?: string;
   city?: string;
+  display_time?: number;
   created_at: string;
 }
 

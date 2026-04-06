@@ -11,7 +11,7 @@ import { supabase } from '../services/supabase';
 import { auth, db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useProfile } from '../context/ProfileContext';
-import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality } from '../types';
+import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality, ArenaAd } from '../types';
 import { countries, modalities, belts } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
@@ -21,6 +21,8 @@ import { getAutomaticCategorization } from '../services/categorization';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
 import { ShareModal } from './ShareModal';
+import { trackAdEvent } from '../services/adService';
+import { ExternalLink, ChevronRight } from 'lucide-react';
 
 export const ArenaProfileView: React.FC<{ 
   userId?: string; 
@@ -88,6 +90,37 @@ export const ArenaProfileView: React.FC<{
   });
   const [wizardStep, setWizardStep] = useState(1);
 
+  const [allTeams, setAllTeams] = useState<Team[]>([]);
+  const [dbCountries, setDbCountries] = useState<any[]>([]);
+  const [ads, setAds] = useState<ArenaAd[]>([]);
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+  const fetchAds = async () => {
+    try {
+      const response = await fetch('/api/getAds?placement=profile');
+      if (response.ok) {
+        const data = await response.json();
+        setAds(data);
+      }
+    } catch (error) {
+      console.error('Error fetching profile ads:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAds();
+  }, []);
+
+  useEffect(() => {
+    if (ads.length > 1) {
+      const ad = ads[currentAdIndex];
+      const timer = setTimeout(() => {
+        setCurrentAdIndex((prev) => (prev + 1) % ads.length);
+      }, (ad.display_time || 15) * 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [ads, currentAdIndex]);
+
   useEffect(() => {
     const handleClickOutside = () => setActiveMenuId(null);
     if (activeMenuId) {
@@ -95,9 +128,7 @@ export const ArenaProfileView: React.FC<{
     }
     return () => document.removeEventListener('click', handleClickOutside);
   }, [activeMenuId]);
-  
-  const [allTeams, setAllTeams] = useState<Team[]>([]);
-  const [dbCountries, setDbCountries] = useState<any[]>([]);
+
   const [dbStates, setDbStates] = useState<any[]>([]);
   const [dbCities, setDbCities] = useState<any[]>([]);
 
@@ -2925,106 +2956,191 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               </div>
             ) : activeTab === 'posts' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {posts.length > 0 ? posts.map((post) => (
-                    <div 
-                      key={post.id} 
-                      id={`content-${post.id}`}
-                      onClick={() => {
-                        setSelectedPost({ ...post, author: profile || undefined });
-                        setModalInitialEditMode(false);
-                        setIsPostModalOpen(true);
-                      }}
-                      className="aspect-[9/16] bg-[var(--surface)] rounded-xl overflow-hidden border border-[var(--border-ui)] group relative cursor-pointer transition-colors duration-300"
-                    >
-                      {isOwnProfile && (
-                        <div className="absolute top-2 right-2 z-10">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveMenuId(activeMenuId === post.id ? null : post.id);
-                            }}
-                            className="p-1.5 bg-black/40 backdrop-blur-md rounded-lg text-white hover:bg-black/60 transition-colors"
+                {posts.length > 0 ? (() => {
+                  const items: React.ReactNode[] = [];
+                  posts.forEach((post, index) => {
+                    items.push(
+                      <div 
+                        key={post.id} 
+                        id={`content-${post.id}`}
+                        onClick={() => {
+                          setSelectedPost({ ...post, author: profile || undefined });
+                          setModalInitialEditMode(false);
+                          setIsPostModalOpen(true);
+                        }}
+                        className="aspect-[9/16] bg-[var(--surface)] rounded-xl overflow-hidden border border-[var(--border-ui)] group relative cursor-pointer transition-colors duration-300"
+                      >
+                        {isOwnProfile && (
+                          <div className="absolute top-2 right-2 z-10">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMenuId(activeMenuId === post.id ? null : post.id);
+                              }}
+                              className="p-1.5 bg-black/40 backdrop-blur-md rounded-lg text-white hover:bg-black/60 transition-colors"
+                            >
+                              <MoreVertical size={14} />
+                            </button>
+                            
+                            <AnimatePresence>
+                              {activeMenuId === post.id && (
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                  className="absolute right-0 mt-1 w-40 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-2xl overflow-hidden z-50"
+                                >
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPost({ ...post, author: profile || undefined });
+                                      setModalInitialEditMode(true);
+                                      setIsPostModalOpen(true);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
+                                  >
+                                    <Edit2 size={12} className="text-[var(--primary)]" />
+                                    <span>Editar</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleArchive(post.id);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
+                                  >
+                                    <Archive size={12} className="text-amber-500" />
+                                    <span>Arquivar</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      let urls: string[] = [];
+                                      try {
+                                        if (post.media_url?.startsWith('[')) urls = JSON.parse(post.media_url);
+                                        else if (post.media_url) urls = [post.media_url];
+                                      } catch (e) {}
+                                      handleDeletePost(post.id, urls);
+                                      setActiveMenuId(null);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Excluir</span>
+                                  </button>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+                        {post.media_url ? (
+                          (() => {
+                            let url = '';
+                            try {
+                              if (post.media_url.startsWith('[')) url = JSON.parse(post.media_url)[0];
+                              else url = post.media_url;
+                            } catch (e) { url = post.media_url; }
+                            
+                            return post.type === 'video' ? (
+                              <div className="w-full h-full relative">
+                                <video src={url} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                              </div>
+                            ) : (
+                              <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
+                            );
+                          })()
+                        ) : (
+                          <div className="w-full h-full p-4 flex items-center justify-center text-center">
+                            <p className="text-[10px] text-[var(--text-muted)] line-clamp-6">{post.content}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+
+                    // Inject ad every 4 posts
+                    if (ads.length > 0 && (index + 1) % 4 === 0) {
+                      const adIndex = (Math.floor((index + 1) / 4) - 1 + currentAdIndex) % ads.length;
+                      const ad = ads[adIndex];
+                      if (ad) {
+                        const adMedia = ad.media_url_profile || ad.media_url;
+                        const isVideo = adMedia?.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || adMedia?.includes('video');
+
+                        items.push(
+                          <motion.div 
+                            key={`ad-${index}`}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="aspect-[9/16] bg-[var(--surface)] rounded-xl overflow-hidden border border-[var(--primary)]/30 relative group shadow-lg shadow-[var(--primary)]/5"
+                            onViewportEnter={() => trackAdEvent(ad.id, 'impression', 'profile')}
                           >
-                            <MoreVertical size={14} />
-                          </button>
-                          
-                          <AnimatePresence>
-                            {activeMenuId === post.id && (
-                              <motion.div
-                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                                className="absolute right-0 mt-1 w-40 bg-[var(--surface)] border border-[var(--border-ui)] rounded-xl shadow-2xl overflow-hidden z-50"
-                              >
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedPost({ ...post, author: profile || undefined });
-                                    setModalInitialEditMode(true);
-                                    setIsPostModalOpen(true);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
-                                >
-                                  <Edit2 size={12} className="text-[var(--primary)]" />
-                                  <span>Editar</span>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleArchive(post.id);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-[var(--text-main)] hover:bg-[var(--primary)]/10 transition-colors border-b border-[var(--border-ui)]"
-                                >
-                                  <Archive size={12} className="text-amber-500" />
-                                  <span>Arquivar</span>
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    let urls: string[] = [];
-                                    try {
-                                      if (post.media_url?.startsWith('[')) urls = JSON.parse(post.media_url);
-                                      else if (post.media_url) urls = [post.media_url];
-                                    } catch (e) {}
-                                    handleDeletePost(post.id, urls);
-                                    setActiveMenuId(null);
-                                  }}
-                                  className="w-full flex items-center space-x-2 px-3 py-2 text-[10px] font-bold text-rose-500 hover:bg-rose-500/10 transition-colors"
-                                >
-                                  <Trash2 size={12} />
-                                  <span>Excluir</span>
-                                </button>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      )}
-                      {post.media_url ? (
-                        (() => {
-                          let url = '';
-                          try {
-                            if (post.media_url.startsWith('[')) url = JSON.parse(post.media_url)[0];
-                            else url = post.media_url;
-                          } catch (e) { url = post.media_url; }
-                          
-                          return post.type === 'video' ? (
-                            <div className="w-full h-full relative">
-                              <video src={url} className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                            {/* Ad Label */}
+                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)]/90 backdrop-blur-md rounded-lg shadow-lg">
+                              <Zap size={10} className="text-white fill-white animate-pulse" />
+                              <span className="text-[8px] font-black text-white uppercase tracking-widest">Patrocinado</span>
                             </div>
-                          ) : (
-                            <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                          );
-                        })()
-                      ) : (
-                        <div className="w-full h-full p-4 flex items-center justify-center text-center">
-                          <p className="text-[10px] text-[var(--text-muted)] line-clamp-6">{post.content}</p>
-                        </div>
-                      )}
-                    </div>
-                )) : (
+
+                            {/* Ad Media */}
+                            <div className="w-full h-full relative">
+                              {isVideo ? (
+                                <video 
+                                  src={adMedia} 
+                                  className="w-full h-full object-cover"
+                                  autoPlay
+                                  muted
+                                  loop
+                                  playsInline
+                                />
+                              ) : (
+                                <img 
+                                  src={adMedia} 
+                                  alt={ad.title} 
+                                  className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
+                                />
+                              )}
+                              
+                              {/* Ad Overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-4">
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-black text-white uppercase tracking-tight line-clamp-1">{ad.title}</h4>
+                                  <p className="text-[10px] text-white/70 line-clamp-2 leading-tight">{ad.content}</p>
+                                  
+                                  <a 
+                                    href={ad.link_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => trackAdEvent(ad.id, 'click', 'profile')}
+                                    className="w-full flex items-center justify-between px-3 py-2 bg-white text-black rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[var(--primary)] hover:text-white transition-all group/btn"
+                                  >
+                                    <span>Saiba Mais</span>
+                                    <ChevronRight size={12} className="group-hover/btn:translate-x-1 transition-transform" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Rotation Progress Indicator (if multiple ads) */}
+                            {ads.length > 1 && (
+                              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/10">
+                                <motion.div 
+                                  key={`progress-${currentAdIndex}`}
+                                  initial={{ width: "0%" }}
+                                  animate={{ width: "100%" }}
+                                  transition={{ duration: ad.display_time || 15, ease: "linear" }}
+                                  className="h-full bg-[var(--primary)]"
+                                />
+                              </div>
+                            )}
+                          </motion.div>
+                        );
+                      }
+                    }
+                  });
+                  return items;
+                })() : (
                   <div className="col-span-2 py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhuma postagem ainda</div>
                 )}
               </div>
