@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useParams } from 'react-router-dom';
-import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X, MoreVertical, Trash2, Edit2, Archive, RotateCcw } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X, MoreVertical, Trash2, Edit2, Archive, RotateCcw, ChevronRight, ExternalLink } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaPost, ArenaProfile, PostType, ArenaAd } from '../types';
 import { PostModal } from './PostModal';
@@ -9,6 +9,8 @@ import { ShareModal } from './ShareModal';
 import { AchievementCard } from './AchievementCard';
 import { generateCard, CardData } from '../services/arenaService';
 import { trackAdEvent } from '../services/adService';
+
+import { SidebarAds } from './SidebarAds';
 
 export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
   console.log('[ArenaFeed] Componente montado');
@@ -54,6 +56,18 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   });
   const [trendingPosts, setTrendingPosts] = useState<ArenaPost[]>([]);
   const [ads, setAds] = useState<ArenaAd[]>([]);
+  const [currentInFeedAdIndex, setCurrentInFeedAdIndex] = useState(0);
+
+  useEffect(() => {
+    const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+    if (inFeedAds.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentInFeedAdIndex(prev => (prev + 1) % inFeedAds.length);
+    }, 15000); // Rotate in-feed ads every 15s
+
+    return () => clearInterval(timer);
+  }, [ads.length]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const [loadingPromoted, setLoadingPromoted] = useState(false);
   const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
@@ -733,7 +747,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         <div className="max-w-7xl mx-auto py-6 px-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Left Column - Feed Content */}
-            <div className="lg:col-span-12 space-y-8 max-w-4xl mx-auto w-full">
+            <div className="lg:col-span-8 space-y-8 max-w-4xl mx-auto w-full">
               {/* Feed List - Immersive Cards */}
               <div>
             {loading ? (
@@ -747,9 +761,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : (
               <div className="space-y-8">
                 {/* Top Ad */}
-                {ads.filter(ad => (ad.placement || '').includes('feed_top')).length === 0 && (
-                  <div className="hidden">DEBUG: No feed_top ads found</div>
-                )}
                 {ads.filter(ad => (ad.placement || '').includes('feed_top')).map(ad => {
                   const adMediaUrl = ad.media_url_feed_top || ad.media_url;
                   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
@@ -768,18 +779,17 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                       <div className="flex-1 text-center md:text-left">
                         <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2 block">PATROCINADO</span>
                         <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic">{ad.title}</h4>
-                        <p className="text-xs text-gray-400 mb-4">{ad.content}</p>
-                        {ad.link_url && (
-                          <a 
-                            href={ad.link_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
-                            className="inline-block px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
-                          >
-                            Saiba Mais
-                          </a>
-                        )}
+                        <p className="text-xs text-gray-400 mb-4 line-clamp-2">{ad.content}</p>
+                        <a 
+                          href={ad.link_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                          className="inline-flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all"
+                        >
+                          <span>Ver Mais</span>
+                          <ChevronRight size={12} />
+                        </a>
                       </div>
                     </div>
                   );
@@ -794,17 +804,16 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                     </div>
                     <div className="flex space-x-6 overflow-x-auto pb-4 hide-scrollbar">
                       {loadingPromoted ? (
-              // Loading Skeleton
-              [1, 2, 3].map((i) => (
-                <div key={`promoted-skeleton-${i}`} className="flex items-center space-x-4 p-3 rounded-xl bg-[var(--surface)] animate-pulse">
-                  <div className="w-12 h-12 rounded-full bg-[var(--border-ui)]" />
-                  <div className="flex-1 space-y-2">
-                    <div className="w-24 h-3 bg-[var(--border-ui)] rounded" />
-                    <div className="w-16 h-2 bg-[var(--border-ui)] rounded" />
-                  </div>
-                </div>
-              ))
-            ) : promotedProfiles.map(profile => (
+                        [1, 2, 3].map((i) => (
+                          <div key={`promoted-skeleton-${i}`} className="flex items-center space-x-4 p-3 rounded-xl bg-[var(--surface)] animate-pulse">
+                            <div className="w-12 h-12 rounded-full bg-[var(--border-ui)]" />
+                            <div className="flex-1 space-y-2">
+                              <div className="w-24 h-3 bg-[var(--border-ui)] rounded" />
+                              <div className="w-16 h-2 bg-[var(--border-ui)] rounded" />
+                            </div>
+                          </div>
+                        ))
+                      ) : promotedProfiles.map(profile => (
                         <Link key={profile.id} to={`/user/@${profile.username}`} className="flex-shrink-0 group text-center space-y-3">
                           <div className="relative">
                             <div className="absolute inset-0 bg-amber-500/20 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -824,12 +833,18 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                     </div>
                   </div>
                 )}
-                     {/* Posts List with Interstitial Ads */}
+
+                {/* Posts List with Interstitial Ads */}
                 {posts.length > 0 ? (
                   <>
-                    {posts.map((post, index) => (
-                      <React.Fragment key={post.id}>
-                        <motion.div
+                    {posts.map((post, index) => {
+                      const showInFeedAd = (index + 1) % 5 === 0; // Show ad every 5 posts
+                      const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+                      const currentAd = inFeedAds[currentInFeedAdIndex];
+
+                      return (
+                        <React.Fragment key={post.id}>
+                          <motion.div
                           initial={{ opacity: 0, y: 30 }}
                           whileInView={{ opacity: 1, y: 0 }}
                           viewport={{ once: true, margin: "-100px" }}
@@ -1111,80 +1126,53 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
                         </motion.div>
 
-                        {/* Interstitial Ad - Show every 3 posts, or after the first post if it's the only one */}
-                        {((index + 1) % 3 === 0 || (posts.length < 3 && index === 0)) && ads.filter(ad => (ad.placement || '').includes('feed_between')).length > 0 && (() => {
-                          const feedBetweenAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
-                          const adIndex = Math.floor(index / 3) % feedBetweenAds.length;
-                          const ad = feedBetweenAds[adIndex];
-                          
-                          // Determine the best media URL for this placement
-                          const adMediaUrl = ad.media_url_feed_between || ad.media_url;
-                          const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
-
-                          return (
-                            <div 
-                              key={`ad-${ad.id}-${index}`}
-                              className="bg-[var(--surface)]/30 border border-dashed border-[var(--border-ui)] rounded-[3rem] p-8 md:p-12 text-center relative overflow-hidden group/ad"
-                              ref={(el) => {
-                                if (el && !trackedAds.has(ad.id)) {
-                                  const observer = new IntersectionObserver((entries) => {
-                                    if (entries[0].isIntersecting) {
-                                      trackAdEvent(ad.id, 'impression', userProfile?.id);
-                                      setTrackedAds(prev => new Set(prev).add(ad.id));
-                                      observer.disconnect();
-                                    }
-                                  }, { threshold: 0.5 });
-                                  observer.observe(el);
-                                }
-                              }}
-                            >
-                              <div className="absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 group-hover/ad:opacity-100 transition-opacity" />
-                              <span className="text-[8px] font-black uppercase tracking-[0.4em] text-[var(--primary)] mb-6 block">Sugestão Arena</span>
-                              
-                              {adMediaUrl && (
-                                <div className="mb-8 rounded-2xl overflow-hidden border border-white/5 shadow-2xl shadow-black/50 aspect-video bg-black">
-                                  {isVideo ? (
-                                    <video 
-                                      src={adMediaUrl} 
-                                      className="w-full h-full object-cover" 
-                                      autoPlay 
-                                      muted 
-                                      loop 
-                                      playsInline 
-                                    />
+                        {/* In-Feed Ad (Mobile focus, but visible on all) */}
+                        {showInFeedAd && currentAd && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            whileInView={{ opacity: 1, scale: 1 }}
+                            viewport={{ once: true }}
+                            className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/ad"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Patrocinado</span>
+                              <ExternalLink size={14} className="text-[var(--text-muted)]" />
+                            </div>
+                            
+                            <div className="flex flex-col md:flex-row gap-6 items-center">
+                              { (currentAd.media_url_feed_between || currentAd.media_url) && (
+                                <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-black flex-shrink-0">
+                                  { (currentAd.media_url_feed_between || currentAd.media_url)?.match(/\.(mp4|webm|ogg|mov)$/i) ? (
+                                    <video src={currentAd.media_url_feed_between || currentAd.media_url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                                   ) : (
-                                    <img 
-                                      src={adMediaUrl} 
-                                      alt={ad.title} 
-                                      className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-700" 
-                                      referrerPolicy="no-referrer"
-                                    />
+                                    <img src={currentAd.media_url_feed_between || currentAd.media_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                                   )}
                                 </div>
                               )}
-
-                              <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] mb-4 italic">
-                                {ad.title}
-                              </h4>
-                              <p className="text-sm text-[var(--text-muted)] mb-8 max-w-md mx-auto leading-relaxed">
-                                {ad.content}
-                              </p>
-                              {ad.link_url && (
+                              <div className="flex-1 text-center md:text-left space-y-3">
+                                <h4 className="text-xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight">
+                                  {currentAd.title}
+                                </h4>
+                                <p className="text-sm text-[var(--text-muted)] line-clamp-3">
+                                  {currentAd.content}
+                                </p>
                                 <a 
-                                  href={ad.link_url} 
+                                  href={currentAd.link_url} 
                                   target="_blank" 
                                   rel="noopener noreferrer"
-                                  onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
-                                  className="inline-block px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20"
+                                  onClick={() => trackAdEvent(currentAd.id, 'click', userProfile?.id)}
+                                  className="inline-flex items-center space-x-3 px-8 py-3 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20"
                                 >
-                                  Conhecer Agora
+                                  <span>Saiba Mais</span>
+                                  <ChevronRight size={14} />
                                 </a>
-                              )}
+                              </div>
                             </div>
-                          );
-                        })()}
+                          </motion.div>
+                        )}
                       </React.Fragment>
-                    ))}
+                    );
+                  })}
 
                     {/* Infinite Scroll Trigger */}
                     {hasMore && (
@@ -1212,11 +1200,16 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 )}
               </div>
             )}
+            </div>
+            </div>
+
+            {/* Right Column - Sidebar Ads (Desktop Only) */}
+            <div className="hidden lg:block lg:col-span-4">
+              <SidebarAds ads={ads} userProfile={userProfile} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
   <AnimatePresence>
         {isPostModalOpen && selectedPost && (

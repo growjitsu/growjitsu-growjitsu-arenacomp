@@ -730,8 +730,15 @@ async function startServer() {
         if (isDebug) return true;
         
         // Safe date parsing
-        const startDate = ad.start_date ? new Date(ad.start_date) : null;
-        const endDate = ad.end_date ? new Date(ad.end_date) : null;
+        let startDate = null;
+        let endDate = null;
+        
+        try {
+          if (ad.start_date) startDate = new Date(ad.start_date);
+          if (ad.end_date) endDate = new Date(ad.end_date);
+        } catch (e) {
+          console.error(`[API] Erro ao parsear datas do anúncio ${ad.id}:`, e);
+        }
         
         const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
         const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
