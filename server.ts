@@ -682,9 +682,27 @@ async function startServer() {
     }
   });
 
+  // Debug endpoint to check ads
+  app.get("/api/debug/ads", async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('arena_ads')
+        .select('*');
+      
+      if (error) throw error;
+      res.json({
+        count: data?.length || 0,
+        ads: data
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/getAds", async (req, res) => {
     try {
-      console.log('[API] Buscando anúncios ativos...');
+      const isDebug = req.query.debug === 'true';
+      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug})`);
       
       // Query for active ads
       // We fetch all active ads and filter by date in JS for maximum robustness
@@ -700,16 +718,29 @@ async function startServer() {
         throw error;
       }
 
+      console.log(`[API] Anúncios brutos do Supabase: ${data?.length || 0}`);
+      if (data && data.length > 0) {
+        data.forEach(ad => {
+          console.log(`[API] Ad: ID=${ad.id}, Title=${ad.title}, Placement=${ad.placement}, Start=${ad.start_date}, End=${ad.end_date}, Active=${ad.active}`);
+        });
+      }
+
       const now = new Date();
       const filteredAds = (data || []).filter(ad => {
+        if (isDebug) return true;
+        
         // Safe date parsing
         const startDate = ad.start_date ? new Date(ad.start_date) : null;
         const endDate = ad.end_date ? new Date(ad.end_date) : null;
         
-        const isStarted = !startDate || startDate <= now;
-        const isNotEnded = !endDate || endDate >= now;
+        const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
+        const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
         
-        return isStarted && isNotEnded;
+        const result = isStarted && isNotEnded;
+        if (!result) {
+          console.log(`[API] Ad ${ad.id} filtrado: isStarted=${isStarted}, isNotEnded=${isNotEnded}`);
+        }
+        return result;
       });
 
       console.log(`[API] Anúncios encontrados: ${data?.length || 0}, Filtrados por data: ${filteredAds.length}`);

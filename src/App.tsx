@@ -50,6 +50,19 @@ const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
 };
 
 export default function App() {
+  useEffect(() => {
+    const debugAds = async () => {
+      try {
+        const res = await fetch('/api/debug/ads');
+        const data = await res.json();
+        console.log('[DEBUG] Arena Ads Table:', data);
+      } catch (err) {
+        console.error('[DEBUG] Error fetching ads:', err);
+      }
+    };
+    debugAds();
+  }, []);
+
   return (
     <ProfileProvider>
       <AppContent />

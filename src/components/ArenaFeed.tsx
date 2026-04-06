@@ -11,6 +11,7 @@ import { generateCard, CardData } from '../services/arenaService';
 import { trackAdEvent } from '../services/adService';
 
 export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
+  console.log('[ArenaFeed] Componente montado');
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -364,15 +365,21 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     }
   };
 
-  const fetchAds = async () => {
+  const fetchAds = async (retryWithDebug = false) => {
     try {
-      console.log('[ArenaFeed] Buscando anúncios via API...');
-      const response = await fetch('/api/getAds');
+      console.log(`[ArenaFeed] Buscando anúncios via API... (Debug: ${retryWithDebug})`);
+      const response = await fetch(`/api/getAds${retryWithDebug ? '?debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
         setAds(data || []);
-        console.log('[ArenaFeed] Anúncios carregados via API:', data?.length);
+        console.log('[ArenaFeed] Anúncios carregados via API:', data?.length, data);
+        
+        // If no ads found and we haven't retried with debug yet, try once more with debug
+        if ((!data || data.length === 0) && !retryWithDebug) {
+          console.log('[ArenaFeed] Nenhum anúncio encontrado, tentando com debug=true...');
+          fetchAds(true);
+        }
       } else {
         console.error('[ArenaFeed] Falha na API de anúncios:', response.status);
       }
@@ -740,6 +747,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
             ) : (
               <div className="space-y-8">
                 {/* Top Ad */}
+                {ads.filter(ad => (ad.placement || '').includes('feed_top')).length === 0 && (
+                  <div className="hidden">DEBUG: No feed_top ads found</div>
+                )}
                 {ads.filter(ad => (ad.placement || '').includes('feed_top')).map(ad => {
                   const adMediaUrl = ad.media_url_feed_top || ad.media_url;
                   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
