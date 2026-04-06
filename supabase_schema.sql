@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS arena_ads (
   media_url_feed_between TEXT,
   media_url_sidebar TEXT,
   media_url_profile TEXT,
+  display_time INTEGER DEFAULT 15,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
