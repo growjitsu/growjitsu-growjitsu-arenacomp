@@ -398,12 +398,18 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const fetchAds = async (retryWithDebug = false) => {
     try {
       console.log(`[ArenaFeed] Buscando anúncios via API... (Debug: ${retryWithDebug})`);
-      const response = await fetch(`/api/getAds${retryWithDebug ? '?debug=true' : ''}`);
+      const response = await fetch(`/api/getAds?placement=feed,sidebar${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
         setAds(data || []);
         console.log('[ArenaFeed] Anúncios carregados via API:', data?.length, data);
+        
+        if (data && data.length > 0) {
+          const feedTop = data.filter((ad: any) => (ad.placement || '').includes('feed_top'));
+          const feedBetween = data.filter((ad: any) => (ad.placement || '').includes('feed_between'));
+          console.log(`[ArenaFeed] Anúncios por tipo: Top=${feedTop.length}, Between=${feedBetween.length}`);
+        }
         
         // If no ads found and we haven't retried with debug yet, try once more with debug
         if ((!data || data.length === 0) && !retryWithDebug) {
@@ -882,9 +888,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 {posts.length > 0 ? (
                   <>
                     {posts.map((post, index) => {
-                      const showInFeedAd = (index + 1) % 5 === 0; // Show ad every 5 posts
                       const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
-                      const currentAd = inFeedAds[currentInFeedAdIndex];
+                      const currentAd = inFeedAds[currentInFeedAdIndex % inFeedAds.length];
+                      
+                      // Show ad every 5 posts, or at the end if there are at least 2 posts and total < 5
+                      const showInFeedAd = (index + 1) % 5 === 0 || (index === posts.length - 1 && posts.length >= 2 && posts.length < 5);
 
                       return (
                         <React.Fragment key={post.id}>

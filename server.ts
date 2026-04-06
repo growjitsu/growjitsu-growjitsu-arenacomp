@@ -702,14 +702,29 @@ async function startServer() {
   app.get("/api/getAds", async (req, res) => {
     try {
       const isDebug = req.query.debug === 'true';
-      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug})`);
+      const placement = req.query.placement as string;
+      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'})`);
       
       // Query for active ads
-      // We fetch all active ads and filter by date in JS for maximum robustness
-      const { data, error } = await supabaseAdmin
+      // We fetch all active ads and filter by date and placement in JS for maximum robustness
+      let query = supabaseAdmin
         .from('arena_ads')
         .select('*')
-        .eq('active', true)
+        .eq('active', true);
+      
+      if (placement) {
+        // Handle multiple placements separated by commas
+        const placements = placement.split(',').map(p => p.trim());
+        if (placements.length > 1) {
+          // Use or filter for multiple placements
+          let orQuery = placements.map(p => `placement.ilike.%${p}%`).join(',');
+          query = query.or(orQuery);
+        } else {
+          query = query.ilike('placement', `%${placement}%`);
+        }
+      }
+
+      const { data, error } = await query
         .order('order', { ascending: true })
         .order('created_at', { ascending: false });
       

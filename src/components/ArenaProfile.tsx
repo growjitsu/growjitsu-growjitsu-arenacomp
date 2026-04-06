@@ -100,7 +100,10 @@ export const ArenaProfileView: React.FC<{
       const response = await fetch('/api/getAds?placement=profile');
       if (response.ok) {
         const data = await response.json();
-        setAds(data);
+        // The server now filters by placement, but we filter again just in case
+        const profileAds = (data || []).filter((ad: any) => (ad.placement || '').includes('profile'));
+        setAds(profileAds);
+        console.log('[ArenaProfile] Anúncios de perfil carregados:', profileAds.length);
       }
     } catch (error) {
       console.error('Error fetching profile ads:', error);
@@ -3060,9 +3063,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       </div>
                     );
 
-                    // Inject ad every 4 posts
-                    if (ads.length > 0 && (index + 1) % 4 === 0) {
-                      const adIndex = (Math.floor((index + 1) / 4) - 1 + currentAdIndex) % ads.length;
+                    // Inject ad every 4 posts, or at the end if total posts < 4 and >= 1
+                    const showAd = (index + 1) % 4 === 0 || (index === posts.length - 1 && posts.length < 4);
+                    if (ads.length > 0 && showAd) {
+                      const adIndex = (Math.floor((index + 1) / 4) + currentAdIndex) % ads.length;
                       const ad = ads[adIndex];
                       if (ad) {
                         const adMedia = ad.media_url_profile || ad.media_url;
