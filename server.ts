@@ -112,7 +112,9 @@ async function startServer() {
 
   // 0. INFRASTRUCTURE LOGGING - MUST BE ABSOLUTELY FIRST
   app.use((req, res, next) => {
-    res.setHeader('X-API-Route', 'infra-middleware-start');
+    // Default header to track if the request was handled by our Express server
+    res.setHeader('X-API-Route', 'express-server-start');
+    
     const timestamp = new Date().toISOString();
     const userAgent = req.get('User-Agent') || 'Unknown';
     const isCrawler = userAgent.includes('WhatsApp') || 
@@ -148,13 +150,25 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // 0.1. CRITICAL API ROUTE - MOVED TO TOP FOR MAXIMUM PRIORITY
+  // ===========================================================================
+  // API SECTION - ALL API ROUTES MUST BE DEFINED HERE
+  // ===========================================================================
+  
+  // Force JSON for all /api/* routes and prevent HTML fallback
+  app.use("/api/*", (req, res, next) => {
+    console.log(`[API-CORE] Incoming API request: ${req.method} ${req.url}`);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('X-API-Route', 'api-middleware-active');
+    next();
+  });
+
+  // 0.1. CRITICAL API ROUTE - ANALYTICS
   app.all("/api/getAdReports", async (req, res) => {
     console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
     res.setHeader('X-API-Route', 'getAdReports');
     try {
       const { adId, startDate, endDate } = req.query;
-      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
+      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate}`);
 
       if (!supabaseAdmin) {
         console.error('[API] Supabase Admin client not initialized!');
@@ -176,7 +190,8 @@ async function startServer() {
         return res.status(500).json({ success: false, error: error.message });
       }
 
-      if (!events) {
+      if (!events || events.length === 0) {
+        console.log('[API] Nenhum evento encontrado para os critérios informados.');
         return res.json({
           success: true,
           stats: {
@@ -238,18 +253,311 @@ async function startServer() {
         }
       });
 
+      console.log(`[API] Relatório gerado com sucesso: ${events.length} eventos processados.`);
       return res.json({
         success: true,
         stats,
         events: events.slice(0, 100) // Return only first 100 events for performance
       });
     } catch (error: any) {
-      console.error('[API] Erro em getAdReports:', error);
+      console.error('[API] Erro crítico em getAdReports:', error);
       return res.status(500).json({ success: false, error: error.message });
     }
   });
 
-  // 1. OG Tag Injection for Share Links - MOVED TO TOP for priority
+  // 0.2. ADS DELIVERY API
+  app.get("/api/getAds", async (req, res) => {
+    res.setHeader('X-API-Route', 'getAds');
+    try {
+      const isDebug = req.query.debug === 'true';
+      const placement = req.query.placement as string;
+      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'})`);
+      
+      if (!supabaseAdmin) {
+        console.error('[API] Supabase Admin client not initialized for getAds!');
+        return res.status(500).json({ error: "Database client not initialized" });
+      }
+
+      // Query for active ads
+      let query = supabaseAdmin
+        .from('arena_ads')
+        .select('*')
+        .eq('active', true);
+      
+      if (placement) {
+        const placements = placement.split(',').map(p => p.trim());
+        if (placements.length > 1) {
+          let orQuery = placements.map(p => `placement.ilike.%${p}%`).join(',');
+          query = query.or(orQuery);
+        } else {
+          query = query.ilike('placement', `%${placement}%`);
+        }
+      }
+
+      const { data, error } = await query
+        .order('order', { ascending: true })
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('[API] Erro do Supabase ao buscar anúncios:', error);
+        return res.status(500).json({ error: error.message });
+      }
+
+      console.log(`[API] Anúncios brutos do Supabase: ${data?.length || 0}`);
+      
+      const now = new Date();
+      const filteredAds = (data || []).filter(ad => {
+        if (isDebug) {
+          console.log(`[API-DEBUG] Ad ${ad.id} mantido por modo debug.`);
+          return true;
+        }
+        
+        // Safe date parsing
+        let startDate = null;
+        let endDate = null;
+        
+        try {
+          if (ad.start_date) startDate = new Date(ad.start_date);
+          if (ad.end_date) endDate = new Date(ad.end_date);
+        } catch (e) {
+          console.error(`[API] Erro ao parsear datas do anúncio ${ad.id}:`, e);
+        }
+        
+        const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
+        const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
+        
+        const result = isStarted && isNotEnded;
+        if (!result) {
+          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado: isStarted=${isStarted}, isNotEnded=${isNotEnded} | Start: ${ad.start_date}, End: ${ad.end_date}, Now: ${now.toISOString()}`);
+        }
+        return result;
+      });
+
+      console.log(`[API] Delivery: Brutos=${data?.length || 0}, Filtrados=${filteredAds.length}`);
+      return res.json(filteredAds);
+    } catch (error: any) {
+      console.error('[API] Erro crítico ao buscar anúncios:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/getTopAtletas", async (req, res) => {
+    try {
+      console.log('[API] Buscando melhores atletas (Elite Arena)...');
+      const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .neq('role', 'admin')
+        .eq('perfil_publico', true)
+        .gt('arena_score', 0)
+        .order('arena_score', { ascending: false, nullsFirst: false })
+        .limit(10);
+      
+      if (error) {
+        console.error('[API] Erro Supabase em getTopAtletas:', error);
+        throw error;
+      }
+      
+      console.log(`[API] Sucesso: ${data?.length || 0} atletas encontrados.`);
+      res.json(data || []);
+    } catch (error: any) {
+      console.error('[API] Erro crítico em getTopAtletas:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/eliteArena", async (req, res) => {
+    try {
+      console.log('[API] Buscando Elite Arena (atletas)...');
+      
+      if (!supabaseSecretKey) {
+        console.warn('[API] SUPABASE_SECRET_KEY não configurada. Usando chave anônima (pode falhar se RLS for restrito).');
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('atletas')
+        .select('*')
+        .order('ranking', { ascending: false })
+        .limit(5);
+      
+      let finalData = [];
+
+      if (error || !data || data.length === 0) {
+        if (error) {
+          console.warn('[API] Erro ao buscar da tabela atletas, tentando fallback para profiles:', error.message);
+        } else {
+          console.log('[API] Tabela atletas vazia, tentando fallback para profiles...');
+        }
+
+        const { data: profileData, error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .neq('role', 'admin')
+          .eq('perfil_publico', true)
+          .order('arena_score', { ascending: false, nullsFirst: false })
+          .limit(5);
+        
+        if (profileError) {
+          console.error('[API] Erro no fallback para profiles:', profileError);
+          return res.json([]);
+        }
+
+        finalData = profileData || [];
+        console.log(`[API] Sucesso no fallback: ${finalData.length} atletas encontrados em profiles.`);
+      } else {
+        finalData = data;
+        console.log(`[API] Sucesso: ${finalData.length} atletas encontrados na tabela atletas.`);
+      }
+      
+      let normalizedData = finalData.map(atleta => {
+        const username = atleta.username || (atleta.nome_completo ? atleta.nome_completo.split(' ')[0].toLowerCase() : 'atleta');
+        return {
+          id: atleta.usuario_id || atleta.id,
+          full_name: atleta.nome_completo || atleta.full_name || 'Atleta Arena',
+          profile_photo: atleta.foto_perfil || atleta.profile_photo || atleta.avatar_url,
+          arena_score: atleta.ranking || atleta.arena_score || 0,
+          username: username,
+          role: atleta.role || 'athlete'
+        };
+      });
+      
+      if (normalizedData.length === 0) {
+        console.log('[API] NENHUM atleta encontrado. Usando dados de exemplo para o Elite Arena.');
+        normalizedData = [
+          {
+            id: 'demo-1',
+            full_name: 'Atleta Exemplo 1',
+            profile_photo: 'https://picsum.photos/seed/athlete1/200/200',
+            arena_score: 1500,
+            username: 'exemplo1',
+            role: 'athlete'
+          },
+          {
+            id: 'demo-2',
+            full_name: 'Atleta Exemplo 2',
+            profile_photo: 'https://picsum.photos/seed/athlete2/200/200',
+            arena_score: 1200,
+            username: 'exemplo2',
+            role: 'athlete'
+          }
+        ];
+      }
+      
+      res.json(normalizedData);
+    } catch (error: any) {
+      console.error('[API] Erro crítico em /api/eliteArena:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/getPerfisDestaque", async (req, res) => {
+    try {
+      console.log('[API] Buscando perfis em destaque...');
+      const { data, error } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('is_promoted', true)
+        .limit(5);
+      
+      if (error) {
+        console.warn('[API] Erro ao buscar perfis em destaque:', error.message);
+      }
+
+      if (!data || data.length === 0) {
+        console.log('[API] Nenhum perfil em destaque encontrado, buscando top atletas como fallback...');
+        const { data: fallbackData, error: fallbackError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .neq('role', 'admin')
+          .eq('perfil_publico', true)
+          .order('arena_score', { ascending: false })
+          .limit(5);
+        
+        if (fallbackError) throw fallbackError;
+        return res.json(fallbackData || []);
+      }
+      
+      res.json(data);
+    } catch (error: any) {
+      console.error('[API] Erro ao buscar perfis em destaque:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/getTrendingPosts", async (req, res) => {
+    try {
+      console.log('[API] Buscando posts em alta...');
+      let { data: postsData, error: postsError } = await supabaseAdmin
+        .from('posts')
+        .select('*')
+        .eq('is_archived', false)
+        .order('likes_count', { ascending: false })
+        .limit(3);
+      
+      if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
+        const { data: retryData, error: retryError } = await supabaseAdmin
+          .from('posts')
+          .select('*')
+          .order('likes_count', { ascending: false })
+          .limit(3);
+        
+        if (retryError) throw retryError;
+        postsData = retryData;
+      } else if (postsError) {
+        throw postsError;
+      }
+      
+      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
+      const { data: authorsData } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .neq('role', 'admin')
+        .in('id', authorIds);
+      
+      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
+      const postsWithAuthors = (postsData || []).map(p => ({
+        ...p,
+        author: authorsMap.get(p.author_id)
+      })).filter(p => p.author);
+      
+      res.json(postsWithAuthors);
+    } catch (error: any) {
+      console.error('[API] Erro ao buscar posts em alta:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/championships", (req, res) => {
+    try {
+      const championships = db.prepare("SELECT * FROM championships").all();
+      res.json({ success: true, data: championships });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/championships", (req, res) => {
+    try {
+      const { name, date, location } = req.body;
+      const info = db.prepare("INSERT INTO championships (name, date, location) VALUES (?, ?, ?)").run(name, date, location);
+      res.json({ success: true, id: info.lastInsertRowid });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 0.3. CATCH-ALL FOR API - MUST BE AFTER ALL SPECIFIC API ROUTES
+  app.all("/api/*", (req, res) => {
+    console.log(`[API-CORE] Catch-all /api/* hit for: ${req.url} - Returning 404 JSON`);
+    res.setHeader('X-API-Route', 'api-catch-all-404');
+    res.status(404).json({ success: false, error: "API route not found", path: req.path });
+  });
+
+  // ===========================================================================
+  // END OF API SECTION
+  // ===========================================================================
+
+  // 1. OG Tag Injection for Share Links
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
@@ -492,198 +800,7 @@ async function startServer() {
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
 
-  app.get("/api/getTopAtletas", async (req, res) => {
-    try {
-      console.log('[API] Buscando melhores atletas (Elite Arena)...');
-      const { data, error } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .neq('role', 'admin')
-        .eq('perfil_publico', true)
-        .gt('arena_score', 0)
-        .order('arena_score', { ascending: false, nullsFirst: false })
-        .limit(10);
-      
-      if (error) {
-        console.error('[API] Erro Supabase em getTopAtletas:', error);
-        throw error;
-      }
-      
-      console.log(`[API] Sucesso: ${data?.length || 0} atletas encontrados.`);
-      res.json(data || []);
-    } catch (error: any) {
-      console.error('[API] Erro crítico em getTopAtletas:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // NEW ENDPOINT: /api/eliteArena
-  app.get("/api/eliteArena", async (req, res) => {
-    try {
-      console.log('[API] Buscando Elite Arena (atletas)...');
-      
-      if (!supabaseSecretKey) {
-        console.warn('[API] SUPABASE_SECRET_KEY não configurada. Usando chave anônima (pode falhar se RLS for restrito).');
-      }
-
-      // Tentamos buscar da tabela 'atletas'
-      const { data, error } = await supabaseAdmin
-        .from('atletas')
-        .select('*')
-        .order('ranking', { ascending: false })
-        .limit(5);
-      
-      let finalData = [];
-
-      // Se houver erro OU se a lista estiver vazia, tentamos o fallback para 'profiles'
-      if (error || !data || data.length === 0) {
-        if (error) {
-          console.warn('[API] Erro ao buscar da tabela atletas, tentando fallback para profiles:', error.message);
-        } else {
-          console.log('[API] Tabela atletas vazia, tentando fallback para profiles...');
-        }
-
-        // Fallback para profiles - Relaxamos o critério (gt 0) se necessário
-        const { data: profileData, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .neq('role', 'admin')
-          .eq('perfil_publico', true)
-          .order('arena_score', { ascending: false, nullsFirst: false })
-          .limit(5);
-        
-        if (profileError) {
-          console.error('[API] Erro no fallback para profiles:', profileError);
-          // Se falhar o fallback, retornamos lista vazia em vez de erro 500 para não quebrar o feed
-          return res.json([]);
-        }
-
-        finalData = profileData || [];
-        console.log(`[API] Sucesso no fallback: ${finalData.length} atletas encontrados em profiles.`);
-      } else {
-        finalData = data;
-        console.log(`[API] Sucesso: ${finalData.length} atletas encontrados na tabela atletas.`);
-      }
-      
-      // Normalizar dados para o formato esperado pelo frontend
-      let normalizedData = finalData.map(atleta => {
-        const username = atleta.username || (atleta.nome_completo ? atleta.nome_completo.split(' ')[0].toLowerCase() : 'atleta');
-        return {
-          id: atleta.usuario_id || atleta.id,
-          full_name: atleta.nome_completo || atleta.full_name || 'Atleta Arena',
-          profile_photo: atleta.foto_perfil || atleta.profile_photo || atleta.avatar_url,
-          arena_score: atleta.ranking || atleta.arena_score || 0,
-          username: username,
-          role: atleta.role || 'athlete'
-        };
-      });
-      
-      // Se ainda estiver vazio (nenhum atleta em nenhuma tabela), usamos dados de exemplo para não deixar o feed vazio
-      if (normalizedData.length === 0) {
-        console.log('[API] NENHUM atleta encontrado. Usando dados de exemplo para o Elite Arena.');
-        normalizedData = [
-          {
-            id: 'demo-1',
-            full_name: 'Atleta Exemplo 1',
-            profile_photo: 'https://picsum.photos/seed/athlete1/200/200',
-            arena_score: 1500,
-            username: 'exemplo1',
-            role: 'athlete'
-          },
-          {
-            id: 'demo-2',
-            full_name: 'Atleta Exemplo 2',
-            profile_photo: 'https://picsum.photos/seed/athlete2/200/200',
-            arena_score: 1200,
-            username: 'exemplo2',
-            role: 'athlete'
-          }
-        ];
-      }
-      
-      res.json(normalizedData);
-    } catch (error: any) {
-      console.error('[API] Erro crítico em /api/eliteArena:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/getPerfisDestaque", async (req, res) => {
-    try {
-      console.log('[API] Buscando perfis em destaque...');
-      const { data, error } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('is_promoted', true)
-        .limit(5);
-      
-      if (error) {
-        console.warn('[API] Erro ao buscar perfis em destaque:', error.message);
-      }
-
-      if (!data || data.length === 0) {
-        console.log('[API] Nenhum perfil em destaque encontrado, buscando top atletas como fallback...');
-        const { data: fallbackData, error: fallbackError } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .neq('role', 'admin')
-          .eq('perfil_publico', true)
-          .order('arena_score', { ascending: false })
-          .limit(5);
-        
-        if (fallbackError) throw fallbackError;
-        return res.json(fallbackData || []);
-      }
-      
-      res.json(data);
-    } catch (error: any) {
-      console.error('[API] Erro ao buscar perfis em destaque:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.get("/api/getTrendingPosts", async (req, res) => {
-    try {
-      console.log('[API] Buscando posts em alta...');
-      let { data: postsData, error: postsError } = await supabaseAdmin
-        .from('posts')
-        .select('*')
-        .eq('is_archived', false)
-        .order('likes_count', { ascending: false })
-        .limit(3);
-      
-      if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
-        const { data: retryData, error: retryError } = await supabaseAdmin
-          .from('posts')
-          .select('*')
-          .order('likes_count', { ascending: false })
-          .limit(3);
-        
-        if (retryError) throw retryError;
-        postsData = retryData;
-      } else if (postsError) {
-        throw postsError;
-      }
-      
-      const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
-      const { data: authorsData } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .neq('role', 'admin')
-        .in('id', authorIds);
-      
-      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
-      const postsWithAuthors = (postsData || []).map(p => ({
-        ...p,
-        author: authorsMap.get(p.author_id)
-      })).filter(p => p.author);
-      
-      res.json(postsWithAuthors);
-    } catch (error: any) {
-      console.error('[API] Erro ao buscar posts em alta:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Remove redundant catch-all and error handler as they are consolidated
 
   // Debug endpoint to check ads
   app.get("/api/debug/ads", async (req, res) => {
@@ -702,79 +819,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/getAds", async (req, res) => {
-    try {
-      const isDebug = req.query.debug === 'true';
-      const placement = req.query.placement as string;
-      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'})`);
-      
-      // Query for active ads
-      // We fetch all active ads and filter by date and placement in JS for maximum robustness
-      let query = supabaseAdmin
-        .from('arena_ads')
-        .select('*')
-        .eq('active', true);
-      
-      if (placement) {
-        // Handle multiple placements separated by commas
-        const placements = placement.split(',').map(p => p.trim());
-        if (placements.length > 1) {
-          // Use or filter for multiple placements
-          let orQuery = placements.map(p => `placement.ilike.%${p}%`).join(',');
-          query = query.or(orQuery);
-        } else {
-          query = query.ilike('placement', `%${placement}%`);
-        }
-      }
-
-      const { data, error } = await query
-        .order('order', { ascending: true })
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('[API] Erro do Supabase ao buscar anúncios:', error);
-        throw error;
-      }
-
-      console.log(`[API] Anúncios brutos do Supabase: ${data?.length || 0}`);
-      if (data && data.length > 0) {
-        data.forEach(ad => {
-          console.log(`[API] Ad: ID=${ad.id}, Title=${ad.title}, Placement=${ad.placement}, Start=${ad.start_date}, End=${ad.end_date}, Active=${ad.active}`);
-        });
-      }
-
-      const now = new Date();
-      const filteredAds = (data || []).filter(ad => {
-        if (isDebug) return true;
-        
-        // Safe date parsing
-        let startDate = null;
-        let endDate = null;
-        
-        try {
-          if (ad.start_date) startDate = new Date(ad.start_date);
-          if (ad.end_date) endDate = new Date(ad.end_date);
-        } catch (e) {
-          console.error(`[API] Erro ao parsear datas do anúncio ${ad.id}:`, e);
-        }
-        
-        const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
-        const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
-        
-        const result = isStarted && isNotEnded;
-        if (!result) {
-          console.log(`[API] Ad ${ad.id} filtrado: isStarted=${isStarted}, isNotEnded=${isNotEnded}`);
-        }
-        return result;
-      });
-
-      console.log(`[API] Anúncios encontrados: ${data?.length || 0}, Filtrados por data: ${filteredAds.length}`);
-      res.json(filteredAds);
-    } catch (error: any) {
-      console.error('[API] Erro ao buscar anúncios:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Remove the old /api/getAds definition as it's now in the API section
 
   // AD TRACKING API
   app.post("/api/trackAdEvent", async (req, res) => {
@@ -1136,32 +1181,7 @@ async function startServer() {
     }
   });
 
-  // Mock Championship Data
-  app.get("/api/championships", (req, res) => {
-    try {
-      const championships = db.prepare("SELECT * FROM championships").all();
-      res.json({ success: true, data: championships });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  app.post("/api/championships", (req, res) => {
-    try {
-      const { name, date, location } = req.body;
-      const info = db.prepare("INSERT INTO championships (name, date, location) VALUES (?, ?, ?)").run(name, date, location);
-      res.json({ success: true, id: info.lastInsertRowid });
-    } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
-    }
-  });
-
-  // Catch-all for /api routes to prevent falling through to static files
-  app.all("/api/*", (req, res) => {
-    console.log(`[DEBUG-API] Catch-all /api/* hit for: ${req.url}`);
-    res.setHeader('X-API-Route', 'catch-all');
-    res.status(404).json({ success: false, error: "API route not found", path: req.path });
-  });
+  // Consolidating all API routes...
 
   // Global Error Handler (Standardizing all errors to JSON)
   app.use((err: any, req: any, res: any, next: any) => {
