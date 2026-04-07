@@ -97,16 +97,29 @@ export const ArenaProfileView: React.FC<{
 
   const fetchAds = async () => {
     try {
+      console.log('[ArenaProfile] Buscando anúncios de perfil...');
       const response = await fetch('/api/getAds?placement=profile');
       if (response.ok) {
         const data = await response.json();
-        // The server now filters by placement, but we filter again just in case
-        const profileAds = (data || []).filter((ad: any) => (ad.placement || '').includes('profile'));
+        console.log('[ArenaProfile] Dados brutos recebidos:', data);
+        
+        // Filter specifically for profile placement as a safeguard
+        const profileAds = (data || []).filter((ad: any) => {
+          const isProfile = (ad.placement || '').includes('profile');
+          const isActive = ad.active === true;
+          return isProfile && isActive;
+        });
+        
         setAds(profileAds);
-        console.log('[ArenaProfile] Anúncios de perfil carregados:', profileAds.length);
+        console.log('[ArenaProfile] Anúncios de perfil processados e ativos:', profileAds.length);
+        if (profileAds.length > 0) {
+          console.log('[ArenaProfile] Primeiro anúncio:', profileAds[0]);
+        }
+      } else {
+        console.error('[ArenaProfile] Erro na resposta da API:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching profile ads:', error);
+      console.error('[ArenaProfile] Erro ao buscar anúncios de perfil:', error);
     }
   };
 
@@ -2762,6 +2775,64 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               )}
             </div>
           </div>
+
+          {/* Top Ad (Visible on all tabs if available) */}
+          {ads.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden p-6 md:p-8 relative group/ad shadow-2xl"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <Zap size={12} className="text-[var(--primary)] fill-[var(--primary)] animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--primary)]">Patrocinado</span>
+                </div>
+                <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/ad:text-[var(--primary)] transition-colors" />
+              </div>
+
+              {(() => {
+                const ad = ads[currentAdIndex % ads.length];
+                const adMedia = ad.media_url_profile || ad.media_url;
+                const isVideo = adMedia?.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || adMedia?.includes('video');
+
+                return (
+                  <div className="flex flex-col md:flex-row gap-8 items-center">
+                    {adMedia && (
+                      <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-black flex-shrink-0 border border-white/5 shadow-lg">
+                        {isVideo ? (
+                          <video src={adMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                        ) : (
+                          <img src={adMedia} alt="" className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" referrerPolicy="no-referrer" />
+                        )}
+                      </div>
+                    )}
+                    <div className="flex-1 text-center md:text-left space-y-4">
+                      <h4 className="text-xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight group-hover/ad:text-[var(--primary)] transition-colors">
+                        {ad.title}
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
+                        {ad.content}
+                      </p>
+                      <div className="flex items-center justify-center md:justify-start space-x-6">
+                        <a 
+                          href={ad.link_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={() => trackAdEvent(ad.id, 'click', profile?.id)}
+                          onViewportEnter={() => trackAdEvent(ad.id, 'impression', profile?.id)}
+                          className="inline-flex items-center space-x-3 px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-xl shadow-[var(--primary)]/20 active:scale-95"
+                        >
+                          <span>Saiba Mais</span>
+                          <ChevronRight size={14} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          )}
 
           {/* Tabs */}
           <div className="flex flex-wrap gap-x-8 gap-y-4 border-b border-[var(--border-ui)] transition-colors duration-300">
