@@ -112,6 +112,7 @@ async function startServer() {
 
   // 0. INFRASTRUCTURE LOGGING - MUST BE ABSOLUTELY FIRST
   app.use((req, res, next) => {
+    res.setHeader('X-API-Route', 'infra-middleware-start');
     const timestamp = new Date().toISOString();
     const userAgent = req.get('User-Agent') || 'Unknown';
     const isCrawler = userAgent.includes('WhatsApp') || 
@@ -122,10 +123,130 @@ async function startServer() {
 
     if (isCrawler) {
       console.log(`[CRAWLER-LOG] [${timestamp}] ${req.method} ${req.url} | UA: ${userAgent}`);
-    } else if (req.url.startsWith('/api') || req.url.startsWith('/share')) {
+    } else {
       console.log(`[INFRA-LOG] [${timestamp}] ${req.method} ${req.url}`);
     }
     next();
+  });
+
+  // 1. CORS Middleware
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    exposedHeaders: ["X-API-Route"],
+    credentials: true,
+    maxAge: 86400
+  }));
+
+  // Handle OPTIONS preflight explicitly for all routes
+  app.options("*", (req, res) => {
+    res.sendStatus(200);
+  });
+
+  // 3. Body Parsing
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // 0.1. CRITICAL API ROUTE - MOVED TO TOP FOR MAXIMUM PRIORITY
+  app.all("/api/getAdReports", async (req, res) => {
+    console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
+    res.setHeader('X-API-Route', 'getAdReports');
+    try {
+      const { adId, startDate, endDate } = req.query;
+      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
+
+      if (!supabaseAdmin) {
+        console.error('[API] Supabase Admin client not initialized!');
+        return res.status(500).json({ success: false, error: "Database client not initialized" });
+      }
+
+      let query = supabaseAdmin
+        .from('arena_ad_events')
+        .select('*');
+
+      if (adId && adId !== 'all') query = query.eq('ad_id', adId);
+      if (startDate) query = query.gte('created_at', startDate);
+      if (endDate) query = query.lte('created_at', endDate);
+
+      const { data: events, error } = await query;
+
+      if (error) {
+        console.error('[API] Erro Supabase em getAdReports:', error);
+        return res.status(500).json({ success: false, error: error.message });
+      }
+
+      if (!events) {
+        return res.json({
+          success: true,
+          stats: {
+            totalImpressions: 0,
+            totalClicks: 0,
+            ctr: 0,
+            deviceStats: {},
+            browserStats: {},
+            countryStats: {},
+            dailyStats: {}
+          },
+          events: []
+        });
+      }
+
+      // Aggregate data
+      const stats = {
+        totalImpressions: events.filter(e => e.event_type === 'impression').length || 0,
+        totalClicks: events.filter(e => e.event_type === 'click').length || 0,
+        ctr: 0,
+        deviceStats: {} as Record<string, number>,
+        browserStats: {} as Record<string, number>,
+        countryStats: {} as Record<string, number>,
+        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
+      };
+
+      if (stats.totalImpressions > 0) {
+        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
+      }
+
+      events.forEach(event => {
+        if (!event.created_at) return;
+        
+        // Daily stats
+        const date = typeof event.created_at === 'string' 
+          ? event.created_at.split('T')[0] 
+          : new Date(event.created_at).toISOString().split('T')[0];
+          
+        if (!stats.dailyStats[date]) {
+          stats.dailyStats[date] = { impressions: 0, clicks: 0 };
+        }
+        
+        if (event.event_type === 'impression') {
+          stats.dailyStats[date].impressions++;
+          
+          // Device stats
+          const device = event.device_type || 'desktop';
+          stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
+          
+          // Browser stats
+          const browser = event.browser_family || 'Unknown';
+          stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
+          
+          // Country stats
+          const country = event.country_code || 'Unknown';
+          stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
+        } else if (event.event_type === 'click') {
+          stats.dailyStats[date].clicks++;
+        }
+      });
+
+      return res.json({
+        success: true,
+        stats,
+        events: events.slice(0, 100) // Return only first 100 events for performance
+      });
+    } catch (error: any) {
+      console.error('[API] Erro em getAdReports:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // 1. OG Tag Injection for Share Links - MOVED TO TOP for priority
@@ -367,125 +488,6 @@ async function startServer() {
       }
     }
   };
-
-  // 1. CORS Middleware
-  app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    credentials: true,
-    maxAge: 86400
-  }));
-
-  // Handle OPTIONS preflight explicitly for all routes
-  app.options("*", (req, res) => {
-    res.sendStatus(200);
-  });
-
-  // 3. Body Parsing
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // API Endpoints using Supabase Admin (Secret Key) - Move to top for priority
-  app.all("/api/getAdReports", async (req, res) => {
-    console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
-    res.setHeader('X-API-Route', 'getAdReports');
-    try {
-      const { adId, startDate, endDate } = req.query;
-      console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
-
-      if (!supabaseAdmin) {
-        console.error('[API] Supabase Admin client not initialized!');
-        return res.status(500).json({ success: false, error: "Database client not initialized" });
-      }
-
-      let query = supabaseAdmin
-        .from('arena_ad_events')
-        .select('*');
-
-      if (adId && adId !== 'all') query = query.eq('ad_id', adId);
-      if (startDate) query = query.gte('created_at', startDate);
-      if (endDate) query = query.lte('created_at', endDate);
-
-      const { data: events, error } = await query;
-
-      if (error) {
-        console.error('[API] Erro Supabase em getAdReports:', error);
-        return res.status(500).json({ success: false, error: error.message });
-      }
-
-      if (!events) {
-        return res.json({
-          success: true,
-          stats: {
-            totalImpressions: 0,
-            totalClicks: 0,
-            ctr: 0,
-            deviceStats: {},
-            browserStats: {},
-            countryStats: {},
-            dailyStats: {}
-          },
-          events: []
-        });
-      }
-
-      // Aggregate data
-      const stats = {
-        totalImpressions: events.filter(e => e.event_type === 'impression').length || 0,
-        totalClicks: events.filter(e => e.event_type === 'click').length || 0,
-        ctr: 0,
-        deviceStats: {} as Record<string, number>,
-        browserStats: {} as Record<string, number>,
-        countryStats: {} as Record<string, number>,
-        dailyStats: {} as Record<string, { impressions: number, clicks: number }>
-      };
-
-      if (stats.totalImpressions > 0) {
-        stats.ctr = (stats.totalClicks / stats.totalImpressions) * 100;
-      }
-
-      events.forEach(event => {
-        if (!event.created_at) return;
-        
-        // Device stats
-        const device = event.device_type || 'desktop';
-        stats.deviceStats[device] = (stats.deviceStats[device] || 0) + 1;
-
-        // Browser stats
-        const browser = event.browser || 'Unknown';
-        stats.browserStats[browser] = (stats.browserStats[browser] || 0) + 1;
-
-        // Country stats
-        const country = event.country || 'Unknown';
-        stats.countryStats[country] = (stats.countryStats[country] || 0) + 1;
-
-        // Daily stats
-        try {
-          const date = typeof event.created_at === 'string' 
-            ? event.created_at.split('T')[0] 
-            : new Date(event.created_at).toISOString().split('T')[0];
-            
-          if (!stats.dailyStats[date]) {
-            stats.dailyStats[date] = { impressions: 0, clicks: 0 };
-          }
-          if (event.event_type === 'impression') stats.dailyStats[date].impressions++;
-          if (event.event_type === 'click') stats.dailyStats[date].clicks++;
-        } catch (e) {
-          console.warn('[API] Erro ao processar data do evento:', event.created_at);
-        }
-      });
-
-      res.json({
-        success: true,
-        stats,
-        events: events
-      });
-    } catch (error: any) {
-      console.error('[API] Erro crítico ao obter relatórios de anúncios:', error);
-      res.status(500).json({ success: false, error: error.message || "Erro interno no servidor" });
-    }
-  });
 
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
