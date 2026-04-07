@@ -389,6 +389,7 @@ async function startServer() {
   // API Endpoints using Supabase Admin (Secret Key) - Move to top for priority
   app.all("/api/getAdReports", async (req, res) => {
     console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
+    res.setHeader('X-API-Route', 'getAdReports');
     try {
       const { adId, startDate, endDate } = req.query;
       console.log(`[API] Buscando relatórios de anúncios: adId=${adId}, startDate=${startDate}, endDate=${endDate} | Método: ${req.method}`);
@@ -1155,6 +1156,8 @@ async function startServer() {
 
   // Catch-all for /api routes to prevent falling through to static files
   app.all("/api/*", (req, res) => {
+    console.log(`[DEBUG-API] Catch-all /api/* hit for: ${req.url}`);
+    res.setHeader('X-API-Route', 'catch-all');
     res.status(404).json({ success: false, error: "API route not found", path: req.path });
   });
 
@@ -1178,6 +1181,8 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
+      console.log(`[DEBUG-ROUTING] Catch-all * hit for: ${req.url} | UA: ${req.get('User-Agent')}`);
+      res.setHeader('X-API-Route', 'static-catch-all');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

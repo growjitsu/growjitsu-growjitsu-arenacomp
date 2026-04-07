@@ -184,12 +184,13 @@ export const AdminAds: React.FC = () => {
       const response = await fetch(url);
       
       const contentType = response.headers.get("content-type");
-      console.log(`[DEBUG] Response status: ${response.status}, content-type: ${contentType}`);
+      const apiRouteHeader = response.headers.get("X-API-Route");
+      console.log(`[DEBUG] Response status: ${response.status}, content-type: ${contentType}, X-API-Route: ${apiRouteHeader}`);
       
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error('Non-JSON response received:', text.substring(0, 200));
-        throw new Error(`O servidor retornou um formato inesperado (HTML). Verifique se a rota da API está correta.`);
+        throw new Error(`O servidor retornou um formato inesperado (HTML). Rota identificada: ${apiRouteHeader || 'desconhecida'}`);
       }
 
       const data = await response.json();
