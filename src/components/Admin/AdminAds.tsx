@@ -646,6 +646,34 @@ export const AdminAds: React.FC = () => {
     setIsFeedModalOpen(true);
   };
 
+  const reorderFeedAd = async (ad: ArenaAd, direction: 'up' | 'down') => {
+    const currentIndex = feedAds.findIndex(a => a.id === ad.id);
+    const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= feedAds.length) return;
+
+    const targetAd = feedAds[targetIndex];
+
+    try {
+      const { error: error1 } = await supabase
+        .from('arena_ads')
+        .update({ order: targetAd.order || 0 })
+        .eq('id', ad.id);
+      
+      const { error: error2 } = await supabase
+        .from('arena_ads')
+        .update({ order: ad.order || 0 })
+        .eq('id', targetAd.id);
+
+      if (error1 || error2) throw error1 || error2;
+      
+      fetchFeedAds();
+    } catch (error: any) {
+      console.error('Error reordering feed ad:', error);
+      toast.error('Erro ao reordenar anúncio.');
+    }
+  };
+
   const handleToggleAdStatus = async (ad: ArenaAd) => {
     if (!auth.currentUser) {
       toast.error('Você precisa estar autenticado no Firebase para alterar o status.');
@@ -721,6 +749,7 @@ export const AdminAds: React.FC = () => {
 
       const dataToSave = {
         ...feedFormData,
+        placement: feedFormData.placement.toLowerCase(), // Normalização
         media_url: finalMediaUrl,
         media_url_feed_top: finalMediaUrlFeedTop,
         media_url_feed_between: finalMediaUrlFeedBetween,
@@ -1035,6 +1064,22 @@ export const AdminAds: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-3">
+                    <div className="flex flex-col space-y-1 mr-2">
+                      <button 
+                        onClick={() => reorderFeedAd(ad, 'up')}
+                        disabled={feedAds.indexOf(ad) === 0}
+                        className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button 
+                        onClick={() => reorderFeedAd(ad, 'down')}
+                        disabled={feedAds.indexOf(ad) === feedAds.length - 1}
+                        className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
                     <button 
                       onClick={() => handleToggleAdStatus(ad)}
                       className={`p-4 border rounded-2xl transition-all flex items-center space-x-2 ${
@@ -1468,34 +1513,26 @@ export const AdminAds: React.FC = () => {
                 <div className="space-y-4">
                   <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Mídias por Posicionamento</label>
                   <div className="space-y-6">
-                    {/* Main Media (Fallback) */}
+                    {/* Main Media (Fallback) - Optional */}
                     <div className="space-y-2">
-                      <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400 ml-2">Mídia Principal (Fallback)</label>
-                      <div className="flex items-center gap-4">
-                        <div className="flex-1">
-                          <input 
-                            type="text"
-                            value={feedFormData.media_url}
-                            onChange={(e) => setFeedFormData({ ...feedFormData, media_url: e.target.value })}
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
-                            placeholder="URL da imagem ou vídeo"
-                          />
-                        </div>
-                        <div className="relative">
-                          <input 
-                            type="file"
-                            id="feed-media-main"
-                            className="hidden"
-                            accept="image/*,video/*"
-                            onChange={(e) => handleFeedFileChange(e, 'main')}
-                          />
-                          <label 
-                            htmlFor="feed-media-main"
-                            className="flex items-center justify-center w-14 h-14 bg-blue-600/20 border border-blue-600/30 rounded-2xl text-blue-500 cursor-pointer hover:bg-blue-600/30 transition-all"
-                          >
-                            <Upload size={20} />
-                          </label>
-                        </div>
+                      <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400 ml-2">Mídia Principal (Fallback Opcional)</label>
+                      <div className="relative group">
+                        <input 
+                          type="file"
+                          id="feed-media-main"
+                          className="hidden"
+                          accept="image/*,video/*"
+                          onChange={(e) => handleFeedFileChange(e, 'main')}
+                        />
+                        <label 
+                          htmlFor="feed-media-main"
+                          className="flex flex-col items-center justify-center w-full h-24 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all"
+                        >
+                          <Upload size={20} className="text-gray-500 mb-2" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                            {feedFiles.main ? feedFiles.main.name : 'Upload de Mídia Principal'}
+                          </span>
+                        </label>
                       </div>
                       {feedPreviews.main && (
                         <div className="mt-2 relative w-32 h-20 rounded-xl overflow-hidden border border-white/10">
@@ -1527,11 +1564,11 @@ export const AdminAds: React.FC = () => {
                         { id: 'sidebar', label: 'Barra Lateral', dim: '600x800' },
                         { id: 'profile', label: 'Perfil', dim: '1200x400' }
                       ].map((pos) => {
-                        const isSelected = feedFormData.placement.includes(pos.id);
+                        const isSelected = feedFormData.placement.toLowerCase().includes(pos.id.toLowerCase());
                         if (!isSelected) return null;
 
-                        const fieldName = `media_url_${pos.id}` as keyof typeof feedFormData;
                         const preview = feedPreviews[pos.id];
+                        const file = feedFiles[pos.id];
 
                         return (
                           <div key={pos.id} className="space-y-2 p-4 bg-white/5 border border-white/10 rounded-2xl">
@@ -1539,31 +1576,24 @@ export const AdminAds: React.FC = () => {
                               <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">{pos.label}</label>
                               <span className="text-[8px] font-medium text-gray-500">Recomendado: {pos.dim}</span>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <div className="flex-1">
-                                <input 
-                                  type="text"
-                                  value={feedFormData[fieldName] as string}
-                                  onChange={(e) => setFeedFormData({ ...feedFormData, [fieldName]: e.target.value })}
-                                  className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-blue-500 transition-all"
-                                  placeholder="URL específica"
-                                />
-                              </div>
-                              <div className="relative">
-                                <input 
-                                  type="file"
-                                  id={`feed-media-${pos.id}`}
-                                  className="hidden"
-                                  accept="image/*,video/*"
-                                  onChange={(e) => handleFeedFileChange(e, pos.id)}
-                                />
-                                <label 
-                                  htmlFor={`feed-media-${pos.id}`}
-                                  className="flex items-center justify-center w-10 h-10 bg-white/5 border border-white/10 rounded-xl text-gray-400 cursor-pointer hover:bg-white/10 transition-all"
-                                >
-                                  <Upload size={16} />
-                                </label>
-                              </div>
+                            <div className="relative group">
+                              <input 
+                                type="file"
+                                id={`feed-media-${pos.id}`}
+                                className="hidden"
+                                accept="image/*,video/*"
+                                onChange={(e) => handleFeedFileChange(e, pos.id)}
+                              />
+                              <label 
+                                htmlFor={`feed-media-${pos.id}`}
+                                className="flex flex-col items-center justify-center w-full h-32 bg-white/5 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/10 hover:border-blue-500/50 transition-all"
+                              >
+                                <Upload size={20} className="text-gray-500 mb-2" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                  {file ? file.name : 'Upload de Mídia'}
+                                </span>
+                                <span className="text-[8px] text-gray-600 mt-1 uppercase tracking-widest">JPG, PNG, MP4 (Máx 2MB)</span>
+                              </label>
                             </div>
                             {preview && (
                               <div className="mt-2 relative w-full h-24 rounded-xl overflow-hidden border border-white/10">
@@ -1577,6 +1607,7 @@ export const AdminAds: React.FC = () => {
                                   onClick={() => {
                                     setFeedPreviews(prev => ({ ...prev, [pos.id]: '' }));
                                     setFeedFiles(prev => ({ ...prev, [pos.id]: null }));
+                                    const fieldName = `media_url_${pos.id}` as keyof typeof feedFormData;
                                     setFeedFormData(prev => ({ ...prev, [fieldName]: '' }));
                                   }}
                                   className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-rose-500 transition-colors"
@@ -1589,6 +1620,30 @@ export const AdminAds: React.FC = () => {
                         );
                       })}
                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Tempo de Exibição (s)</label>
+                    <input 
+                      type="number"
+                      required
+                      min="1"
+                      value={feedFormData.display_time}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, display_time: parseInt(e.target.value) })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Ordem / Prioridade</label>
+                    <input 
+                      type="number"
+                      required
+                      value={feedFormData.order}
+                      onChange={(e) => setFeedFormData({ ...feedFormData, order: parseInt(e.target.value) })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-blue-500 transition-all"
+                    />
                   </div>
                 </div>
 
