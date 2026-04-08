@@ -430,8 +430,11 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if (queryString) locationParams = `&${queryString}`;
       }
 
+      // Add cache buster for retries
+      const cacheBuster = retryWithDebug ? `&_t=${Date.now()}` : '';
+
       // Use explicit placements
-      const response = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      const response = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}${cacheBuster}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -445,14 +448,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
           console.log(`[ArenaFeed] Distribuição: Top=${feedTop.length}, Between=${feedBetween.length}, Sidebar=${sidebar.length}`);
         }
         
-        // If no ads found and we haven't retried with debug yet, try once more with debug
+        // If no ads found and we haven't retried with debug yet, try once more with debug and cache buster
         if ((!data || data.length === 0) && !retryWithDebug) {
-          console.log('[ArenaFeed] Nenhum anúncio encontrado, tentando com debug=true...');
+          console.log('[ArenaFeed] Nenhum anúncio encontrado, tentando com debug=true e cache buster...');
           fetchAds(true);
         } else if ((!data || data.length === 0) && retryWithDebug && locationParams) {
           console.log('[ArenaFeed] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
-          // Final attempt: No location, no debug (or with debug)
-          const finalResponse = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile&debug=true`);
+          // Final attempt: No location, with debug and cache buster
+          const finalResponse = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile&debug=true&_t=${Date.now()}`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             setAds(finalData || []);

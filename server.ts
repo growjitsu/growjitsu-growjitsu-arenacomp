@@ -274,6 +274,11 @@ async function startServer() {
   // 0.2. PROMOTIONS DELIVERY API (Renamed from getAds to bypass ad blockers)
   app.get("/api/getPromotions", async (req, res) => {
     res.setHeader('X-API-Route', 'getPromotions');
+    // Force no-cache for promotions to avoid stale empty results in production
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     try {
       const isDebug = req.query.debug === 'true';
       const placement = req.query.placement as string;
@@ -347,29 +352,39 @@ async function startServer() {
         // If the ad has a location constraint, we check if the user matches it
         if (hasLocationConstraint) {
           // If no user location is provided, we hide ads with constraints (standard behavior)
-          // UNLESS it's a very broad constraint or we want to show it anyway.
-          // For now, keep it strict to respect advertiser intent.
           if (!userCountryId && !userCountry) return false;
 
-          // Match Country (Priority to ID)
-          if (ad.country_id && userCountryId) {
-            if (ad.country_id !== userCountryId) return false;
-          } else if (ad.country && userCountry && ad.country.toLowerCase() !== userCountry.toLowerCase()) {
-            return false;
+          // Match Country: Match if ID matches OR if Name matches (case insensitive)
+          let countryMatch = false;
+          if (ad.country_id && userCountryId && ad.country_id === userCountryId) {
+            countryMatch = true;
+          } else if (ad.country && userCountry && ad.country.toLowerCase() === userCountry.toLowerCase()) {
+            countryMatch = true;
+          }
+          
+          // If ad has country constraint and it doesn't match, reject
+          if ((ad.country_id || ad.country) && !countryMatch) return false;
+
+          // Match State: Only check if ad has state constraint
+          if (ad.state_id || ad.state) {
+            let stateMatch = false;
+            if (ad.state_id && userStateId && ad.state_id === userStateId) {
+              stateMatch = true;
+            } else if (ad.state && userState && ad.state.toLowerCase() === userState.toLowerCase()) {
+              stateMatch = true;
+            }
+            if (!stateMatch) return false;
           }
 
-          // Match State
-          if (ad.state_id && userStateId) {
-            if (ad.state_id !== userStateId) return false;
-          } else if (ad.state && userState && ad.state.toLowerCase() !== userState.toLowerCase()) {
-            return false;
-          }
-
-          // Match City
-          if (ad.city_id && userCityId) {
-            if (ad.city_id !== userCityId) return false;
-          } else if (ad.city && userCity && ad.city.toLowerCase() !== userCity.toLowerCase()) {
-            return false;
+          // Match City: Only check if ad has city constraint
+          if (ad.city_id || ad.city) {
+            let cityMatch = false;
+            if (ad.city_id && userCityId && ad.city_id === userCityId) {
+              cityMatch = true;
+            } else if (ad.city && userCity && ad.city.toLowerCase() === userCity.toLowerCase()) {
+              cityMatch = true;
+            }
+            if (!cityMatch) return false;
           }
         }
         

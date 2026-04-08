@@ -114,7 +114,10 @@ export const ArenaProfileView: React.FC<{
         if (queryString) locationParams = `&${queryString}`;
       }
 
-      const response = await fetch(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      // Add cache buster for retries
+      const cacheBuster = retryWithDebug ? `&_t=${Date.now()}` : '';
+
+      const response = await fetch(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}${cacheBuster}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -128,14 +131,14 @@ export const ArenaProfileView: React.FC<{
         setAds(profileAds);
         console.log('[ArenaProfile] Anúncios de perfil processados:', profileAds.length);
 
-        // If no ads found and we haven't retried with debug yet, try once more with debug
+        // If no ads found and we haven't retried with debug yet, try once more with debug and cache buster
         if (profileAds.length === 0 && !retryWithDebug) {
-          console.log('[ArenaProfile] Nenhum anúncio encontrado, tentando com debug=true...');
+          console.log('[ArenaProfile] Nenhum anúncio encontrado, tentando com debug=true e cache buster...');
           fetchAds(true);
         } else if (profileAds.length === 0 && retryWithDebug && locationParams) {
           console.log('[ArenaProfile] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
-          // Final attempt: No location, with debug
-          const finalResponse = await fetch(`/api/getPromotions?placement=profile&debug=true`);
+          // Final attempt: No location, with debug and cache buster
+          const finalResponse = await fetch(`/api/getPromotions?placement=profile&debug=true&_t=${Date.now()}`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             const finalProfileAds = (finalData || []).filter((ad: any) => 
