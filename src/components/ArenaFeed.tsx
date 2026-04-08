@@ -431,7 +431,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       }
 
       // Use explicit placements
-      const response = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      const response = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -452,7 +452,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         } else if ((!data || data.length === 0) && retryWithDebug && locationParams) {
           console.log('[ArenaFeed] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
           // Final attempt: No location, no debug (or with debug)
-          const finalResponse = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar,profile&debug=true`);
+          const finalResponse = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile&debug=true`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             setAds(finalData || []);
@@ -841,14 +841,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
-                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/ad overflow-hidden shadow-2xl"
+                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/promo overflow-hidden shadow-2xl"
                       >
                         {adMediaUrl && (
                           <div className="w-full md:w-64 aspect-[4/1] md:aspect-[12/3] rounded-xl overflow-hidden flex-shrink-0 bg-black border border-white/5">
                             {isVideo ? (
                               <video src={adMediaUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                             ) : (
-                              <img src={adMediaUrl} alt="" className="w-full h-full object-cover group-hover/ad:scale-105 transition-transform duration-1000" referrerPolicy="no-referrer" />
+                              <img src={adMediaUrl} alt="" className="w-full h-full object-cover group-hover/promo:scale-105 transition-transform duration-1000" referrerPolicy="no-referrer" />
                             )}
                           </div>
                         )}
@@ -1228,7 +1228,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
                             onViewportEnter={() => trackAdEvent(currentAd.id, 'impression', userProfile?.id)}
-                            className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/ad shadow-2xl"
+                            className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/promo shadow-2xl"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center space-x-2">
@@ -1236,7 +1236,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 <div className="w-1 h-1 rounded-full bg-blue-500/40" />
                                 <span className="text-[9px] font-mono text-blue-400/40 uppercase">{currentAd.title}</span>
                               </div>
-                              <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/ad:text-blue-400 transition-colors" />
+                              <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/promo:text-blue-400 transition-colors" />
                             </div>
                             
                             <div className="flex flex-col md:flex-row gap-8 items-center">
@@ -1245,12 +1245,12 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                   { (currentAd.media_url_feed_between || currentAd.media_url)?.match(/\.(mp4|webm|ogg|mov)$/i) ? (
                                     <video src={currentAd.media_url_feed_between || currentAd.media_url} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                                   ) : (
-                                    <img src={currentAd.media_url_feed_between || currentAd.media_url} alt="" className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" referrerPolicy="no-referrer" />
+                                    <img src={currentAd.media_url_feed_between || currentAd.media_url} alt="" className="w-full h-full object-cover group-hover/promo:scale-110 transition-transform duration-1000" referrerPolicy="no-referrer" />
                                   )}
                                 </div>
                               )}
                               <div className="flex-1 text-center md:text-left space-y-4">
-                                <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight group-hover/ad:text-blue-400 transition-colors">
+                                <h4 className="text-2xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight group-hover/promo:text-blue-400 transition-colors">
                                   {currentAd.title}
                                 </h4>
                                 <p className="text-sm text-[var(--text-muted)] line-clamp-3 leading-relaxed">

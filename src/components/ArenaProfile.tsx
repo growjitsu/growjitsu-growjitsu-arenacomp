@@ -114,7 +114,7 @@ export const ArenaProfileView: React.FC<{
         if (queryString) locationParams = `&${queryString}`;
       }
 
-      const response = await fetch(`/api/getAds?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      const response = await fetch(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -135,7 +135,7 @@ export const ArenaProfileView: React.FC<{
         } else if (profileAds.length === 0 && retryWithDebug && locationParams) {
           console.log('[ArenaProfile] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
           // Final attempt: No location, with debug
-          const finalResponse = await fetch(`/api/getAds?placement=profile&debug=true`);
+          const finalResponse = await fetch(`/api/getPromotions?placement=profile&debug=true`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             const finalProfileAds = (finalData || []).filter((ad: any) => 
@@ -2810,7 +2810,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden relative group/ad shadow-2xl"
+              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden relative group/promo shadow-2xl"
             >
               {(() => {
                 const ad = ads[currentAdIndex % ads.length];
@@ -2841,7 +2841,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                           <img 
                             src={adMedia} 
                             alt={ad.title} 
-                            className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" 
+                            className="w-full h-full object-cover group-hover/promo:scale-110 transition-transform duration-1000" 
                             referrerPolicy="no-referrer" 
                           />
                         )
@@ -2857,7 +2857,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       {/* Ad Content Overlay */}
                       <div className="absolute inset-0 p-6 md:p-10 flex flex-col justify-end">
                         <div className="max-w-3xl space-y-2 md:space-y-4">
-                          <h4 className="text-xl md:text-4xl font-black uppercase tracking-tight text-white italic leading-tight group-hover/ad:text-[var(--primary)] transition-colors">
+                          <h4 className="text-xl md:text-4xl font-black uppercase tracking-tight text-white italic leading-tight group-hover/promo:text-[var(--primary)] transition-colors">
                             {ad.title}
                           </h4>
                           <p className="text-[10px] md:text-sm text-white/80 line-clamp-2 leading-relaxed font-medium max-w-xl">

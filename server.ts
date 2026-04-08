@@ -271,9 +271,9 @@ async function startServer() {
     }
   });
 
-  // 0.2. ADS DELIVERY API
-  app.get("/api/getAds", async (req, res) => {
-    res.setHeader('X-API-Route', 'getAds');
+  // 0.2. PROMOTIONS DELIVERY API (Renamed from getAds to bypass ad blockers)
+  app.get("/api/getPromotions", async (req, res) => {
+    res.setHeader('X-API-Route', 'getPromotions');
     try {
       const isDebug = req.query.debug === 'true';
       const placement = req.query.placement as string;
@@ -289,7 +289,7 @@ async function startServer() {
       console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'}, Location: ${userCountry || 'N/A'}/${userState || 'N/A'}/${userCity || 'N/A'})`);
       
       if (!supabaseAdmin) {
-        console.error('[API] Supabase Admin client not initialized for getAds!');
+        console.error('[API] Supabase Admin client not initialized for getPromotions!');
         return res.status(500).json({ error: "Database client not initialized" });
       }
 
@@ -376,7 +376,7 @@ async function startServer() {
         return true;
       });
 
-      console.log(`[API] getAds Result: Raw=${data?.length || 0}, Filtered=${filteredAds.length}, Placement=${placement}`);
+      console.log(`[API] getPromotions Result: Raw=${data?.length || 0}, Filtered=${filteredAds.length}, Placement=${placement}`);
       return res.json(filteredAds);
     } catch (error: any) {
       console.error('[API] Erro crítico ao buscar anúncios:', error);
@@ -610,9 +610,9 @@ async function startServer() {
     }
   });
 
-  // AD TRACKING API
-  app.post("/api/trackAdEvent", async (req, res) => {
-    res.setHeader('X-API-Route', 'trackAdEvent');
+  // PROMOTION TRACKING API (Renamed from trackAdEvent to bypass ad blockers)
+  app.post("/api/trackPromotionEvent", async (req, res) => {
+    res.setHeader('X-API-Route', 'trackPromotionEvent');
     try {
       const { adId, eventType, userId, deviceInfo } = req.body;
       

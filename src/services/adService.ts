@@ -26,7 +26,7 @@ export const trackAdEvent = async (
   try {
     const deviceInfo = getDeviceInfo();
     
-    await fetch('/api/trackAdEvent', {
+    await fetch('/api/trackPromotionEvent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
