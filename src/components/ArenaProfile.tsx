@@ -97,8 +97,24 @@ export const ArenaProfileView: React.FC<{
 
   const fetchAds = async () => {
     try {
-      console.log('[ArenaProfile] Buscando anúncios de perfil...');
-      const response = await fetch('/api/getAds?placement=profile');
+      console.log(`[ArenaProfile] Buscando anúncios de perfil... (User: ${currentUser?.id || 'Anônimo'})`);
+      
+      // Add geographic parameters if currentUser is available
+      let locationParams = '';
+      if (currentUser) {
+        const params = new URLSearchParams();
+        if (currentUser.country_id) params.append('country_id', currentUser.country_id);
+        if (currentUser.state_id) params.append('state_id', currentUser.state_id);
+        if (currentUser.city_id) params.append('city_id', currentUser.city_id);
+        if (currentUser.country) params.append('country', currentUser.country);
+        if (currentUser.state) params.append('state', currentUser.state);
+        if (currentUser.city) params.append('city', currentUser.city);
+        
+        const queryString = params.toString();
+        if (queryString) locationParams = `&${queryString}`;
+      }
+
+      const response = await fetch(`/api/getAds?placement=profile${locationParams}`);
       if (response.ok) {
         const data = await response.json();
         console.log('[ArenaProfile] Dados brutos recebidos:', data);
@@ -111,10 +127,7 @@ export const ArenaProfileView: React.FC<{
         });
         
         setAds(profileAds);
-        console.log('[ArenaProfile] Anúncios de perfil processados e ativos:', profileAds.length);
-        if (profileAds.length > 0) {
-          console.log('[ArenaProfile] Primeiro anúncio:', profileAds[0]);
-        }
+        console.log('[ArenaProfile] Anúncios de perfil processados:', profileAds.length);
       } else {
         console.error('[ArenaProfile] Erro na resposta da API:', response.status);
       }
@@ -125,7 +138,7 @@ export const ArenaProfileView: React.FC<{
 
   useEffect(() => {
     fetchAds();
-  }, []);
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (ads.length > 1) {

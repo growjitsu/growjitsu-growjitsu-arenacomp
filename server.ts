@@ -300,12 +300,11 @@ async function startServer() {
         .eq('active', true);
       
       if (placement) {
-        const placements = placement.split(',').map(p => p.trim());
-        if (placements.length > 1) {
-          let orQuery = placements.map(p => `placement.ilike.%${p}%`).join(',');
-          query = query.or(orQuery);
-        } else {
-          query = query.ilike('placement', `%${placement}%`);
+        const placements = placement.split(',').map(p => p.trim()).filter(p => p);
+        if (placements.length > 0) {
+          // Use a more robust OR query for placements
+          const orConditions = placements.map(p => `placement.ilike.%${p}%`);
+          query = query.or(orConditions.join(','));
         }
       }
 
@@ -318,62 +317,58 @@ async function startServer() {
         return res.status(500).json({ error: error.message });
       }
 
-      console.log(`[API] Anúncios brutos do Supabase: ${data?.length || 0}`);
-      
       const now = new Date();
       const filteredAds = (data || []).filter(ad => {
         if (isDebug) {
-          console.log(`[API-DEBUG] Ad ${ad.id} mantido por modo debug.`);
           return true;
         }
         
         // 1. Date filtering
-        let startDate = null;
-        let endDate = null;
+        let isStarted = true;
+        let isNotEnded = true;
         
-        try {
-          if (ad.start_date) startDate = new Date(ad.start_date);
-          if (ad.end_date) endDate = new Date(ad.end_date);
-        } catch (e) {
-          console.error(`[API] Erro ao parsear datas do anúncio ${ad.id}:`, e);
+        if (ad.start_date) {
+          const startDate = new Date(ad.start_date);
+          isStarted = !isNaN(startDate.getTime()) && startDate <= now;
         }
         
-        const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
-        const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
+        if (ad.end_date) {
+          const endDate = new Date(ad.end_date);
+          isNotEnded = !isNaN(endDate.getTime()) && endDate >= now;
+        }
         
         if (!isStarted || !isNotEnded) {
-          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado por data: isStarted=${isStarted}, isNotEnded=${isNotEnded}`);
           return false;
         }
 
-        // 2. Geographic filtering (Reusing Landing Page logic)
-        const hasLocationConstraint = ad.country_id || ad.country || ad.state_id || ad.state || ad.city_id || ad.city;
+        // 2. Geographic filtering
+        const hasLocationConstraint = !!(ad.country_id || ad.country || ad.state_id || ad.state || ad.city_id || ad.city);
 
-        // If not logged in (or no location provided), hide ads that have specific location constraints
-        if (!userCountryId && !userCountry && hasLocationConstraint) {
-          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado: Sem localização do usuário e anúncio tem restrições.`);
-          return false;
-        }
-
+        // If the ad has a location constraint, we check if the user matches it
         if (hasLocationConstraint) {
-          // Match Country
+          // If no user location is provided, we hide ads with constraints (standard behavior)
+          // UNLESS it's a very broad constraint or we want to show it anyway.
+          // For now, keep it strict to respect advertiser intent.
+          if (!userCountryId && !userCountry) return false;
+
+          // Match Country (Priority to ID)
           if (ad.country_id && userCountryId) {
             if (ad.country_id !== userCountryId) return false;
-          } else if (ad.country && ad.country !== userCountry) {
+          } else if (ad.country && userCountry && ad.country !== userCountry) {
             return false;
           }
 
           // Match State
           if (ad.state_id && userStateId) {
             if (ad.state_id !== userStateId) return false;
-          } else if (ad.state && ad.state !== userState) {
+          } else if (ad.state && userState && ad.state !== userState) {
             return false;
           }
 
           // Match City
           if (ad.city_id && userCityId) {
             if (ad.city_id !== userCityId) return false;
-          } else if (ad.city && ad.city !== userCity) {
+          } else if (ad.city && userCity && ad.city !== userCity) {
             return false;
           }
         }
@@ -381,7 +376,7 @@ async function startServer() {
         return true;
       });
 
-      console.log(`[API] Delivery: Brutos=${data?.length || 0}, Filtrados=${filteredAds.length}`);
+      console.log(`[API] getAds Result: Raw=${data?.length || 0}, Filtered=${filteredAds.length}, Placement=${placement}`);
       return res.json(filteredAds);
     } catch (error: any) {
       console.error('[API] Erro crítico ao buscar anúncios:', error);

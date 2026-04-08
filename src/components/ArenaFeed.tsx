@@ -120,7 +120,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     if (postId) {
       fetchSinglePost(postId);
     }
-  }, [urlPostId]);
+  }, [urlPostId, userProfile?.id]);
 
   const handleArchivePost = async (postId: string, archive: boolean = true) => {
     try {
@@ -413,7 +413,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchAds = async (retryWithDebug = false) => {
     try {
-      console.log(`[ArenaFeed] Buscando anúncios via API... (Debug: ${retryWithDebug})`);
+      console.log(`[ArenaFeed] Buscando anúncios via API... (Debug: ${retryWithDebug}, User: ${userProfile?.id || 'Anônimo'})`);
       
       // Add geographic parameters if userProfile is available
       let locationParams = '';
@@ -430,17 +430,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if (queryString) locationParams = `&${queryString}`;
       }
 
-      const response = await fetch(`/api/getAds?placement=feed,sidebar${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      // Use explicit placements
+      const response = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
         setAds(data || []);
-        console.log('[ArenaFeed] Anúncios carregados via API:', data?.length, data);
+        console.log(`[ArenaFeed] Anúncios carregados: ${data?.length || 0}`, data);
         
         if (data && data.length > 0) {
           const feedTop = data.filter((ad: any) => (ad.placement || '').includes('feed_top'));
           const feedBetween = data.filter((ad: any) => (ad.placement || '').includes('feed_between'));
-          console.log(`[ArenaFeed] Anúncios por tipo: Top=${feedTop.length}, Between=${feedBetween.length}`);
+          const sidebar = data.filter((ad: any) => (ad.placement || '').includes('sidebar'));
+          console.log(`[ArenaFeed] Distribuição: Top=${feedTop.length}, Between=${feedBetween.length}, Sidebar=${sidebar.length}`);
         }
         
         // If no ads found and we haven't retried with debug yet, try once more with debug
