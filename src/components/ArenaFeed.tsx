@@ -830,6 +830,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
+                        onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
                         className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/ad overflow-hidden shadow-2xl"
                       >
                         {adMediaUrl && (
@@ -1216,6 +1217,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             initial={{ opacity: 0, scale: 0.95 }}
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
+                            onViewportEnter={() => trackAdEvent(currentAd.id, 'impression', userProfile?.id)}
                             className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/ad shadow-2xl"
                           >
                             <div className="flex items-center justify-between mb-2">

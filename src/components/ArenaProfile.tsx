@@ -54,7 +54,7 @@ export const ArenaProfileView: React.FC<{
   const [selectedPost, setSelectedPost] = useState<ArenaPost | null>(null);
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [modalInitialEditMode, setModalInitialEditMode] = useState(false);
-  const { checkProfile, isProfileValid } = useProfile();
+  const { checkProfile, isProfileValid, profile: currentUser } = useProfile();
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isEditingPost, setIsEditingPost] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -2781,51 +2781,94 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden p-6 md:p-8 relative group/ad shadow-2xl"
+              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden relative group/ad shadow-2xl"
             >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <Zap size={12} className="text-[var(--primary)] fill-[var(--primary)] animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--primary)]">Patrocinado</span>
-                </div>
-                <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/ad:text-[var(--primary)] transition-colors" />
-              </div>
-
               {(() => {
                 const ad = ads[currentAdIndex % ads.length];
                 const adMedia = ad.media_url_profile || ad.media_url;
                 const isVideo = adMedia?.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || adMedia?.includes('video');
 
                 return (
-                  <div className="flex flex-col md:flex-row gap-8 items-center">
-                    {adMedia && (
-                      <div className="w-full md:w-64 aspect-video rounded-2xl overflow-hidden bg-black flex-shrink-0 border border-white/5 shadow-lg">
-                        {isVideo ? (
-                          <video src={adMedia} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                  <div className="relative">
+                    {/* Ad Label */}
+                    <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)]/90 backdrop-blur-md rounded-xl shadow-lg border border-white/20">
+                      <Zap size={12} className="text-white fill-white animate-pulse" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Patrocinado</span>
+                    </div>
+
+                    {/* Ad Media with 3:1 Aspect Ratio (Recommended 1200x400) */}
+                    <div className="aspect-[3/1] relative overflow-hidden bg-black">
+                      {adMedia ? (
+                        isVideo ? (
+                          <video 
+                            src={adMedia} 
+                            className="w-full h-full object-cover" 
+                            autoPlay 
+                            muted 
+                            loop 
+                            playsInline 
+                          />
                         ) : (
-                          <img src={adMedia} alt="" className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" referrerPolicy="no-referrer" />
-                        )}
+                          <img 
+                            src={adMedia} 
+                            alt={ad.title} 
+                            className="w-full h-full object-cover group-hover/ad:scale-110 transition-transform duration-1000" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        )
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[var(--surface)] to-black flex items-center justify-center">
+                          <Zap size={48} className="text-[var(--primary)]/20" />
+                        </div>
+                      )}
+                      
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-80" />
+                      
+                      {/* Ad Content Overlay */}
+                      <div className="absolute inset-0 p-6 md:p-10 flex flex-col justify-end">
+                        <div className="max-w-3xl space-y-2 md:space-y-4">
+                          <h4 className="text-xl md:text-4xl font-black uppercase tracking-tight text-white italic leading-tight group-hover/ad:text-[var(--primary)] transition-colors">
+                            {ad.title}
+                          </h4>
+                          <p className="text-[10px] md:text-sm text-white/80 line-clamp-2 leading-relaxed font-medium max-w-xl">
+                            {ad.content}
+                          </p>
+                          
+                          <div className="pt-2 flex items-center space-x-6">
+                            <a 
+                              href={ad.link_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={() => trackAdEvent(ad.id, 'click', currentUser?.id)}
+                              onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser?.id)}
+                              className="inline-flex items-center space-x-3 px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-xl shadow-[var(--primary)]/20 active:scale-95 group/btn"
+                            >
+                              <span>Saiba Mais</span>
+                              <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                            </a>
+                            
+                            {ads.length > 1 && (
+                              <div className="hidden md:flex items-center space-x-2">
+                                {ads.map((_, i) => (
+                                  <div 
+                                    key={i}
+                                    className={`h-1 rounded-full transition-all duration-500 ${
+                                      i === currentAdIndex % ads.length ? 'w-8 bg-[var(--primary)]' : 'w-2 bg-white/20'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    )}
-                    <div className="flex-1 text-center md:text-left space-y-4">
-                      <h4 className="text-xl font-black uppercase tracking-tight text-[var(--text-main)] italic leading-tight group-hover/ad:text-[var(--primary)] transition-colors">
-                        {ad.title}
-                      </h4>
-                      <p className="text-xs text-[var(--text-muted)] line-clamp-2 leading-relaxed">
-                        {ad.content}
-                      </p>
-                      <div className="flex items-center justify-center md:justify-start space-x-6">
-                        <a 
-                          href={ad.link_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          onClick={() => trackAdEvent(ad.id, 'click', profile?.id)}
-                          onViewportEnter={() => trackAdEvent(ad.id, 'impression', profile?.id)}
-                          className="inline-flex items-center space-x-3 px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-xl shadow-[var(--primary)]/20 active:scale-95"
-                        >
-                          <span>Saiba Mais</span>
-                          <ChevronRight size={14} />
-                        </a>
+                    </div>
+
+                    {/* External Link Icon */}
+                    <div className="absolute top-6 right-6 z-20">
+                      <div className="p-2 bg-black/40 backdrop-blur-md rounded-full border border-white/10 text-white/60 group-hover/ad:text-[var(--primary)] group-hover/ad:border-[var(--primary)]/50 transition-all">
+                        <ExternalLink size={16} />
                       </div>
                     </div>
                   </div>
@@ -3149,7 +3192,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="aspect-[9/16] bg-[var(--surface)] rounded-xl overflow-hidden border border-[var(--primary)]/30 relative group shadow-lg shadow-[var(--primary)]/5"
-                            onViewportEnter={() => trackAdEvent(ad.id, 'impression', 'profile')}
+                            onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser?.id)}
                           >
                             {/* Ad Label */}
                             <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)]/90 backdrop-blur-md rounded-lg shadow-lg">
@@ -3159,35 +3202,41 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
                             {/* Ad Media */}
                             <div className="w-full h-full relative">
-                              {isVideo ? (
-                                <video 
-                                  src={adMedia} 
-                                  className="w-full h-full object-cover"
-                                  autoPlay
-                                  muted
-                                  loop
-                                  playsInline
-                                />
+                              {adMedia ? (
+                                isVideo ? (
+                                  <video 
+                                    src={adMedia} 
+                                    className="w-full h-full object-cover"
+                                    autoPlay
+                                    muted
+                                    loop
+                                    playsInline
+                                  />
+                                ) : (
+                                  <img 
+                                    src={adMedia} 
+                                    alt={ad.title} 
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )
                               ) : (
-                                <img 
-                                  src={adMedia} 
-                                  alt={ad.title} 
-                                  className="w-full h-full object-cover"
-                                  referrerPolicy="no-referrer"
-                                />
+                                <div className="w-full h-full bg-gradient-to-br from-[var(--surface)] to-black flex items-center justify-center">
+                                  <Zap size={32} className="text-[var(--primary)]/20" />
+                                </div>
                               )}
                               
                               {/* Ad Overlay */}
                               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-4">
                                 <div className="space-y-2">
-                                  <h4 className="text-xs font-black text-white uppercase tracking-tight line-clamp-1">{ad.title}</h4>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-tight line-clamp-1 group-hover:text-[var(--primary)] transition-colors">{ad.title}</h4>
                                   <p className="text-[10px] text-white/70 line-clamp-2 leading-tight">{ad.content}</p>
                                   
                                   <a 
                                     href={ad.link_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    onClick={() => trackAdEvent(ad.id, 'click', 'profile')}
+                                    onClick={() => trackAdEvent(ad.id, 'click', currentUser?.id)}
                                     className="w-full flex items-center justify-between px-3 py-2 bg-white text-black rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[var(--primary)] hover:text-white transition-all group/btn"
                                   >
                                     <span>Saiba Mais</span>
