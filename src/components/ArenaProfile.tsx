@@ -95,9 +95,9 @@ export const ArenaProfileView: React.FC<{
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
 
-  const fetchAds = async () => {
+  const fetchAds = async (retryWithDebug = false) => {
     try {
-      console.log(`[ArenaProfile] Buscando anúncios de perfil... (User: ${currentUser?.id || 'Anônimo'})`);
+      console.log(`[ArenaProfile] Buscando anúncios de perfil... (Debug: ${retryWithDebug}, User: ${currentUser?.id || 'Anônimo'})`);
       
       // Add geographic parameters if currentUser is available
       let locationParams = '';
@@ -114,10 +114,9 @@ export const ArenaProfileView: React.FC<{
         if (queryString) locationParams = `&${queryString}`;
       }
 
-      const response = await fetch(`/api/getAds?placement=profile${locationParams}`);
+      const response = await fetch(`/api/getAds?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('[ArenaProfile] Dados brutos recebidos:', data);
         
         // Filter specifically for profile placement as a safeguard
         const profileAds = (data || []).filter((ad: any) => {
@@ -128,6 +127,23 @@ export const ArenaProfileView: React.FC<{
         
         setAds(profileAds);
         console.log('[ArenaProfile] Anúncios de perfil processados:', profileAds.length);
+
+        // If no ads found and we haven't retried with debug yet, try once more with debug
+        if (profileAds.length === 0 && !retryWithDebug) {
+          console.log('[ArenaProfile] Nenhum anúncio encontrado, tentando com debug=true...');
+          fetchAds(true);
+        } else if (profileAds.length === 0 && retryWithDebug && locationParams) {
+          console.log('[ArenaProfile] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
+          // Final attempt: No location, with debug
+          const finalResponse = await fetch(`/api/getAds?placement=profile&debug=true`);
+          if (finalResponse.ok) {
+            const finalData = await finalResponse.json();
+            const finalProfileAds = (finalData || []).filter((ad: any) => 
+              (ad.placement || '').toLowerCase().includes('profile') && ad.active === true
+            );
+            setAds(finalProfileAds);
+          }
+        }
       } else {
         console.error('[ArenaProfile] Erro na resposta da API:', response.status);
       }
