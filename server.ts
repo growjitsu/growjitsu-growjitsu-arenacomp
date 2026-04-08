@@ -154,11 +154,17 @@ async function startServer() {
   // API SECTION - ALL API ROUTES MUST BE DEFINED HERE
   // ===========================================================================
   
-  // Force JSON for all /api/* routes and prevent HTML fallback
-  app.use("/api/*", (req, res, next) => {
+  // Force JSON for all /api routes and prevent HTML fallback
+  app.use("/api", (req, res, next) => {
     console.log(`[API-CORE] Incoming API request: ${req.method} ${req.url}`);
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('X-API-Route', 'api-middleware-active');
+    
+    // Prevent caching for API routes
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     next();
   });
 
@@ -271,7 +277,16 @@ async function startServer() {
     try {
       const isDebug = req.query.debug === 'true';
       const placement = req.query.placement as string;
-      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'})`);
+      
+      // Geographic parameters from query
+      const userCountryId = req.query.country_id as string;
+      const userStateId = req.query.state_id as string;
+      const userCityId = req.query.city_id as string;
+      const userCountry = req.query.country as string;
+      const userState = req.query.state as string;
+      const userCity = req.query.city as string;
+
+      console.log(`[API] Buscando anúncios ativos... (Debug: ${isDebug}, Placement: ${placement || 'Todos'}, Location: ${userCountry || 'N/A'}/${userState || 'N/A'}/${userCity || 'N/A'})`);
       
       if (!supabaseAdmin) {
         console.error('[API] Supabase Admin client not initialized for getAds!');
@@ -312,7 +327,7 @@ async function startServer() {
           return true;
         }
         
-        // Safe date parsing
+        // 1. Date filtering
         let startDate = null;
         let endDate = null;
         
@@ -326,11 +341,44 @@ async function startServer() {
         const isStarted = !startDate || (startDate instanceof Date && !isNaN(startDate.getTime()) && startDate <= now);
         const isNotEnded = !endDate || (endDate instanceof Date && !isNaN(endDate.getTime()) && endDate >= now);
         
-        const result = isStarted && isNotEnded;
-        if (!result) {
-          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado: isStarted=${isStarted}, isNotEnded=${isNotEnded} | Start: ${ad.start_date}, End: ${ad.end_date}, Now: ${now.toISOString()}`);
+        if (!isStarted || !isNotEnded) {
+          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado por data: isStarted=${isStarted}, isNotEnded=${isNotEnded}`);
+          return false;
         }
-        return result;
+
+        // 2. Geographic filtering (Reusing Landing Page logic)
+        const hasLocationConstraint = ad.country_id || ad.country || ad.state_id || ad.state || ad.city_id || ad.city;
+
+        // If not logged in (or no location provided), hide ads that have specific location constraints
+        if (!userCountryId && !userCountry && hasLocationConstraint) {
+          console.log(`[API] Ad ${ad.id} (${ad.title}) filtrado: Sem localização do usuário e anúncio tem restrições.`);
+          return false;
+        }
+
+        if (hasLocationConstraint) {
+          // Match Country
+          if (ad.country_id && userCountryId) {
+            if (ad.country_id !== userCountryId) return false;
+          } else if (ad.country && ad.country !== userCountry) {
+            return false;
+          }
+
+          // Match State
+          if (ad.state_id && userStateId) {
+            if (ad.state_id !== userStateId) return false;
+          } else if (ad.state && ad.state !== userState) {
+            return false;
+          }
+
+          // Match City
+          if (ad.city_id && userCityId) {
+            if (ad.city_id !== userCityId) return false;
+          } else if (ad.city && ad.city !== userCity) {
+            return false;
+          }
+        }
+        
+        return true;
       });
 
       console.log(`[API] Delivery: Brutos=${data?.length || 0}, Filtrados=${filteredAds.length}`);
@@ -485,6 +533,7 @@ async function startServer() {
   });
 
   app.get("/api/getTrendingPosts", async (req, res) => {
+    res.setHeader('X-API-Route', 'getTrendingPosts');
     try {
       console.log('[API] Buscando posts em alta...');
       let { data: postsData, error: postsError } = await supabaseAdmin
@@ -528,6 +577,7 @@ async function startServer() {
   });
 
   app.get("/api/championships", (req, res) => {
+    res.setHeader('X-API-Route', 'championships-get');
     try {
       const championships = db.prepare("SELECT * FROM championships").all();
       res.json({ success: true, data: championships });
@@ -537,6 +587,7 @@ async function startServer() {
   });
 
   app.post("/api/championships", (req, res) => {
+    res.setHeader('X-API-Route', 'championships-post');
     try {
       const { name, date, location } = req.body;
       const info = db.prepare("INSERT INTO championships (name, date, location) VALUES (?, ?, ?)").run(name, date, location);
@@ -546,7 +597,361 @@ async function startServer() {
     }
   });
 
-  // 0.3. CATCH-ALL FOR API - MUST BE AFTER ALL SPECIFIC API ROUTES
+  // Debug endpoint to check ads
+  app.get("/api/debug/ads", async (req, res) => {
+    res.setHeader('X-API-Route', 'debug-ads');
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('arena_ads')
+        .select('*');
+      
+      if (error) throw error;
+      res.json({
+        count: data?.length || 0,
+        ads: data
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // AD TRACKING API
+  app.post("/api/trackAdEvent", async (req, res) => {
+    res.setHeader('X-API-Route', 'trackAdEvent');
+    try {
+      const { adId, eventType, userId, deviceInfo } = req.body;
+      
+      if (!adId || !eventType) {
+        return res.status(400).json({ error: "adId and eventType are required" });
+      }
+
+      const userAgent = req.headers['user-agent'] || '';
+      const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+      // Basic geolocation
+      const country = req.headers['cf-ipcountry'] as string || 'Unknown';
+
+      const { error } = await supabaseAdmin
+        .from('arena_ad_events')
+        .insert([{
+          ad_id: adId,
+          event_type: eventType,
+          user_id: userId || null,
+          ip_address: typeof ipAddress === 'string' ? ipAddress : (Array.isArray(ipAddress) ? ipAddress[0] : null),
+          user_agent: userAgent,
+          device_type: deviceInfo?.device || 'desktop',
+          os: deviceInfo?.os || 'Unknown',
+          browser: deviceInfo?.browser || 'Unknown',
+          country: country,
+          created_at: new Date().toISOString()
+        }]);
+
+      if (error) throw error;
+
+      // Update summary counts in arena_ads
+      if (eventType === 'impression') {
+        await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: adId });
+      } else if (eventType === 'click') {
+        await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: adId });
+      }
+
+      res.json({ status: "ok" });
+    } catch (error: any) {
+      console.error('[API] Erro ao rastrear evento de anúncio:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/health", (req, res) => {
+    res.setHeader('X-API-Route', 'health');
+    res.json({ status: "ok", message: "ArenaComp API is running" });
+  });
+
+  // FIREBASE ADMIN: Set Custom Claims
+  app.post("/api/admin/set-admin-claim", async (req, res) => {
+    res.setHeader('X-API-Route', 'set-admin-claim');
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ success: false, error: "Email é obrigatório." });
+    }
+
+    try {
+      console.log(`[FIREBASE-ADMIN] Tentando definir claim de admin para: ${email}`);
+      const auth = getAuth();
+      const user = await auth.getUserByEmail(email);
+      
+      await auth.setCustomUserClaims(user.uid, { admin: true });
+      
+      console.log(`[FIREBASE-ADMIN] Claim 'admin: true' definido com sucesso para ${email} (UID: ${user.uid})`);
+      
+      return res.json({ 
+        success: true, 
+        message: `Claim de administrador definido com sucesso para ${email}.`,
+        uid: user.uid
+      });
+    } catch (error: any) {
+      console.error('[FIREBASE-ADMIN] Erro ao definir claim:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || "Erro interno ao definir claim." 
+      });
+    }
+  });
+
+  // Location Endpoints
+  app.get("/api/locations/states", async (req, res) => {
+    res.setHeader('X-API-Route', 'locations-states');
+    try {
+      const { data, error } = await supabase
+        .from('states')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      console.error("[BACKEND] Erro ao buscar estados:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.get("/api/locations/cities/:stateId", async (req, res) => {
+    res.setHeader('X-API-Route', 'locations-cities');
+    const { stateId } = req.params;
+    try {
+      const { data, error } = await supabase
+        .from('cities')
+        .select('*')
+        .eq('state_id', stateId)
+        .order('name');
+
+      if (error) throw error;
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      console.error("[BACKEND] Erro ao buscar cidades:", error);
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Team Representative Validation Endpoint
+  app.post("/api/auth/validate-representative", async (req, res) => {
+    res.setHeader('X-API-Route', 'validate-representative');
+    const { teamId } = req.body;
+
+    if (!teamId) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Missing teamId", 
+        message: "O ID da equipe é obrigatório." 
+      });
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from('team_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('team_id', teamId)
+        .eq('role', 'representative');
+
+      if (error) {
+        return res.status(500).json({ 
+          success: false,
+          error: "Database query failed", 
+          message: error.message
+        });
+      }
+
+      if (count && count > 0) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Equipe já representada", 
+          message: "Esta equipe já possui um representante oficial cadastrado." 
+        });
+      }
+
+      return res.status(200).json({ 
+        success: true,
+        status: "ok", 
+        message: "Equipe disponível",
+        hasRepresentative: false
+      });
+    } catch (error: any) {
+      return res.status(500).json({ 
+        success: false,
+        error: "Internal server error during validation",
+        message: error.message 
+      });
+    }
+  });
+
+  // Endpoint for creating a team
+  app.post("/api/teams/create", async (req, res) => {
+    res.setHeader('X-API-Route', 'teams-create');
+    const { name, cityId, stateId, imageUrl, userId } = req.body;
+
+    if (!name || !userId) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Missing required fields", 
+        message: "Nome da equipe e ID do usuário são obrigatórios." 
+      });
+    }
+
+    try {
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .insert({
+          name,
+          city_id: cityId,
+          state_id: stateId,
+          logo_url: imageUrl,
+          created_by: userId
+        })
+        .select()
+        .single();
+
+      if (teamError) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Team creation failed", 
+          message: teamError.message 
+        });
+      }
+
+      const { error: memberError } = await supabase
+        .from('team_members')
+        .insert({
+          team_id: team.id,
+          user_id: userId,
+          role: 'representative'
+        });
+
+      if (memberError) {
+        return res.status(500).json({ 
+          success: false,
+          error: "Member linking failed", 
+          message: "Equipe criada, mas falhou ao vincular representante." 
+        });
+      }
+
+      await supabase
+        .from('profiles')
+        .update({
+          team_id: team.id,
+          team_leader: 'true'
+        })
+        .eq('id', userId);
+
+      return res.status(201).json({ 
+        success: true,
+        message: "Equipe criada e representante vinculado com sucesso",
+        teamId: team.id 
+      });
+    } catch (error: any) {
+      return res.status(500).json({ 
+        success: false,
+        error: "Internal server error during team creation",
+        message: error.message 
+      });
+    }
+  });
+
+  // 0.4. CARD GENERATION API
+  const cardGenerationHandler = async (req: any, res: any) => {
+    console.log(`[API-CORE] Requisição recebida em ${req.url} | Método: ${req.method}`);
+    
+    // Se for GET, retorna status para verificação
+    if (req.method === 'GET') {
+      return res.json({ 
+        status: "active", 
+        message: "Card generation API is ready. Use POST to generate.",
+        endpoints: ["/", "/gc", "/generate-card-v3", "/api/v1/generate-card"]
+      });
+    }
+
+    // Se não for POST, retorna 405 mas com corpo JSON claro
+    if (req.method !== 'POST') {
+      console.warn(`[API-CORE] Método inválido: ${req.method}`);
+      return res.status(405).json({ 
+        error: "Method Not Allowed", 
+        details: `O endpoint ${req.url} aceita apenas POST para geração de cards. Recebido: ${req.method}` 
+      });
+    }
+
+    try {
+      // 5️⃣ TESTE SEM PUPPETEER (ISOLAR PROBLEMA)
+      if (req.query.test === 'true') {
+        console.log('🧪 MODO TESTE ATIVADO: API respondendo sem Puppeteer');
+        return res.status(200).json({
+          success: true,
+          test: 'API funcionando',
+          message: 'O servidor está recebendo requisições corretamente.'
+        });
+      }
+
+      const cardData: CardData = req.body;
+      if (!cardData || !cardData.athleteName || !cardData.achievement) {
+        console.warn("[API-CORE] Dados ausentes:", req.body);
+        return res.status(400).json({ error: "Missing required card data", received: req.body });
+      }
+
+      console.log('🔥 DATA REAL ENVIADA PARA O CARD:', cardData);
+      
+      if (!cardData || !cardData.athleteName) {
+        console.error('❌ DADOS INVÁLIDOS PARA O CARD:', cardData);
+        throw new Error('Dados inválidos para geração do card');
+      }
+
+      console.log(`[API-CORE] Gerando card para: ${cardData.athleteName}`);
+      const buffer = await CardGenerator.generateAchievementCard({
+        ...cardData,
+        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
+        title: cardData.title || "🏆 NOVA CONQUISTA",
+        modality: cardData.modality || "ATLETA ARENACOMP",
+        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
+      });
+
+      console.log("[API-CORE] Card gerado com sucesso!");
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.send(buffer);
+    } catch (error: any) {
+      console.error('🔥 ERRO REAL:', error);
+      
+      // 6️⃣ FALLBACK DE SEGURANÇA
+      return res.status(200).json({
+        success: false,
+        fallback: true,
+        message: 'Falha no render, mas sistema ativo',
+        details: error.message || 'Erro interno'
+      });
+    }
+  };
+
+  // ULTIMATE BYPASS: Handle POST on root /
+  app.post("/", (req, res, next) => {
+    if (req.body && req.body.athleteName && req.body.achievement) {
+      return cardGenerationHandler(req, res);
+    }
+    next();
+  });
+
+  // Register the handler on multiple paths
+  app.all("/generate", cardGenerationHandler);
+  app.all("/gc", cardGenerationHandler);
+  app.all("/generate-card-v3", cardGenerationHandler);
+  app.all("/api/v1/generate-card", cardGenerationHandler);
+  app.all("/api-core/generate", cardGenerationHandler);
+  app.all("/post-receiver", cardGenerationHandler);
+  
+  // POST Ping for connectivity test
+  app.post("/api/ping", (req, res) => {
+    res.json({ success: true, message: "POST reached server successfully" });
+  });
+
+  // 0.5. CATCH-ALL FOR API - MUST BE AFTER ALL SPECIFIC API ROUTES
   app.all("/api/*", (req, res) => {
     console.log(`[API-CORE] Catch-all /api/* hit for: ${req.url} - Returning 404 JSON`);
     res.setHeader('X-API-Route', 'api-catch-all-404');
@@ -557,7 +962,7 @@ async function startServer() {
   // END OF API SECTION
   // ===========================================================================
 
-  // 1. OG Tag Injection for Share Links
+  // OG Tag Injection for Share Links logic is now after API section
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
@@ -799,389 +1204,6 @@ async function startServer() {
 
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
-
-  // Remove redundant catch-all and error handler as they are consolidated
-
-  // Debug endpoint to check ads
-  app.get("/api/debug/ads", async (req, res) => {
-    try {
-      const { data, error } = await supabaseAdmin
-        .from('arena_ads')
-        .select('*');
-      
-      if (error) throw error;
-      res.json({
-        count: data?.length || 0,
-        ads: data
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  // Remove the old /api/getAds definition as it's now in the API section
-
-  // AD TRACKING API
-  app.post("/api/trackAdEvent", async (req, res) => {
-    try {
-      const { adId, eventType, userId, deviceInfo } = req.body;
-      
-      if (!adId || !eventType) {
-        return res.status(400).json({ error: "adId and eventType are required" });
-      }
-
-      const userAgent = req.headers['user-agent'] || '';
-      const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-      // Basic geolocation (placeholder for now, can be enhanced with an external API)
-      // In a real production environment, we'd use a service like MaxMind or ip-api.com
-      const country = req.headers['cf-ipcountry'] as string || 'Unknown';
-
-      const { error } = await supabaseAdmin
-        .from('arena_ad_events')
-        .insert([{
-          ad_id: adId,
-          event_type: eventType,
-          user_id: userId || null,
-          ip_address: typeof ipAddress === 'string' ? ipAddress : (Array.isArray(ipAddress) ? ipAddress[0] : null),
-          user_agent: userAgent,
-          device_type: deviceInfo?.device || 'desktop',
-          os: deviceInfo?.os || 'Unknown',
-          browser: deviceInfo?.browser || 'Unknown',
-          country: country,
-          created_at: new Date().toISOString()
-        }]);
-
-      if (error) throw error;
-
-      // Update summary counts in arena_ads
-      if (eventType === 'impression') {
-        await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: adId });
-      } else if (eventType === 'click') {
-        await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: adId });
-      }
-
-      res.json({ status: "ok" });
-    } catch (error: any) {
-      console.error('[API] Erro ao rastrear evento de anúncio:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-
-  // NEW ROBUST API STRUCTURE
-  const cardGenerationHandler = async (req: any, res: any) => {
-    console.log(`[API-CORE] Requisição recebida em ${req.url} | Método: ${req.method}`);
-    
-    // Se for GET, retorna status para verificação
-    if (req.method === 'GET') {
-      return res.json({ 
-        status: "active", 
-        message: "Card generation API is ready. Use POST to generate.",
-        endpoints: ["/", "/gc", "/generate-card-v3", "/api/v1/generate-card"]
-      });
-    }
-
-    // Se não for POST, retorna 405 mas com corpo JSON claro
-    if (req.method !== 'POST') {
-      console.warn(`[API-CORE] Método inválido: ${req.method}`);
-      return res.status(405).json({ 
-        error: "Method Not Allowed", 
-        details: `O endpoint ${req.url} aceita apenas POST para geração de cards. Recebido: ${req.method}` 
-      });
-    }
-
-    try {
-      // 5️⃣ TESTE SEM PUPPETEER (ISOLAR PROBLEMA)
-      if (req.query.test === 'true') {
-        console.log('🧪 MODO TESTE ATIVADO: API respondendo sem Puppeteer');
-        return res.status(200).json({
-          success: true,
-          test: 'API funcionando',
-          message: 'O servidor está recebendo requisições corretamente.'
-        });
-      }
-
-      const cardData: CardData = req.body;
-      if (!cardData || !cardData.athleteName || !cardData.achievement) {
-        console.warn("[API-CORE] Dados ausentes:", req.body);
-        return res.status(400).json({ error: "Missing required card data", received: req.body });
-      }
-
-      console.log('🔥 DATA REAL ENVIADA PARA O CARD:', cardData);
-      
-      if (!cardData || !cardData.athleteName) {
-        console.error('❌ DADOS INVÁLIDOS PARA O CARD:', cardData);
-        throw new Error('Dados inválidos para geração do card');
-      }
-
-      console.log(`[API-CORE] Gerando card para: ${cardData.athleteName}`);
-      const buffer = await CardGenerator.generateAchievementCard({
-        ...cardData,
-        date: cardData.date || new Date().toLocaleDateString('pt-BR'),
-        title: cardData.title || "🏆 NOVA CONQUISTA",
-        modality: cardData.modality || "ATLETA ARENACOMP",
-        profileUrl: cardData.profileUrl || "https://arenacomp.com.br"
-      });
-
-      console.log("[API-CORE] Card gerado com sucesso!");
-      res.set('Content-Type', 'image/png');
-      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-      res.set('Pragma', 'no-cache');
-      res.send(buffer);
-    } catch (error: any) {
-      console.error('🔥 ERRO REAL:', error);
-      
-      // 6️⃣ FALLBACK DE SEGURANÇA
-      return res.status(200).json({
-        success: false,
-        fallback: true,
-        message: 'Falha no render, mas sistema ativo',
-        details: error.message || 'Erro interno'
-      });
-    }
-  };
-
-  // ULTIMATE BYPASS: Handle POST on root /
-  // This is the most robust route as it's never blocked by path filters
-  app.post("/", (req, res, next) => {
-    if (req.body && req.body.athleteName && req.body.achievement) {
-      return cardGenerationHandler(req, res);
-    }
-    next();
-  });
-
-  // Register the handler on multiple paths to ensure maximum compatibility
-  // Root level routes are often less restricted by proxies
-  app.all("/generate", cardGenerationHandler);
-  app.all("/gc", cardGenerationHandler);
-  app.all("/generate-card-v3", cardGenerationHandler);
-  app.all("/api/v1/generate-card", cardGenerationHandler);
-  app.all("/api-core/generate", cardGenerationHandler);
-  app.all("/post-receiver", cardGenerationHandler);
-  
-  // POST Ping for connectivity test
-  app.post("/api/ping", (req, res) => {
-    res.json({ success: true, message: "POST reached server successfully" });
-  });
-
-  // Keep old routes for backward compatibility but make them direct handlers
-  app.all("/api/cards/generate-card", cardGenerationHandler);
-  app.all("/api/cards/generate", cardGenerationHandler);
-
-  app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "ArenaComp API is running" });
-  });
-
-  // FIREBASE ADMIN: Set Custom Claims
-  app.post("/api/admin/set-admin-claim", async (req, res) => {
-    const { email } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ success: false, error: "Email é obrigatório." });
-    }
-
-    try {
-      console.log(`[FIREBASE-ADMIN] Tentando definir claim de admin para: ${email}`);
-      const auth = getAuth();
-      const user = await auth.getUserByEmail(email);
-      
-      await auth.setCustomUserClaims(user.uid, { admin: true });
-      
-      console.log(`[FIREBASE-ADMIN] Claim 'admin: true' definido com sucesso para ${email} (UID: ${user.uid})`);
-      
-      return res.json({ 
-        success: true, 
-        message: `Claim de administrador definido com sucesso para ${email}.`,
-        uid: user.uid
-      });
-    } catch (error: any) {
-      console.error('[FIREBASE-ADMIN] Erro ao definir claim:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message || "Erro interno ao definir claim." 
-      });
-    }
-  });
-
-  // Location Endpoints
-  app.get("/api/locations/states", async (req, res) => {
-    try {
-      const { data, error } = await supabase
-        .from('states')
-        .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return res.json({ success: true, data });
-    } catch (error: any) {
-      console.error("[BACKEND] Erro ao buscar estados:", error);
-      return res.status(500).json({ success: false, message: error.message });
-    }
-  });
-
-  app.get("/api/locations/cities/:stateId", async (req, res) => {
-    const { stateId } = req.params;
-    try {
-      const { data, error } = await supabase
-        .from('cities')
-        .select('*')
-        .eq('state_id', stateId)
-        .order('name');
-
-      if (error) throw error;
-      return res.json({ success: true, data });
-    } catch (error: any) {
-      console.error("[BACKEND] Erro ao buscar cidades:", error);
-      return res.status(500).json({ success: false, message: error.message });
-    }
-  });
-
-  // Team Representative Validation Endpoint
-  app.post("/api/auth/validate-representative", async (req, res) => {
-    console.log("[BACKEND] Recebida requisição POST em /api/auth/validate-representative");
-    const { teamId } = req.body;
-
-    if (!teamId) {
-      console.error("[BACKEND] ID da equipe ausente na validação");
-      return res.status(400).json({ 
-        success: false,
-        error: "Missing teamId", 
-        message: "O ID da equipe é obrigatório." 
-      });
-    }
-
-    console.log(`[BACKEND] Validando equipe ID: ${teamId}`);
-
-    try {
-      // Check if team has a representative in team_members
-      const { count, error } = await supabase
-        .from('team_members')
-        .select('*', { count: 'exact', head: true })
-        .eq('team_id', teamId)
-        .eq('role', 'representative');
-
-      if (error) {
-        console.error("[BACKEND] Erro ao consultar team_members:", error.message, error.details);
-        return res.status(500).json({ 
-          success: false,
-          error: "Database query failed", 
-          message: error.message,
-          details: error.details 
-        });
-      }
-
-      console.log(`[BACKEND] Representantes encontrados para equipe ${teamId}: ${count}`);
-
-      if (count && count > 0) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Equipe já representada", 
-          message: "Esta equipe já possui um representante oficial cadastrado." 
-        });
-      }
-
-      return res.status(200).json({ 
-        success: true,
-        status: "ok", 
-        message: "Equipe disponível",
-        hasRepresentative: false
-      });
-    } catch (error: any) {
-      console.error("[BACKEND] Erro na validação de representante:", error);
-      return res.status(500).json({ 
-        success: false,
-        error: "Internal server error during validation",
-        message: error.message 
-      });
-    }
-  });
-
-  // Endpoint for creating a team and automatically linking the creator as representative
-  app.post("/api/teams/create", async (req, res) => {
-    const { name, cityId, stateId, imageUrl, userId } = req.body;
-
-    if (!name || !userId) {
-      console.error("[BACKEND] Dados incompletos para criação de equipe");
-      return res.status(400).json({ 
-        success: false,
-        error: "Missing required fields", 
-        message: "Nome da equipe e ID do usuário são obrigatórios." 
-      });
-    }
-
-    console.log(`[BACKEND] Criando equipe: ${name} para usuário: ${userId}`);
-
-    try {
-      // 1. Create the team
-      const { data: team, error: teamError } = await supabase
-        .from('teams')
-        .insert({
-          name,
-          city_id: cityId,
-          state_id: stateId,
-          logo_url: imageUrl, // Using logo_url to store the uploaded image URL
-          created_by: userId
-        })
-        .select()
-        .single();
-
-      if (teamError) {
-        console.error("[BACKEND] Erro ao criar equipe:", teamError.message);
-        return res.status(400).json({ 
-          success: false,
-          error: "Team creation failed", 
-          message: teamError.message 
-        });
-      }
-
-      console.log(`[BACKEND] Equipe criada com ID: ${team.id}. Vinculando usuário como representante.`);
-
-      // 2. Link user as representative in team_members
-      const { error: memberError } = await supabase
-        .from('team_members')
-        .insert({
-          team_id: team.id,
-          user_id: userId,
-          role: 'representative'
-        });
-
-      if (memberError) {
-        console.error("[BACKEND] Erro ao vincular representante:", memberError.message);
-        return res.status(500).json({ 
-          success: false,
-          error: "Member linking failed", 
-          message: "Equipe criada, mas falhou ao vincular representante. Contate o suporte." 
-        });
-      }
-
-      // 3. Update profile as well (legacy support)
-      await supabase
-        .from('profiles')
-        .update({
-          team_id: team.id,
-          team_leader: 'true'
-        })
-        .eq('id', userId);
-
-      console.log(`[BACKEND] Fluxo de criação de equipe concluído com sucesso para ${name}`);
-
-      return res.status(201).json({ 
-        success: true,
-        message: "Equipe criada e representante vinculado com sucesso",
-        teamId: team.id 
-      });
-    } catch (error: any) {
-      console.error("[BACKEND] Erro interno na criação de equipe:", error);
-      return res.status(500).json({ 
-        success: false,
-        error: "Internal server error during team creation",
-        message: error.message 
-      });
-    }
-  });
-
-  // Consolidating all API routes...
 
   // Global Error Handler (Standardizing all errors to JSON)
   app.use((err: any, req: any, res: any, next: any) => {

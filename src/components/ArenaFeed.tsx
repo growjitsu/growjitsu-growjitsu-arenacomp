@@ -62,28 +62,44 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   // Rotation for In-Feed Ads
   useEffect(() => {
     const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+    if (inFeedAds.length === 0) return;
+
+    const currentAd = inFeedAds[currentInFeedAdIndex % inFeedAds.length];
+    
+    // Track impression
+    if (currentAd?.id) {
+      trackAdEvent(currentAd.id, 'impression', userProfile?.id);
+    }
+
     if (inFeedAds.length <= 1) return;
 
-    const currentAd = inFeedAds[currentInFeedAdIndex];
     const timer = setTimeout(() => {
       setCurrentInFeedAdIndex(prev => (prev + 1) % inFeedAds.length);
     }, (currentAd?.display_time || 15) * 1000);
 
     return () => clearTimeout(timer);
-  }, [ads.length, currentInFeedAdIndex]);
+  }, [ads.length, currentInFeedAdIndex, userProfile?.id]);
 
   // Rotation for Top-of-Feed Ads
   useEffect(() => {
     const topAds = ads.filter(ad => (ad.placement || '').includes('feed_top'));
+    if (topAds.length === 0) return;
+
+    const currentAd = topAds[currentTopAdIndex % topAds.length];
+
+    // Track impression
+    if (currentAd?.id) {
+      trackAdEvent(currentAd.id, 'impression', userProfile?.id);
+    }
+
     if (topAds.length <= 1) return;
 
-    const currentAd = topAds[currentTopAdIndex];
     const timer = setTimeout(() => {
       setCurrentTopAdIndex(prev => (prev + 1) % topAds.length);
     }, (currentAd?.display_time || 12) * 1000);
 
     return () => clearTimeout(timer);
-  }, [ads.length, currentTopAdIndex]);
+  }, [ads.length, currentTopAdIndex, userProfile?.id]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const [loadingPromoted, setLoadingPromoted] = useState(false);
   const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
@@ -398,7 +414,23 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const fetchAds = async (retryWithDebug = false) => {
     try {
       console.log(`[ArenaFeed] Buscando anúncios via API... (Debug: ${retryWithDebug})`);
-      const response = await fetch(`/api/getAds?placement=feed,sidebar${retryWithDebug ? '&debug=true' : ''}`);
+      
+      // Add geographic parameters if userProfile is available
+      let locationParams = '';
+      if (userProfile) {
+        const params = new URLSearchParams();
+        if (userProfile.country_id) params.append('country_id', userProfile.country_id);
+        if (userProfile.state_id) params.append('state_id', userProfile.state_id);
+        if (userProfile.city_id) params.append('city_id', userProfile.city_id);
+        if (userProfile.country) params.append('country', userProfile.country);
+        if (userProfile.state) params.append('state', userProfile.state);
+        if (userProfile.city) params.append('city', userProfile.city);
+        
+        const queryString = params.toString();
+        if (queryString) locationParams = `&${queryString}`;
+      }
+
+      const response = await fetch(`/api/getAds?placement=feed,sidebar${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
