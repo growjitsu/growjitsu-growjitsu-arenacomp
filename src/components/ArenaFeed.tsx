@@ -61,7 +61,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   // Rotation for In-Feed Ads
   useEffect(() => {
-    const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+    const inFeedAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('feed_between'));
     if (inFeedAds.length === 0) return;
 
     const currentAd = inFeedAds[currentInFeedAdIndex % inFeedAds.length];
@@ -82,7 +82,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   // Rotation for Top-of-Feed Ads
   useEffect(() => {
-    const topAds = ads.filter(ad => (ad.placement || '').includes('feed_top'));
+    const topAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('feed_top'));
     if (topAds.length === 0) return;
 
     const currentAd = topAds[currentTopAdIndex % topAds.length];
@@ -431,7 +431,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       }
 
       // Use explicit placements
-      const response = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
+      const response = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -449,6 +449,14 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if ((!data || data.length === 0) && !retryWithDebug) {
           console.log('[ArenaFeed] Nenhum anúncio encontrado, tentando com debug=true...');
           fetchAds(true);
+        } else if ((!data || data.length === 0) && retryWithDebug && locationParams) {
+          console.log('[ArenaFeed] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
+          // Final attempt: No location, no debug (or with debug)
+          const finalResponse = await fetch(`/api/getAds?placement=feed_top,feed_between,sidebar,profile&debug=true`);
+          if (finalResponse.ok) {
+            const finalData = await finalResponse.json();
+            setAds(finalData || []);
+          }
         }
       } else {
         console.error('[ArenaFeed] Falha na API de anúncios:', response.status);

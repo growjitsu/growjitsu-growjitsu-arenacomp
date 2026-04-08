@@ -354,21 +354,21 @@ async function startServer() {
           // Match Country (Priority to ID)
           if (ad.country_id && userCountryId) {
             if (ad.country_id !== userCountryId) return false;
-          } else if (ad.country && userCountry && ad.country !== userCountry) {
+          } else if (ad.country && userCountry && ad.country.toLowerCase() !== userCountry.toLowerCase()) {
             return false;
           }
 
           // Match State
           if (ad.state_id && userStateId) {
             if (ad.state_id !== userStateId) return false;
-          } else if (ad.state && userState && ad.state !== userState) {
+          } else if (ad.state && userState && ad.state.toLowerCase() !== userState.toLowerCase()) {
             return false;
           }
 
           // Match City
           if (ad.city_id && userCityId) {
             if (ad.city_id !== userCityId) return false;
-          } else if (ad.city && userCity && ad.city !== userCity) {
+          } else if (ad.city && userCity && ad.city.toLowerCase() !== userCity.toLowerCase()) {
             return false;
           }
         }

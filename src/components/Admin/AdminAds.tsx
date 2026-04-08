@@ -749,7 +749,7 @@ export const AdminAds: React.FC = () => {
 
       const dataToSave = {
         ...feedFormData,
-        placement: feedFormData.placement.toLowerCase(), // Normalização
+        placement: (feedFormData.placement || '').toLowerCase(), // Normalização
         media_url: finalMediaUrl,
         media_url_feed_top: finalMediaUrlFeedTop,
         media_url_feed_between: finalMediaUrlFeedBetween,
@@ -757,6 +757,13 @@ export const AdminAds: React.FC = () => {
         media_url_profile: finalMediaUrlProfile,
         start_date: feedFormData.start_date ? new Date(feedFormData.start_date).toISOString() : null,
         end_date: feedFormData.end_date ? new Date(feedFormData.end_date).toISOString() : null,
+        // Garantir que campos vazios de localização sejam salvos como null
+        country_id: feedFormData.country_id || null,
+        state_id: feedFormData.state_id || null,
+        city_id: feedFormData.city_id || null,
+        country: feedFormData.country || null,
+        state: feedFormData.state || null,
+        city: feedFormData.city || null,
       };
 
       if (editingFeedAd) {
