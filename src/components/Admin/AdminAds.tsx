@@ -649,6 +649,12 @@ export const AdminAds: React.FC = () => {
   const handleSaveFeedAd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isUploading) return;
+
+    if (!auth.currentUser) {
+      toast.error('Você precisa estar autenticado no Firebase para salvar anúncios. Clique no botão "Login Firebase" no topo da página.');
+      return;
+    }
+
     const toastId = toast.loading('Salvando anúncio...');
     setIsUploading(true);
     try {
@@ -694,12 +700,38 @@ export const AdminAds: React.FC = () => {
           .update(dataToSave)
           .eq('id', editingFeedAd.id);
         if (error) throw error;
+
+        // Log action to Firebase
+        await addDoc(collection(db, 'admin_logs'), {
+          admin_id: auth.currentUser.uid,
+          admin_email: auth.currentUser.email,
+          action: 'editar_anuncio_feed',
+          target_type: 'feed_ad',
+          target_id: editingFeedAd.id,
+          details: { title: dataToSave.title, placement: dataToSave.placement },
+          created_at: serverTimestamp()
+        });
+
         toast.success('Anúncio atualizado!', { id: toastId });
       } else {
-        const { error } = await supabase
+        const { data: newAd, error } = await supabase
           .from('arena_ads')
-          .insert([dataToSave]);
+          .insert([dataToSave])
+          .select()
+          .single();
         if (error) throw error;
+
+        // Log action to Firebase
+        await addDoc(collection(db, 'admin_logs'), {
+          admin_id: auth.currentUser.uid,
+          admin_email: auth.currentUser.email,
+          action: 'criar_anuncio_feed',
+          target_type: 'feed_ad',
+          target_id: newAd.id,
+          details: { title: dataToSave.title, placement: dataToSave.placement },
+          created_at: serverTimestamp()
+        });
+
         toast.success('Anúncio criado!', { id: toastId });
       }
       setIsFeedModalOpen(false);
@@ -714,12 +746,30 @@ export const AdminAds: React.FC = () => {
 
   const handleDeleteFeedAd = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este anúncio?')) return;
+
+    if (!auth.currentUser) {
+      toast.error('Você precisa estar autenticado no Firebase para excluir anúncios.');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('arena_ads')
         .delete()
         .eq('id', id);
       if (error) throw error;
+
+      // Log action to Firebase
+      await addDoc(collection(db, 'admin_logs'), {
+        admin_id: auth.currentUser.uid,
+        admin_email: auth.currentUser.email,
+        action: 'excluir_anuncio_feed',
+        target_type: 'feed_ad',
+        target_id: id,
+        details: { id },
+        created_at: serverTimestamp()
+      });
+
       toast.success('Anúncio excluído!');
       fetchFeedAds();
     } catch (error: any) {
@@ -789,7 +839,7 @@ export const AdminAds: React.FC = () => {
             </button>
           </div>
 
-          {activeTab === 'landing' && (
+          {(activeTab === 'landing' || activeTab === 'feed') && (
             <button
               onClick={handleFirebaseLogin}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
