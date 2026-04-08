@@ -143,8 +143,8 @@ export const AdminAds: React.FC = () => {
   };
 
   useEffect(() => {
-    const q = query(collection(db, 'featured_banners'), orderBy('order', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const qBanners = query(collection(db, 'featured_banners'), orderBy('order', 'asc'));
+    const unsubscribeBanners = onSnapshot(qBanners, (snapshot) => {
       const bannersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -155,25 +155,28 @@ export const AdminAds: React.FC = () => {
       handleFirestoreError(error, OperationType.LIST, 'featured_banners');
     });
 
-    fetchCountries();
-    fetchFeedAds();
+    const qFeedAds = query(collection(db, 'arena_ads'), orderBy('order', 'asc'));
+    const unsubscribeFeedAds = onSnapshot(qFeedAds, (snapshot) => {
+      const adsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ArenaAd[];
+      setFeedAds(adsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'arena_ads');
+    });
 
-    return () => unsubscribe();
+    fetchCountries();
+
+    return () => {
+      unsubscribeBanners();
+      unsubscribeFeedAds();
+    };
   }, []);
 
   const fetchFeedAds = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('arena_ads')
-        .select('*')
-        .order('order', { ascending: true });
-      
-      if (error) throw error;
-      setFeedAds(data || []);
-    } catch (error) {
-      console.error('Error fetching feed ads:', error);
-      toast.error('Erro ao carregar anúncios do feed.');
-    }
+    // This is now handled by the onSnapshot listener in useEffect
+    console.log('Feed ads are now synced via Firebase onSnapshot');
   };
 
   const fetchAnalytics = async (adId: string = 'all') => {
@@ -655,19 +658,8 @@ export const AdminAds: React.FC = () => {
     const targetAd = feedAds[targetIndex];
 
     try {
-      const { error: error1 } = await supabase
-        .from('arena_ads')
-        .update({ order: targetAd.order || 0 })
-        .eq('id', ad.id);
-      
-      const { error: error2 } = await supabase
-        .from('arena_ads')
-        .update({ order: ad.order || 0 })
-        .eq('id', targetAd.id);
-
-      if (error1 || error2) throw error1 || error2;
-      
-      fetchFeedAds();
+      await updateDoc(doc(db, 'arena_ads', ad.id), { order: targetAd.order || 0 });
+      await updateDoc(doc(db, 'arena_ads', targetAd.id), { order: ad.order || 0 });
     } catch (error: any) {
       console.error('Error reordering feed ad:', error);
       toast.error('Erro ao reordenar anúncio.');
@@ -684,12 +676,7 @@ export const AdminAds: React.FC = () => {
     const toastId = toast.loading(`${newStatus ? 'Ativando' : 'Desativando'} anúncio...`);
 
     try {
-      const { error } = await supabase
-        .from('arena_ads')
-        .update({ active: newStatus })
-        .eq('id', ad.id);
-
-      if (error) throw error;
+      await updateDoc(doc(db, 'arena_ads', ad.id), { active: newStatus });
 
       // Log action to Firebase
       await addDoc(collection(db, 'admin_logs'), {
@@ -703,7 +690,6 @@ export const AdminAds: React.FC = () => {
       });
 
       toast.success(`Anúncio ${newStatus ? 'ativado' : 'desativado'} com sucesso!`, { id: toastId });
-      fetchFeedAds();
     } catch (error: any) {
       console.error('Error toggling ad status:', error);
       toast.error('Erro ao alterar status do anúncio.', { id: toastId });
@@ -755,8 +741,8 @@ export const AdminAds: React.FC = () => {
         media_url_feed_between: finalMediaUrlFeedBetween,
         media_url_sidebar: finalMediaUrlSidebar,
         media_url_profile: finalMediaUrlProfile,
-        start_date: feedFormData.start_date ? new Date(feedFormData.start_date).toISOString() : null,
-        end_date: feedFormData.end_date ? new Date(feedFormData.end_date).toISOString() : null,
+        start_date: feedFormData.start_date ? new Date(feedFormData.start_date) : null,
+        end_date: feedFormData.end_date ? new Date(feedFormData.end_date) : null,
         // Garantir que campos vazios de localização sejam salvos como null
         country_id: feedFormData.country_id || null,
         state_id: feedFormData.state_id || null,
@@ -767,11 +753,10 @@ export const AdminAds: React.FC = () => {
       };
 
       if (editingFeedAd) {
-        const { error } = await supabase
-          .from('arena_ads')
-          .update(dataToSave)
-          .eq('id', editingFeedAd.id);
-        if (error) throw error;
+        await updateDoc(doc(db, 'arena_ads', editingFeedAd.id), {
+          ...dataToSave,
+          updated_at: serverTimestamp()
+        });
 
         // Log action to Firebase
         await addDoc(collection(db, 'admin_logs'), {
@@ -786,12 +771,12 @@ export const AdminAds: React.FC = () => {
 
         toast.success('Anúncio atualizado!', { id: toastId });
       } else {
-        const { data: newAd, error } = await supabase
-          .from('arena_ads')
-          .insert([dataToSave])
-          .select()
-          .single();
-        if (error) throw error;
+        const docRef = await addDoc(collection(db, 'arena_ads'), {
+          ...dataToSave,
+          created_at: serverTimestamp(),
+          total_impressions: 0,
+          total_clicks: 0
+        });
 
         // Log action to Firebase
         await addDoc(collection(db, 'admin_logs'), {
@@ -799,7 +784,7 @@ export const AdminAds: React.FC = () => {
           admin_email: auth.currentUser.email,
           action: 'criar_anuncio_feed',
           target_type: 'feed_ad',
-          target_id: newAd.id,
+          target_id: docRef.id,
           details: { title: dataToSave.title, placement: dataToSave.placement },
           created_at: serverTimestamp()
         });
@@ -807,7 +792,6 @@ export const AdminAds: React.FC = () => {
         toast.success('Anúncio criado!', { id: toastId });
       }
       setIsFeedModalOpen(false);
-      fetchFeedAds();
     } catch (error: any) {
       console.error('Error saving feed ad:', error);
       toast.error('Erro ao salvar anúncio: ' + error.message, { id: toastId });
@@ -825,11 +809,7 @@ export const AdminAds: React.FC = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('arena_ads')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      await deleteDoc(doc(db, 'arena_ads', id));
 
       // Log action to Firebase
       await addDoc(collection(db, 'admin_logs'), {
@@ -843,7 +823,6 @@ export const AdminAds: React.FC = () => {
       });
 
       toast.success('Anúncio excluído!');
-      fetchFeedAds();
     } catch (error: any) {
       console.error('Error deleting feed ad:', error);
       toast.error('Erro ao excluir anúncio.');

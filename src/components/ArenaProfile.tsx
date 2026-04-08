@@ -7,6 +7,8 @@ import {
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
   Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye
 } from 'lucide-react';
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { db as firestoreDb } from '../firebase';
 import { supabase } from '../services/supabase';
 import { auth, db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
@@ -95,68 +97,73 @@ export const ArenaProfileView: React.FC<{
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
 
-  const fetchAds = async (retryWithDebug = false) => {
-    try {
-      console.log(`[ArenaProfile] Buscando anúncios de perfil... (Debug: ${retryWithDebug}, User: ${currentUser?.id || 'Anônimo'})`);
-      
-      // Add geographic parameters if currentUser is available
-      let locationParams = '';
-      if (currentUser) {
-        const params = new URLSearchParams();
-        if (currentUser.country_id) params.append('country_id', currentUser.country_id);
-        if (currentUser.state_id) params.append('state_id', currentUser.state_id);
-        if (currentUser.city_id) params.append('city_id', currentUser.city_id);
-        if (currentUser.country) params.append('country', currentUser.country);
-        if (currentUser.state) params.append('state', currentUser.state);
-        if (currentUser.city) params.append('city', currentUser.city);
-        
-        const queryString = params.toString();
-        if (queryString) locationParams = `&${queryString}`;
-      }
-
-      // Add cache buster for retries
-      const cacheBuster = retryWithDebug ? `&_t=${Date.now()}` : '';
-
-      const response = await fetch(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}${cacheBuster}`);
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Filter specifically for profile placement as a safeguard
-        const profileAds = (data || []).filter((ad: any) => {
-          const isProfile = (ad.placement || '').toLowerCase().includes('profile');
-          const isActive = ad.active === true;
-          return isProfile && isActive;
-        });
-        
-        setAds(profileAds);
-        console.log('[ArenaProfile] Anúncios de perfil processados:', profileAds.length);
-
-        // If no ads found and we haven't retried with debug yet, try once more with debug and cache buster
-        if (profileAds.length === 0 && !retryWithDebug) {
-          console.log('[ArenaProfile] Nenhum anúncio encontrado, tentando com debug=true e cache buster...');
-          fetchAds(true);
-        } else if (profileAds.length === 0 && retryWithDebug && locationParams) {
-          console.log('[ArenaProfile] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
-          // Final attempt: No location, with debug and cache buster
-          const finalResponse = await fetch(`/api/getPromotions?placement=profile&debug=true&_t=${Date.now()}`);
-          if (finalResponse.ok) {
-            const finalData = await finalResponse.json();
-            const finalProfileAds = (finalData || []).filter((ad: any) => 
-              (ad.placement || '').toLowerCase().includes('profile') && ad.active === true
-            );
-            setAds(finalProfileAds);
-          }
-        }
-      } else {
-        console.error('[ArenaProfile] Erro na resposta da API:', response.status);
-      }
-    } catch (error) {
-      console.error('[ArenaProfile] Erro ao buscar anúncios de perfil:', error);
-    }
+  const fetchAds = async () => {
+    // This is now handled by the onSnapshot listener in useEffect
+    console.log('Ads are now synced via Firebase onSnapshot');
   };
 
   useEffect(() => {
-    fetchAds();
+    // Fetch Ads from Firebase (Mirroring Landing Page logic)
+    const qAds = query(collection(firestoreDb, 'arena_ads'), where('active', '==', true), orderBy('order', 'asc'));
+    const unsubscribeAds = onSnapshot(qAds, (snapshot) => {
+      const adsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ArenaAd[];
+
+      const now = new Date();
+      const filteredAds = adsData.filter(ad => {
+        // Placement filtering
+        if (!(ad.placement || '').toLowerCase().includes('profile')) return false;
+
+        // Date filtering
+        let isStarted = true;
+        let isNotEnded = true;
+        
+        if (ad.start_date) {
+          const startDate = ad.start_date.seconds ? new Date(ad.start_date.seconds * 1000) : new Date(ad.start_date);
+          isStarted = !isNaN(startDate.getTime()) && startDate <= now;
+        }
+        
+        if (ad.end_date) {
+          const endDate = ad.end_date.seconds ? new Date(ad.end_date.seconds * 1000) : new Date(ad.end_date);
+          isNotEnded = !isNaN(endDate.getTime()) && endDate >= now;
+        }
+        
+        if (!isStarted || !isNotEnded) return false;
+
+        // Geographic filtering
+        const hasLocationConstraint = !!(ad.country_id || ad.country || ad.state_id || ad.state || ad.city_id || ad.city);
+        if (hasLocationConstraint) {
+          if (!currentUser?.country_id && !currentUser?.country) return false;
+
+          let countryMatch = false;
+          if (ad.country_id && currentUser?.country_id && ad.country_id === currentUser.country_id) countryMatch = true;
+          else if (ad.country && currentUser?.country && ad.country.toLowerCase() === currentUser.country.toLowerCase()) countryMatch = true;
+          if ((ad.country_id || ad.country) && !countryMatch) return false;
+
+          if (ad.state_id || ad.state) {
+            let stateMatch = false;
+            if (ad.state_id && currentUser?.state_id && ad.state_id === currentUser.state_id) stateMatch = true;
+            else if (ad.state && currentUser?.state && ad.state.toLowerCase() === currentUser.state.toLowerCase()) stateMatch = true;
+            if (!stateMatch) return false;
+          }
+
+          if (ad.city_id || ad.city) {
+            let cityMatch = false;
+            if (ad.city_id && currentUser?.city_id && ad.city_id === currentUser.city_id) cityMatch = true;
+            else if (ad.city && currentUser?.city && ad.city.toLowerCase() === currentUser.city.toLowerCase()) cityMatch = true;
+            if (!cityMatch) return false;
+          }
+        }
+        return true;
+      });
+
+      setAds(filteredAds);
+      console.log(`[ArenaProfile] Anúncios de perfil carregados via Firebase: ${filteredAds.length}`);
+    });
+
+    return () => unsubscribeAds();
   }, [currentUser?.id]);
 
   useEffect(() => {

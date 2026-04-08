@@ -126,8 +126,8 @@ export interface ArenaAd {
   order: number;
   total_impressions: number;
   total_clicks: number;
-  start_date?: string | null;
-  end_date?: string | null;
+  start_date?: any;
+  end_date?: any;
   country_id?: string;
   state_id?: string;
   city_id?: string;
