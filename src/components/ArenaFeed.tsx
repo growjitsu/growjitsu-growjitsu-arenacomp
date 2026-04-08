@@ -9,7 +9,6 @@ import { ShareModal } from './ShareModal';
 import { AchievementCard } from './AchievementCard';
 import { generateCard, CardData } from '../services/arenaService';
 import { trackAdEvent } from '../services/adService';
-import { getApiUrl } from '../lib/api';
 
 import { SidebarAds } from './SidebarAds';
 
@@ -398,7 +397,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const fetchTrendingPosts = async () => {
     try {
       console.log('[ArenaFeed] Buscando posts em alta via API...');
-      const response = await fetch(getApiUrl('/api/getTrendingPosts'));
+      const response = await fetch('/api/getTrendingPosts');
       
       if (response.ok) {
         const data = await response.json();
@@ -432,7 +431,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       }
 
       // Use explicit placements
-      const response = await fetch(getApiUrl(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`));
+      const response = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -453,7 +452,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         } else if ((!data || data.length === 0) && retryWithDebug && locationParams) {
           console.log('[ArenaFeed] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
           // Final attempt: No location, no debug (or with debug)
-          const finalResponse = await fetch(getApiUrl(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile&debug=true`));
+          const finalResponse = await fetch(`/api/getPromotions?placement=feed_top,feed_between,sidebar,profile&debug=true`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             setAds(finalData || []);
@@ -461,11 +460,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         }
       } else {
         console.error('[ArenaFeed] Falha na API de anúncios:', response.status);
-        setAds([]); // Fallback to empty list
       }
     } catch (error) {
       console.error('[ArenaFeed] Erro ao buscar anúncios:', error);
-      setAds([]); // Fallback to empty list
     }
   };
 
@@ -473,7 +470,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     setLoadingPromoted(true);
     try {
       console.log('[ArenaFeed] Buscando perfis em destaque via API...');
-      const response = await fetch(getApiUrl('/api/getPerfisDestaque'));
+      const response = await fetch('/api/getPerfisDestaque');
       
       if (response.ok) {
         const data = await response.json();

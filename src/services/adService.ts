@@ -1,6 +1,5 @@
 
 import { UAParser } from 'ua-parser-js';
-import { getApiUrl } from '../lib/api';
 
 export interface AdDeviceInfo {
   device: string;
@@ -27,7 +26,7 @@ export const trackAdEvent = async (
   try {
     const deviceInfo = getDeviceInfo();
     
-    await fetch(getApiUrl('/api/trackPromotionEvent'), {
+    await fetch('/api/trackPromotionEvent', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

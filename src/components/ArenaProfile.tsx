@@ -22,7 +22,6 @@ import { isProfileComplete, getMissingProfileFields } from '../utils/profileVali
 import { AchievementCard } from './AchievementCard';
 import { ShareModal } from './ShareModal';
 import { trackAdEvent } from '../services/adService';
-import { getApiUrl } from '../lib/api';
 import { ExternalLink, ChevronRight } from 'lucide-react';
 
 export const ArenaProfileView: React.FC<{ 
@@ -115,7 +114,7 @@ export const ArenaProfileView: React.FC<{
         if (queryString) locationParams = `&${queryString}`;
       }
 
-      const response = await fetch(getApiUrl(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`));
+      const response = await fetch(`/api/getPromotions?placement=profile${locationParams}${retryWithDebug ? '&debug=true' : ''}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -136,7 +135,7 @@ export const ArenaProfileView: React.FC<{
         } else if (profileAds.length === 0 && retryWithDebug && locationParams) {
           console.log('[ArenaProfile] Ainda nenhum anúncio, tentando sem parâmetros de localização...');
           // Final attempt: No location, with debug
-          const finalResponse = await fetch(getApiUrl(`/api/getPromotions?placement=profile&debug=true`));
+          const finalResponse = await fetch(`/api/getPromotions?placement=profile&debug=true`);
           if (finalResponse.ok) {
             const finalData = await finalResponse.json();
             const finalProfileAds = (finalData || []).filter((ad: any) => 
@@ -147,11 +146,9 @@ export const ArenaProfileView: React.FC<{
         }
       } else {
         console.error('[ArenaProfile] Erro na resposta da API:', response.status);
-        setAds([]);
       }
     } catch (error) {
       console.error('[ArenaProfile] Erro ao buscar anúncios de perfil:', error);
-      setAds([]);
     }
   };
 
