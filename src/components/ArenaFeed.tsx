@@ -439,9 +439,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         console.log(`[ArenaFeed] Anúncios carregados: ${data?.length || 0}`, data);
         
         if (data && data.length > 0) {
-          const feedTop = data.filter((ad: any) => (ad.placement || '').includes('feed_top'));
-          const feedBetween = data.filter((ad: any) => (ad.placement || '').includes('feed_between'));
-          const sidebar = data.filter((ad: any) => (ad.placement || '').includes('sidebar'));
+          const feedTop = data.filter((ad: any) => (ad.placement || '').toLowerCase().includes('feed_top'));
+          const feedBetween = data.filter((ad: any) => (ad.placement || '').toLowerCase().includes('feed_between'));
+          const sidebar = data.filter((ad: any) => (ad.placement || '').toLowerCase().includes('sidebar'));
           console.log(`[ArenaFeed] Distribuição: Top=${feedTop.length}, Between=${feedBetween.length}, Sidebar=${sidebar.length}`);
         }
         
@@ -818,7 +818,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
               <div className="space-y-8">
                 {/* Top Ad Rotation */}
                 {(() => {
-                  const topAds = ads.filter(ad => (ad.placement || '').includes('feed_top'));
+                  const topAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('feed_top'));
                   if (topAds.length === 0) return null;
                   
                   const ad = topAds[currentTopAdIndex % topAds.length];
@@ -923,7 +923,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                 {posts.length > 0 ? (
                   <>
                     {posts.map((post, index) => {
-                      const inFeedAds = ads.filter(ad => (ad.placement || '').includes('feed_between'));
+                      const inFeedAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('feed_between'));
                       const currentAd = inFeedAds[currentInFeedAdIndex % inFeedAds.length];
                       
                       // Show ad every 5 posts, or at the end if there are at least 2 posts and total < 5

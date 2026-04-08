@@ -646,6 +646,42 @@ export const AdminAds: React.FC = () => {
     setIsFeedModalOpen(true);
   };
 
+  const handleToggleAdStatus = async (ad: ArenaAd) => {
+    if (!auth.currentUser) {
+      toast.error('Você precisa estar autenticado no Firebase para alterar o status.');
+      return;
+    }
+
+    const newStatus = !ad.active;
+    const toastId = toast.loading(`${newStatus ? 'Ativando' : 'Desativando'} anúncio...`);
+
+    try {
+      const { error } = await supabase
+        .from('arena_ads')
+        .update({ active: newStatus })
+        .eq('id', ad.id);
+
+      if (error) throw error;
+
+      // Log action to Firebase
+      await addDoc(collection(db, 'admin_logs'), {
+        admin_id: auth.currentUser.uid,
+        admin_email: auth.currentUser.email,
+        action: 'toggle_status_anuncio_feed',
+        target_type: 'feed_ad',
+        target_id: ad.id,
+        details: { id: ad.id, title: ad.title, active: newStatus },
+        created_at: serverTimestamp()
+      });
+
+      toast.success(`Anúncio ${newStatus ? 'ativado' : 'desativado'} com sucesso!`, { id: toastId });
+      fetchFeedAds();
+    } catch (error: any) {
+      console.error('Error toggling ad status:', error);
+      toast.error('Erro ao alterar status do anúncio.', { id: toastId });
+    }
+  };
+
   const handleSaveFeedAd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isUploading) return;
@@ -999,6 +1035,20 @@ export const AdminAds: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => handleToggleAdStatus(ad)}
+                      className={`p-4 border rounded-2xl transition-all flex items-center space-x-2 ${
+                        ad.active 
+                          ? 'bg-amber-600/10 text-amber-500 border-amber-600/20 hover:bg-amber-600 hover:text-white' 
+                          : 'bg-emerald-600/10 text-emerald-500 border-emerald-600/20 hover:bg-emerald-600 hover:text-white'
+                      }`}
+                      title={ad.active ? 'Desativar Anúncio' : 'Ativar Anúncio'}
+                    >
+                      <Zap size={18} className={ad.active ? 'fill-current' : ''} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {ad.active ? 'Pausar' : 'Ativar'}
+                      </span>
+                    </button>
                     <button 
                       onClick={() => {
                         setSelectedAdId(ad.id);

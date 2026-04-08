@@ -121,7 +121,7 @@ export const ArenaProfileView: React.FC<{
         
         // Filter specifically for profile placement as a safeguard
         const profileAds = (data || []).filter((ad: any) => {
-          const isProfile = (ad.placement || '').includes('profile');
+          const isProfile = (ad.placement || '').toLowerCase().includes('profile');
           const isActive = ad.active === true;
           return isProfile && isActive;
         });

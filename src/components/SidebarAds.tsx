@@ -10,7 +10,7 @@ interface SidebarAdsProps {
 }
 
 export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
-  const sidebarAds = ads.filter(ad => (ad.placement || '').includes('sidebar'));
+  const sidebarAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('sidebar'));
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
