@@ -37,7 +37,7 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
 
   return (
-    <div className="sticky top-24 space-y-6">
+    <div className="sticky top-24 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 custom-scrollbar pb-10">
       <div className="flex items-center justify-between px-2">
         <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Patrocinado</h3>
         {sidebarAds.length > 1 && (
