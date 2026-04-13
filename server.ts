@@ -975,7 +975,15 @@ async function startServer() {
   // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
   app.get("/api/og-image/:type/:id", async (req, res) => {
     const { type, id } = req.params;
-    console.log(`[OG-IMAGE] Generating image for type: ${type}, id: ${id}`);
+    console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
+
+    // Set a timeout for the entire operation to avoid hanging the scraper
+    const timeout = setTimeout(() => {
+      console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
+      if (!res.headersSent) {
+        res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      }
+    }, 8000);
 
     try {
       let cardData: any = null;
@@ -1035,7 +1043,8 @@ async function startServer() {
       }
 
       if (!cardData) {
-        return res.status(404).send('Data not found');
+        clearTimeout(timeout);
+        return res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
       }
 
       // Generate card using Puppeteer
@@ -1048,12 +1057,14 @@ async function startServer() {
         profileUrl: cardData.profileUrl
       });
 
+      clearTimeout(timeout);
       res.set('Content-Type', 'image/png');
       res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
       res.send(buffer);
     } catch (error: any) {
-      console.error(`[OG-IMAGE] Error:`, error);
-      res.status(500).send('Error generating image');
+      clearTimeout(timeout);
+      console.error(`[OG-IMAGE] Error generating image:`, error);
+      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
     }
   });
 
@@ -1190,8 +1201,12 @@ async function startServer() {
     }
     
     const currentHost = req.get('host');
-    const protocol = 'https';
-    const baseUrl = process.env.APP_URL || `${protocol}://${currentHost}`;
+    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+    const baseUrl = (process.env.APP_URL && process.env.APP_URL.startsWith('http')) 
+      ? process.env.APP_URL 
+      : `${protocol}://${currentHost}`;
+
+    console.log(`[OG-TAGS] Using baseUrl: ${baseUrl} for sharing`);
 
     let imageUrl = cardData?.mainImageUrl;
     

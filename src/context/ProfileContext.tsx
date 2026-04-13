@@ -21,7 +21,10 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const checkProfile = useCallback(async () => {
     try {
-      setIsLoading(true);
+      // Only show full-screen loading if we don't have a profile yet
+      if (!profile) {
+        setIsLoading(true);
+      }
       
       // Small delay to ensure DB propagation if called immediately after save
       await new Promise(resolve => setTimeout(resolve, 300));
