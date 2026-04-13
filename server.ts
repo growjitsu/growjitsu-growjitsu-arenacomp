@@ -116,11 +116,11 @@ async function startServer() {
     const userAgent = req.get('User-Agent') || '';
     
     // Detect if it's a crawler
-    const isCrawler = /WhatsApp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|TelegramBot|Googlebot|Discordbot/i.test(userAgent);
+    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
     
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
-    if (req.url.startsWith('/api')) {
+    if (req.url.startsWith('/api') || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       return next();
     }
 
@@ -227,17 +227,17 @@ async function startServer() {
       description = description.substring(0, 77) + "...";
     }
     
-    // Robust Base URL detection
-    const host = req.get('x-forwarded-host') || req.get('host');
-    const protocol = req.get('x-forwarded-proto') || req.protocol;
-    let baseUrl = `${protocol}://${host}`;
+    // Robust Base URL detection - FORCE HTTPS for WhatsApp
+    const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
+    let baseUrl = `https://${host}`;
     
     // Override with APP_URL if it seems correct for the current host
     if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
       baseUrl = process.env.APP_URL.replace(/\/$/, '');
+      if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
 
-    const ogImageUrl = `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=12`;
+    const ogImageUrl = `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=15`;
     const shareUrl = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = `/${type ? type + '/' : ''}${id}`;
 
@@ -299,9 +299,9 @@ async function startServer() {
   // 1. Crawler Detection Middleware - MUST BE FIRST
   app.use(async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /WhatsApp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|TelegramBot|Googlebot|Discordbot/i.test(userAgent);
+    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
     
-    if (isCrawler && !req.url.startsWith('/api')) {
+    if (isCrawler && !req.url.startsWith('/api') && !req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       const pathParts = req.path.split('/').filter(Boolean);
       if (pathParts[0] === 'share' && pathParts.length >= 2) {
         req.params = pathParts.length >= 3 ? { type: pathParts[1], id: pathParts[2] } : { id: pathParts[1] };
@@ -315,7 +315,11 @@ async function startServer() {
           return handleShareRequest(req, res, next);
         }
       }
-      return handleShareRequest(req, res, next);
+      // If it's a crawler but doesn't match a specific share path, we still want to return a basic HTML with default tags
+      // but only if it's hitting a page route, not an asset
+      if (!req.path.includes('.')) {
+        return handleShareRequest(req, res, next);
+      }
     }
     next();
   });
@@ -1183,7 +1187,7 @@ async function startServer() {
       if (!res.headersSent) {
         res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
       }
-    }, 8000);
+    }, 4500);
 
     try {
       let cardData: any = null;
