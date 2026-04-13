@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, Copy, Trophy, X, Check, Award, Plus, Loader2 } from 'lucide-react';
+import { Share2, Copy, Trophy, X, Check, Award, Plus, Loader2, Instagram, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { shareToArenaComp, CardData } from '../services/arenaService';
 import { toast } from 'sonner';
@@ -56,8 +56,51 @@ export const ShareModal: React.FC<ShareModalProps> = ({
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast.success('Link copiado!');
     } catch (err) {
       console.error('Failed to copy:', err);
+    }
+  };
+
+  const handleWhatsAppShare = () => {
+    const text = encodeURIComponent(`${title}\n${subtitle || ''}\n\nConfira na ArenaComp: ${url}`);
+    const whatsappUrl = `https://wa.me/?text=${text}`;
+    window.open(whatsappUrl, '_blank');
+  };
+
+  const handleInstagramShare = async () => {
+    // Instagram doesn't have a direct "share link" URL scheme that works reliably across all devices
+    // The best way to share to Instagram from a web app is using the Web Share API
+    // which allows the user to pick Instagram Stories or Feed directly.
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: title,
+          text: subtitle || 'Confira este conteúdo na ArenaComp!',
+          url: url,
+        });
+        toast.success('Compartilhamento iniciado!');
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing:', err);
+          // Fallback to copy link if share fails
+          handleCopyLink();
+        }
+      }
+    } else {
+      // Fallback for desktop or browsers without Web Share API
+      // We try to open the app via URL scheme, if it fails, we copy the link
+      const instagramUrl = `instagram://app`;
+      
+      // Try to open the app
+      window.location.href = instagramUrl;
+      
+      // Also copy the link to clipboard as a fallback
+      setTimeout(() => {
+        handleCopyLink();
+        toast.info('Link copiado! Abra o Instagram e cole na sua bio ou stories.');
+      }, 500);
     }
   };
 
@@ -114,7 +157,49 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
               </button>
 
-              {/* Option 1: Generate Card */}
+              {/* Option 1: WhatsApp Direct */}
+              <button
+                onClick={handleWhatsAppShare}
+                className="w-full p-4 rounded-2xl border bg-emerald-500/10 border-emerald-500/20 hover:bg-emerald-500/20 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-4 text-left">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500 text-white">
+                    <MessageCircle size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase italic text-emerald-500">WhatsApp</h4>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                      Enviar para contatos ou grupos
+                    </p>
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                  <Plus size={16} />
+                </div>
+              </button>
+
+              {/* Option 2: Instagram Direct */}
+              <button
+                onClick={handleInstagramShare}
+                className="w-full p-4 rounded-2xl border bg-pink-500/10 border-pink-500/20 hover:bg-pink-500/20 flex items-center justify-between transition-all group"
+              >
+                <div className="flex items-center gap-4 text-left">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-tr from-amber-500 via-pink-500 to-violet-600 text-white">
+                    <Instagram size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase italic text-pink-500">Instagram</h4>
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                      Compartilhar no Stories ou Feed
+                    </p>
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-pink-500/20 flex items-center justify-center text-pink-500 group-hover:scale-110 transition-transform">
+                  <Plus size={16} />
+                </div>
+              </button>
+
+              {/* Option 3: Generate Card */}
               <button
                 onClick={() => {
                   onGenerate();

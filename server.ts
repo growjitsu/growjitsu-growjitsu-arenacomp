@@ -1233,11 +1233,10 @@ async function startServer() {
       `<meta property="og:description" content="${description}">`,
       `<meta property="og:url" content="${url}">`,
       `<meta property="og:image" content="${ogImageUrl}">`,
-      `<meta property="og:image:url" content="${ogImageUrl}">`,
       `<meta property="og:image:secure_url" content="${ogImageUrl}">`,
       `<meta property="og:image:type" content="image/png">`,
-      `<meta property="og:image:width" content="1080">`,
-      `<meta property="og:image:height" content="1350">`,
+      `<meta property="og:image:width" content="1200">`,
+      `<meta property="og:image:height" content="630">`,
       `<meta property="og:image:alt" content="${title} - ${athleteName}">`,
       `<meta property="og:type" content="website">`,
       `<meta property="og:site_name" content="ArenaComp">`,
@@ -1246,7 +1245,6 @@ async function startServer() {
       `<meta name="twitter:title" content="${title}">`,
       `<meta name="twitter:description" content="${description}">`,
       `<meta name="twitter:image" content="${ogImageUrl}">`,
-      `<meta name="twitter:image:src" content="${ogImageUrl}">`,
       `<meta itemprop="name" content="${title}">`,
       `<meta itemprop="description" content="${description}">`,
       `<meta itemprop="image" content="${ogImageUrl}">`,
@@ -1276,6 +1274,11 @@ async function startServer() {
         
         // 3. Inject new tags right after <head>
         html = html.replace(/(<head[^>]*>)/i, `$1\n    ${ogTags}`);
+
+        // 3.1. Also inject at the very beginning of the file for aggressive scrapers
+        if (userAgent.includes('WhatsApp')) {
+          html = `<!-- OG-START -->\n${ogTags}\n<!-- OG-END -->\n` + html;
+        }
 
         // 4. Ensure the <html> tag has the correct prefix
         if (!html.includes('prefix="og: http://ogp.me/ns#"')) {
