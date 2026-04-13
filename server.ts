@@ -114,7 +114,11 @@ async function startServer() {
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
-    console.log(`[OG-TAGS] Processing request for id: ${id}, type: ${type} | URL: ${req.url} | UA: ${userAgent}`);
+    
+    // Detect if it's a crawler
+    const isCrawler = /WhatsApp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|TelegramBot|Googlebot|Discordbot/i.test(userAgent);
+    
+    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
     if (req.url.startsWith('/api')) {
       return next();
@@ -215,94 +219,81 @@ async function startServer() {
     }
 
     const athleteName = cardData?.athleteName || "Atleta";
-    let title = cardData?.title || "Conquista";
-    title = title.replace("ArenaComp", "").replace("-", "").trim();
-    if (!title) title = "Conquista";
-
+    let title = cardData?.title || "ArenaComp";
     let description = cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`;
+    
+    // WhatsApp limit: 80 characters for description
     if (description.length > 80) {
       description = description.substring(0, 77) + "...";
     }
     
-    const currentHost = req.get('host');
-    const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    let baseUrl = `${protocol}://${currentHost}`;
-    if (process.env.APP_URL && process.env.APP_URL.startsWith('http') && process.env.APP_URL.includes(currentHost)) {
-      baseUrl = process.env.APP_URL;
+    // Robust Base URL detection
+    const host = req.get('x-forwarded-host') || req.get('host');
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    let baseUrl = `${protocol}://${host}`;
+    
+    // Override with APP_URL if it seems correct for the current host
+    if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
+      baseUrl = process.env.APP_URL.replace(/\/$/, '');
     }
 
-    let imageUrl = cardData?.mainImageUrl;
-    if (imageUrl && imageUrl.startsWith('/')) imageUrl = `${baseUrl}${imageUrl}`;
-    if (imageUrl && imageUrl.startsWith('http:')) imageUrl = imageUrl.replace('http:', 'https:');
-    if (!imageUrl || !imageUrl.startsWith('http')) {
-      imageUrl = `https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop`;
+    const ogImageUrl = `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=12`;
+    const shareUrl = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    const redirectUrl = `/${type ? type + '/' : ''}${id}`;
+
+    // If it's NOT a crawler, we can just let the SPA handle it or redirect
+    if (!isCrawler) {
+      return res.redirect(redirectUrl);
     }
 
-    const ogImageUrl = `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=5`;
-    const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    // FOR CRAWLERS: Return minimal HTML with OG tags
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR" prefix="og: http://ogp.me/ns#">
+<head>
+    <meta charset="UTF-8">
+    <title>${title} | ArenaComp</title>
+    <meta name="description" content="${description.replace(/"/g, '&quot;')}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="${shareUrl}">
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta property="og:image" content="${ogImageUrl}">
+    <meta property="og:image:secure_url" content="${ogImageUrl}">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="${title} - ArenaComp">
+    <meta property="og:site_name" content="ArenaComp">
+    <meta property="og:locale" content="pt_BR">
 
-    const ogTags = [
-      `<title>${title} | ArenaComp</title>`,
-      `<meta name="description" content="${description.replace(/"/g, '&quot;')}">`,
-      `<meta property="og:title" content="${title.replace(/"/g, '&quot;')}">`,
-      `<meta property="og:description" content="${description.replace(/"/g, '&quot;')}">`,
-      `<meta property="og:url" content="${url}">`,
-      `<meta property="og:image" content="${ogImageUrl}">`,
-      `<meta property="og:image:url" content="${ogImageUrl}">`,
-      `<meta property="og:image:secure_url" content="${ogImageUrl}">`,
-      `<meta property="og:image:type" content="image/png">`,
-      `<meta property="og:image:width" content="1200">`,
-      `<meta property="og:image:height" content="630">`,
-      `<meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')} - ${athleteName.replace(/"/g, '&quot;')}">`,
-      `<meta property="og:type" content="article">`,
-      `<meta property="og:site_name" content="ArenaComp">`,
-      `<meta property="og:locale" content="pt_BR">`,
-      `<meta name="twitter:card" content="summary_large_image">`,
-      `<meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">`,
-      `<meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">`,
-      `<meta name="twitter:image" content="${ogImageUrl}">`,
-      `<meta itemprop="name" content="${title.replace(/"/g, '&quot;')}">`,
-      `<meta itemprop="description" content="${description.replace(/"/g, '&quot;')}">`,
-      `<meta itemprop="image" content="${ogImageUrl}">`,
-      `<link rel="canonical" href="${url}">`
-    ].join('\n    ');
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="${shareUrl}">
+    <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
+    <meta name="twitter:image" content="${ogImageUrl}">
 
-    const serveHtml = async (indexPath: string, isDev: boolean) => {
-      try {
-        if (!fs.existsSync(indexPath)) return next();
-        let html = fs.readFileSync(indexPath, 'utf8');
-        if (isDev && vite) html = await vite.transformIndexHtml(req.url, html);
+    <!-- Redirection for non-bots that might still hit this -->
+    <script type="text/javascript">
+        window.location.href = "${redirectUrl}";
+    </script>
+</head>
+<body>
+    <h1>ArenaComp</h1>
+    <p>${description}</p>
+    <img src="${ogImageUrl}" alt="${title}">
+    <p>Redirecionando para a plataforma...</p>
+</body>
+</html>`;
 
-        html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
-        html = html.replace(/<meta property="(og|twitter):.*?" content=".*?" \/?>/gi, '');
-        html = html.replace(/<meta name="(twitter|description|description):.*?" content=".*?" \/?>/gi, '');
-        html = html.replace(/<meta name="description" content=".*?" \/?>/gi, '');
-        html = html.replace(/(<head[^>]*>)/i, `$1\n    ${ogTags}`);
-        if (!html.includes('prefix="og: http://ogp.me/ns#"')) {
-          html = html.replace(/(<html[^>]*)/i, '$1 prefix="og: http://ogp.me/ns#"');
-        }
-        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED-V6 -->\n</body>');
-        
-        const htmlBuffer = Buffer.from(html, 'utf-8');
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Content-Length', htmlBuffer.length);
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        res.setHeader('Accept-Ranges', 'none');
-        res.setHeader('X-Arena-OG', 'injected');
-        
-        return res.status(200).send(htmlBuffer);
-      } catch (err) {
-        return next();
-      }
-    };
-
-    if (process.env.NODE_ENV !== "production") {
-      return serveHtml(path.join(process.cwd(), 'index.html'), true);
-    } else {
-      const distIndex = path.join(process.cwd(), 'dist', 'index.html');
-      const rootIndex = path.join(process.cwd(), 'index.html');
-      return serveHtml(fs.existsSync(distIndex) ? distIndex : rootIndex, false);
-    }
+    const buffer = Buffer.from(html, 'utf-8');
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Length', buffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('X-Arena-Status', 'crawler-ssr');
+    return res.status(200).send(buffer);
   };
 
   // 1. Crawler Detection Middleware - MUST BE FIRST

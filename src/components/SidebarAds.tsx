@@ -37,7 +37,7 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
 
   return (
-    <div className="sticky top-24 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 custom-scrollbar pb-10">
+    <div className="sticky top-[104px] space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto pr-2 custom-scrollbar pb-10">
       <AnimatePresence mode="wait">
         <motion.div
           key={currentAd.id}
