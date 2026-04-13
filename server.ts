@@ -972,6 +972,91 @@ async function startServer() {
   // END OF API SECTION
   // ===========================================================================
 
+  // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
+  app.get("/api/og-image/:type/:id", async (req, res) => {
+    const { type, id } = req.params;
+    console.log(`[OG-IMAGE] Generating image for type: ${type}, id: ${id}`);
+
+    try {
+      let cardData: any = null;
+
+      // Fetch data from Supabase
+      if (type === 'post' || type === 'clip') {
+        const { data: post } = await supabaseAdmin
+          .from('posts')
+          .select('*, profiles(username, full_name, profile_photo, modality)')
+          .eq('id', id)
+          .single();
+        
+        if (post) {
+          cardData = {
+            athleteName: post.profiles?.full_name || 'Atleta Arena',
+            achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+            mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+            title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
+            modality: post.profiles?.modality || 'Arena',
+            profileUrl: `https://arenacomp.com.br/post/${id}`
+          };
+        }
+      } else if (type === 'profile' || type === 'ranking') {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        if (profile) {
+          cardData = {
+            athleteName: profile.full_name || 'Atleta Arena',
+            achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
+            mainImageUrl: profile.profile_photo,
+            title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
+            modality: profile.modality || 'Arena',
+            profileUrl: `https://arenacomp.com.br/user/${profile.username}`
+          };
+        }
+      } else if (type === 'certificate') {
+        const { data: cert } = await supabaseAdmin
+          .from('certificates')
+          .select('*, profiles(username, full_name, modality)')
+          .eq('id', id)
+          .single();
+        
+        if (cert) {
+          cardData = {
+            athleteName: cert.profiles?.full_name || 'Atleta Arena',
+            achievement: `Certificado: ${cert.name}`,
+            mainImageUrl: cert.media_url,
+            title: 'Certificado ArenaComp',
+            modality: cert.profiles?.modality || 'Arena',
+            profileUrl: `https://arenacomp.com.br/certificates/${id}`
+          };
+        }
+      }
+
+      if (!cardData) {
+        return res.status(404).send('Data not found');
+      }
+
+      // Generate card using Puppeteer
+      const buffer = await CardGenerator.generateAchievementCard({
+        athleteName: cardData.athleteName,
+        achievement: cardData.achievement,
+        title: cardData.title,
+        modality: cardData.modality,
+        date: new Date().toLocaleDateString('pt-BR'),
+        profileUrl: cardData.profileUrl
+      });
+
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+      res.send(buffer);
+    } catch (error: any) {
+      console.error(`[OG-IMAGE] Error:`, error);
+      res.status(500).send('Error generating image');
+    }
+  });
+
   // OG Tag Injection for Share Links logic is now after API section
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
@@ -1122,8 +1207,8 @@ async function startServer() {
       imageUrl = `https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop`;
     }
 
-    const imageCacheBuster = `v=${Date.now()}`;
-    const finalImageUrl = imageUrl.includes('?') ? `${imageUrl}&${imageCacheBuster}` : `${imageUrl}?${imageCacheBuster}`;
+    const imageCacheBuster = `v=2`; // Use a static version to avoid confusion during scraping
+    const ogImageUrl = `${baseUrl}/api/og-image/${type}/${id}?${imageCacheBuster}`;
     const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
 
     const ogTags = [
@@ -1132,12 +1217,12 @@ async function startServer() {
       `<meta property="og:title" content="${title}">`,
       `<meta property="og:description" content="${description}">`,
       `<meta property="og:url" content="${url}">`,
-      `<meta property="og:image" content="${finalImageUrl}">`,
-      `<meta property="og:image:url" content="${finalImageUrl}">`,
-      `<meta property="og:image:secure_url" content="${finalImageUrl}">`,
-      `<meta property="og:image:type" content="image/jpeg">`,
-      `<meta property="og:image:width" content="1200">`,
-      `<meta property="og:image:height" content="630">`,
+      `<meta property="og:image" content="${ogImageUrl}">`,
+      `<meta property="og:image:url" content="${ogImageUrl}">`,
+      `<meta property="og:image:secure_url" content="${ogImageUrl}">`,
+      `<meta property="og:image:type" content="image/png">`,
+      `<meta property="og:image:width" content="1080">`,
+      `<meta property="og:image:height" content="1350">`,
       `<meta property="og:image:alt" content="${title} - ${athleteName}">`,
       `<meta property="og:type" content="website">`,
       `<meta property="og:site_name" content="ArenaComp">`,
@@ -1145,11 +1230,11 @@ async function startServer() {
       `<meta name="twitter:card" content="summary_large_image">`,
       `<meta name="twitter:title" content="${title}">`,
       `<meta name="twitter:description" content="${description}">`,
-      `<meta name="twitter:image" content="${finalImageUrl}">`,
-      `<meta name="twitter:image:src" content="${finalImageUrl}">`,
+      `<meta name="twitter:image" content="${ogImageUrl}">`,
+      `<meta name="twitter:image:src" content="${ogImageUrl}">`,
       `<meta itemprop="name" content="${title}">`,
       `<meta itemprop="description" content="${description}">`,
-      `<meta itemprop="image" content="${finalImageUrl}">`,
+      `<meta itemprop="image" content="${ogImageUrl}">`,
       `<link rel="canonical" href="${url}">`
     ].join('\n    ');
 
@@ -1234,8 +1319,29 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      console.log(`[DEBUG-ROUTING] Catch-all * hit for: ${req.url} | UA: ${req.get('User-Agent')}`);
+    
+    app.get("*", async (req, res, next) => {
+      const userAgent = req.get('User-Agent') || '';
+      const isCrawler = /WhatsApp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|TelegramBot|Googlebot/i.test(userAgent);
+      
+      console.log(`[DEBUG-ROUTING] Catch-all * hit for: ${req.url} | UA: ${userAgent} | isCrawler: ${isCrawler}`);
+      
+      if (isCrawler) {
+        // Try to extract ID and type from URL for direct links
+        // e.g. /user/username or /post/id
+        const pathParts = req.path.split('/').filter(Boolean);
+        if (pathParts.length >= 2) {
+          const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
+          const id = pathParts[1];
+          
+          // If it looks like a shareable content, use the share handler logic
+          if (['profile', 'post', 'clip', 'certificate'].includes(type)) {
+            req.params = { type, id };
+            return handleShareRequest(req, res, next);
+          }
+        }
+      }
+
       res.setHeader('X-API-Route', 'static-catch-all');
       res.sendFile(path.join(distPath, 'index.html'));
     });
