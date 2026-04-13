@@ -1202,11 +1202,17 @@ async function startServer() {
     
     const currentHost = req.get('host');
     const protocol = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
-    const baseUrl = (process.env.APP_URL && process.env.APP_URL.startsWith('http')) 
-      ? process.env.APP_URL 
-      : `${protocol}://${currentHost}`;
+    
+    // Prioritize current host for consistency, but allow APP_URL override if it matches the domain
+    let baseUrl = `${protocol}://${currentHost}`;
+    if (process.env.APP_URL && process.env.APP_URL.startsWith('http')) {
+      // If APP_URL is set and we are on the main domain, use it
+      if (process.env.APP_URL.includes(currentHost)) {
+        baseUrl = process.env.APP_URL;
+      }
+    }
 
-    console.log(`[OG-TAGS] Using baseUrl: ${baseUrl} for sharing`);
+    console.log(`[OG-TAGS] Using baseUrl: ${baseUrl} for sharing (Host: ${currentHost})`);
 
     let imageUrl = cardData?.mainImageUrl;
     
@@ -1227,18 +1233,19 @@ async function startServer() {
     const url = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
 
     const ogTags = [
-      `<title>${title}</title>`,
+      `<title>${title} | ArenaComp</title>`,
       `<meta name="description" content="${description}">`,
       `<meta property="og:title" content="${title}">`,
       `<meta property="og:description" content="${description}">`,
       `<meta property="og:url" content="${url}">`,
       `<meta property="og:image" content="${ogImageUrl}">`,
+      `<meta property="og:image:url" content="${ogImageUrl}">`,
       `<meta property="og:image:secure_url" content="${ogImageUrl}">`,
       `<meta property="og:image:type" content="image/png">`,
       `<meta property="og:image:width" content="1200">`,
       `<meta property="og:image:height" content="630">`,
       `<meta property="og:image:alt" content="${title} - ${athleteName}">`,
-      `<meta property="og:type" content="website">`,
+      `<meta property="og:type" content="article">`,
       `<meta property="og:site_name" content="ArenaComp">`,
       `<meta property="og:locale" content="pt_BR">`,
       `<meta name="twitter:card" content="summary_large_image">`,
@@ -1345,19 +1352,31 @@ async function startServer() {
       console.log(`[DEBUG-ROUTING] Catch-all * hit for: ${req.url} | UA: ${userAgent} | isCrawler: ${isCrawler}`);
       
       if (isCrawler) {
-        // Try to extract ID and type from URL for direct links
-        // e.g. /user/username or /post/id
         const pathParts = req.path.split('/').filter(Boolean);
+        
+        // Handle /share/type/id
+        if (pathParts[0] === 'share' && pathParts.length >= 2) {
+          if (pathParts.length >= 3) {
+            req.params = { type: pathParts[1], id: pathParts[2] };
+          } else {
+            req.params = { id: pathParts[1] };
+          }
+          return handleShareRequest(req, res, next);
+        }
+        
+        // Handle direct links like /post/id or /user/username
         if (pathParts.length >= 2) {
           const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
           const id = pathParts[1];
           
-          // If it looks like a shareable content, use the share handler logic
-          if (['profile', 'post', 'clip', 'certificate'].includes(type)) {
+          if (['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championships'].includes(type)) {
             req.params = { type, id };
             return handleShareRequest(req, res, next);
           }
         }
+
+        // Default injection for crawlers on any other page
+        return handleShareRequest(req, res, next);
       }
 
       res.setHeader('X-API-Route', 'static-catch-all');
