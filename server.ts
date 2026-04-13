@@ -1271,29 +1271,24 @@ async function startServer() {
           html = await vite.transformIndexHtml(req.url, html);
         }
 
-        // 1. Remove any existing title tags to avoid duplicates (including those with attributes)
+        // 1. Remove any existing title tags to avoid duplicates
         html = html.replace(/<title[^>]*>[\s\S]*?<\/title>/gi, '');
         
-        // 2. Remove any existing OG/Twitter tags that might be in the base template
-        html = html.replace(/<meta property="og:.*?" content=".*?" \/?>/gi, '');
-        html = html.replace(/<meta name="twitter:.*?" content=".*?" \/?>/gi, '');
-        html = html.replace(/<meta name="description" content=".*?" \/?>/gi, '');
+        // 2. Remove any existing OG/Twitter/Description tags
+        html = html.replace(/<meta property="(og|twitter):.*?" content=".*?" \/?>/gi, '');
+        html = html.replace(/<meta name="(twitter|description):.*?" content=".*?" \/?>/gi, '');
         
-        // 3. Inject new tags right after <head>
+        // 3. Inject new tags at the very beginning of <head>
+        // We use a more robust replacement to ensure it's the first thing after <head>
         html = html.replace(/(<head[^>]*>)/i, `$1\n    ${ogTags}`);
 
-        // 3.1. Also inject at the very beginning of the file for aggressive scrapers
-        if (userAgent.includes('WhatsApp')) {
-          html = `<!-- OG-START -->\n${ogTags}\n<!-- OG-END -->\n` + html;
-        }
-
-        // 4. Ensure the <html> tag has the correct prefix
+        // 4. Ensure the <html> tag has the correct prefix for Open Graph
         if (!html.includes('prefix="og: http://ogp.me/ns#"')) {
           html = html.replace(/(<html[^>]*)/i, '$1 prefix="og: http://ogp.me/ns#"');
         }
         
         // 5. Add a marker to verify injection
-        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED-V3 -->\n</body>');
+        html = html.replace('</body>', '<!-- OG-TAGS-INJECTED-V4 -->\n</body>');
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -1343,15 +1338,16 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
     
-    app.get("*", async (req, res, next) => {
+    // CRITICAL: Handle crawlers BEFORE express.static
+    // This ensures that even for the root URL (/), crawlers get the injected tags
+    app.use(async (req, res, next) => {
       const userAgent = req.get('User-Agent') || '';
       const isCrawler = /WhatsApp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|TelegramBot|Googlebot/i.test(userAgent);
       
-      console.log(`[DEBUG-ROUTING] Catch-all * hit for: ${req.url} | UA: ${userAgent} | isCrawler: ${isCrawler}`);
-      
       if (isCrawler) {
+        console.log(`[OG-CRAWLER] Intercepting crawler BEFORE static: ${req.url} | UA: ${userAgent}`);
+        
         const pathParts = req.path.split('/').filter(Boolean);
         
         // Handle /share/type/id
@@ -1375,10 +1371,15 @@ async function startServer() {
           }
         }
 
-        // Default injection for crawlers on any other page
+        // Default injection for crawlers on any other page (including root /)
         return handleShareRequest(req, res, next);
       }
+      next();
+    });
 
+    app.use(express.static(distPath));
+    
+    app.get("*", (req, res) => {
       res.setHeader('X-API-Route', 'static-catch-all');
       res.sendFile(path.join(distPath, 'index.html'));
     });

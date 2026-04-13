@@ -38,29 +38,6 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
 
   return (
     <div className="sticky top-24 space-y-6 max-h-[calc(100vh-8rem)] overflow-y-auto pr-2 custom-scrollbar pb-10">
-      <div className="flex items-center justify-between px-2">
-        <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--text-muted)]">Patrocinado</h3>
-        {sidebarAds.length > 1 && (
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setCurrentIndex(prev => (prev - 1 + sidebarAds.length) % sidebarAds.length)}
-              className="p-1 rounded-full hover:bg-[var(--border-ui)] text-[var(--text-muted)] transition-colors"
-            >
-              <ChevronLeft size={12} />
-            </button>
-            <span className="text-[9px] font-mono font-bold text-[var(--text-muted)]">
-              {currentIndex + 1}/{sidebarAds.length}
-            </span>
-            <button 
-              onClick={() => setCurrentIndex(prev => (prev + 1) % sidebarAds.length)}
-              className="p-1 rounded-full hover:bg-[var(--border-ui)] text-[var(--text-muted)] transition-colors"
-            >
-              <ChevronRight size={12} />
-            </button>
-          </div>
-        )}
-      </div>
-
       <AnimatePresence mode="wait">
         <motion.div
           key={currentAd.id}
