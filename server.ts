@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default.jpg?v=17`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}.jpg?v=17`;
+      ? `${baseUrl}/api/og-image/home/default?v=16`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -284,7 +284,7 @@ async function startServer() {
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:image" content="${ogImageUrl}">
     <meta property="og:image:secure_url" content="${ogImageUrl}">
-    <meta property="og:image:type" content="image/jpeg">
+    <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${title} - ArenaComp">
@@ -1199,54 +1199,32 @@ async function startServer() {
   // END OF API SECTION
   // ===========================================================================
 
-// Cache for OG images to speed up crawler responses
-const ogImageCache = new Map<string, { buffer: Buffer, timestamp: number }>();
-const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
+  // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
+  app.get("/api/og-image/:type/:id", async (req, res) => {
+    const { type, id } = req.params;
+    console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
 
-// 0.6. OG IMAGE GENERATION ENDPOINT (GET)
-app.get("/api/og-image/:type/:id", async (req, res) => {
-  let { type, id } = req.params;
-  
-  // Remove extension if present
-  if (id.endsWith('.jpg') || id.endsWith('.jpeg') || id.endsWith('.png')) {
-    id = id.split('.')[0];
-  }
+    // Set a timeout for the entire operation to avoid hanging the scraper
+    const timeout = setTimeout(() => {
+      console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
+      if (!res.headersSent) {
+        res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      }
+    }, 4500);
 
-  const cacheKey = `${type}_${id}`;
-  
-  // Check cache first
-  const cached = ogImageCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-    console.log(`[OG-IMAGE] Serving from cache: ${cacheKey}`);
-    res.set('Content-Type', 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=86400');
-    return res.send(cached.buffer);
-  }
+    try {
+      let cardData: any = null;
 
-  console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
-
-  // Set a timeout for the entire operation to avoid hanging the scraper
-  const timeout = setTimeout(() => {
-    console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
-    if (!res.headersSent) {
-      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
-    }
-  }, 8000);
-
-  try {
-    let cardData: any = null;
-
-    // Fetch data from Supabase
-    if (type === 'home' || type === 'default') {
-      cardData = {
-        athleteName: 'ArenaComp',
-        achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
-        title: 'ArenaComp Platform',
-        modality: 'Jiu-Jitsu',
-        profileUrl: 'https://www.arenacomp.com.br',
-        isLandscape: true
-      };
-    } else if (type === 'post' || type === 'clip') {
+      // Fetch data from Supabase
+      if (type === 'home' || type === 'default') {
+        cardData = {
+          athleteName: 'ArenaComp',
+          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
+          title: 'ArenaComp Platform',
+          modality: 'Jiu-Jitsu',
+          profileUrl: 'https://www.arenacomp.com.br'
+        };
+      } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
           .select('*, profiles(username, full_name, profile_photo, modality)')
@@ -1260,8 +1238,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
             mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
             title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
             modality: post.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/post/${id}`,
-            isLandscape: true
+            profileUrl: `https://arenacomp.com.br/post/${id}`
           };
         }
       } else if (type === 'profile' || type === 'ranking') {
@@ -1278,8 +1255,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
             mainImageUrl: profile.profile_photo,
             title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
             modality: profile.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/user/${profile.username}`,
-            isLandscape: true
+            profileUrl: `https://arenacomp.com.br/user/${profile.username}`
           };
         }
       } else if (type === 'certificate') {
@@ -1296,8 +1272,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
             mainImageUrl: cert.media_url,
             title: 'Certificado ArenaComp',
             modality: cert.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/certificates/${id}`,
-            isLandscape: true
+            profileUrl: `https://arenacomp.com.br/certificates/${id}`
           };
         }
       } else if (type === 'championship') {
@@ -1314,8 +1289,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
             mainImageUrl: champ.media_url,
             title: 'Conquista ArenaComp',
             modality: champ.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/championship/${id}`,
-            isLandscape: true
+            profileUrl: `https://arenacomp.com.br/share/championship/${id}`
           };
         }
       } else if (type === 'fight') {
@@ -1332,8 +1306,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
             mainImageUrl: fight.media_url,
             title: 'Luta ArenaComp',
             modality: fight.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/fight/${id}`,
-            isLandscape: true
+            profileUrl: `https://arenacomp.com.br/share/fight/${id}`
           };
         }
       }
@@ -1353,11 +1326,8 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
         profileUrl: cardData.profileUrl
       });
 
-      // Save to cache
-      ogImageCache.set(cacheKey, { buffer, timestamp: Date.now() });
-
       clearTimeout(timeout);
-      res.set('Content-Type', 'image/jpeg');
+      res.set('Content-Type', 'image/png');
       res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
       res.send(buffer);
     } catch (error: any) {
