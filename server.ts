@@ -258,10 +258,10 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/logo-og.png?v=21`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=21`;
+      ? `${baseUrl}/logo-og.png?v=30`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=30`;
     
-    const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    const shareUrl = isHome ? (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
@@ -278,18 +278,22 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="${isHome ? 'website' : 'article'}">
-    <meta property="og:url" content="${shareUrl}">
-    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
-    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:image" content="${ogImageUrl}">
     <meta property="og:image:secure_url" content="${ogImageUrl}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${title} - ArenaComp">
+    <meta property="og:type" content="${isHome ? 'website' : 'article'}">
+    <meta property="og:url" content="${shareUrl}">
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
+    
+    <!-- Legacy/WhatsApp fallback -->
+    <meta itemprop="image" content="${ogImageUrl}">
+    <link rel="image_src" href="${ogImageUrl}">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
