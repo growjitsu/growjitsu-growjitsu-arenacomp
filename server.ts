@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=16`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
+      ? `${baseUrl}/api/og-image/logo/default?v=17`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=17`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -1216,14 +1216,11 @@ async function startServer() {
       let cardData: any = null;
 
       // Fetch data from Supabase
-      if (type === 'home' || type === 'default') {
-        cardData = {
-          athleteName: 'ArenaComp',
-          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
-          title: 'ArenaComp Platform',
-          modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
-        };
+      if (type === 'home' || type === 'default' || type === 'logo') {
+        const logoBuffer = await CardGenerator.generateLogoOnly();
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=31536000');
+        return res.send(logoBuffer);
       } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')

@@ -203,8 +203,149 @@ const CARD_TEMPLATE = `
 </html>
 `;
 
+const LOGO_TEMPLATE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
+    
+    body {
+      margin: 0;
+      padding: 0;
+      width: 1200px;
+      height: 630px;
+      background: #050505;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .container {
+      display: flex;
+      align-items: center;
+      gap: 40px;
+    }
+
+    .logo-icon {
+      width: 300px;
+      height: 300px;
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 0.8;
+    }
+
+    .arena {
+      font-size: 120px;
+      font-weight: 900;
+      color: #FFFFFF;
+      text-transform: uppercase;
+      font-style: italic;
+      letter-spacing: -5px;
+    }
+
+    .comp {
+      font-size: 120px;
+      font-weight: 900;
+      color: #3B82F6;
+      text-transform: uppercase;
+      font-style: italic;
+      letter-spacing: -5px;
+    }
+
+    .tagline {
+      font-size: 24px;
+      font-weight: 700;
+      color: #60A5FA;
+      text-transform: uppercase;
+      letter-spacing: 10px;
+      margin-top: 10px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-icon">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E3A8A" />
+            <stop offset="100%" stopColor="#0F172A" />
+          </linearGradient>
+          <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3B82F6" />
+            <stop offset="50%" stopColor="#60A5FA" />
+            <stop offset="100%" stopColor="#2563EB" />
+          </linearGradient>
+          <linearGradient id="trophyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#60A5FA" />
+            <stop offset="50%" stopColor="#3B82F6" />
+            <stop offset="100%" stopColor="#1D4ED8" />
+          </linearGradient>
+        </defs>
+        <path d="M50 5 L15 20 V45 C15 65 30 85 50 95 C70 85 85 65 85 45 V20 L50 5Z" fill="url(#shieldGradient)" stroke="url(#borderGradient)" strokeWidth="4" strokeLinejoin="round" />
+        <g transform="translate(25, 25) scale(0.5)">
+          <path d="M20 10 H80 V40 C80 56.5 66.5 70 50 70 C33.5 70 20 56.5 20 40 V10Z" fill="url(#trophyGradient)" />
+          <path d="M20 20 H5 V35 C5 43.3 11.7 50 20 50 V20Z" fill="#2563EB" />
+          <path d="M80 20 H95 V35 C95 43.3 88.3 50 80 50 V20Z" fill="#2563EB" />
+          <rect x="42" y="70" width="16" height="15" fill="#1D4ED8" />
+          <path d="M30 85 H70 L75 95 H25 L30 85Z" fill="#1E40AF" />
+          <path d="M30 15 H40 V35 C40 40.5 35.5 45 30 45 V15Z" fill="white" fillOpacity="0.2" />
+        </g>
+      </svg>
+    </div>
+    <div class="logo-text">
+      <div>
+        <span class="arena">ARENA</span><span class="comp">COMP</span>
+      </div>
+      <div class="tagline">Competition Platform</div>
+    </div>
+  </div>
+</body>
+</html>
+`;
+
 export class CardGenerator {
   private static template = Handlebars.compile(CARD_TEMPLATE);
+  private static logoTemplate = Handlebars.compile(LOGO_TEMPLATE);
+
+  static async generateLogoOnly(): Promise<Buffer> {
+    console.log('[CardGenerator] Gerando imagem apenas do logo...');
+    try {
+      const html = this.logoTemplate({});
+      const executablePath = await chromium.executablePath();
+      
+      const browser = await puppeteer.launch({
+        args: [
+          ...chromium.args,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+        ],
+        executablePath,
+        headless: true,
+      });
+
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 2 });
+      await page.setContent(html, { waitUntil: 'domcontentloaded' });
+      
+      const buffer = await page.screenshot({ type: 'png' });
+      await browser.close();
+      return buffer as Buffer;
+    } catch (error) {
+      console.error('[CardGenerator] Erro ao gerar logo:', error);
+      throw error;
+    }
+  }
 
   static async generateAchievementCard(data: CardData): Promise<Buffer> {
     console.log('🚀 Iniciando geração de card...');
