@@ -112,14 +112,14 @@ async function startServer() {
 
   // --- START OF SHARE LOGIC ---
   const handleShareRequest = async (req: any, res: any, next: any) => {
-    const { id, type } = req.params;
+    const { id, type } = req.params || {};
     const userAgent = req.get('User-Agent') || '';
     
     // Detect if it's a crawler
     const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
     
     // Check if it's the root path (home)
-    const isHome = !type && (!id || id === 'undefined' || id === '/');
+    const isHome = !type && (!id || id === 'undefined' || id === '/' || id === '');
 
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
@@ -248,8 +248,15 @@ async function startServer() {
     }
     
     // Robust Base URL detection - FORCE HTTPS for WhatsApp
-    const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
+    let host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
+    host = host.split(':')[0]; // Remove port
+    
     let baseUrl = `https://${host}`;
+    
+    // Force production domain if on it
+    if (host.includes('arenacomp.com.br')) {
+      baseUrl = 'https://www.arenacomp.com.br';
+    }
     
     // Override with APP_URL if it seems correct for the current host
     if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
@@ -258,10 +265,10 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=17`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=17`;
+      ? `${baseUrl}/api/og-image/home/default?v=19`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=19`;
     
-    const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    const shareUrl = `${baseUrl}${req.originalUrl}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
