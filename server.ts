@@ -251,11 +251,6 @@ async function startServer() {
     const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
     let baseUrl = `https://${host}`;
     
-    // For home page in production, force the official domain to avoid preview issues
-    if (isHome && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-      baseUrl = 'https://www.arenacomp.com.br';
-    }
-    
     // Override with APP_URL if it seems correct for the current host
     if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
       baseUrl = process.env.APP_URL.replace(/\/$/, '');
@@ -263,10 +258,10 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/logo-og.png?v=30`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=30`;
+      ? `${baseUrl}/api/og-image/home/default?v=16`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
     
-    const shareUrl = isHome ? (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
@@ -283,22 +278,18 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="${shareUrl}">
+    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:image" content="${ogImageUrl}">
     <meta property="og:image:secure_url" content="${ogImageUrl}">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${title} - ArenaComp">
-    <meta property="og:type" content="${isHome ? 'website' : 'article'}">
-    <meta property="og:url" content="${shareUrl}">
-    <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
-    <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
-    
-    <!-- Legacy/WhatsApp fallback -->
-    <meta itemprop="image" content="${ogImageUrl}">
-    <link rel="image_src" href="${ogImageUrl}">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
@@ -913,19 +904,6 @@ async function startServer() {
     res.json({ status: "ok", message: "ArenaComp API is running" });
   });
 
-  // Explicit route for OG logo to ensure it's always served
-  app.get("/logo-og.png", (req, res) => {
-    const publicPath = path.join(process.cwd(), 'public', 'logo-og.png');
-    const distPath = path.join(process.cwd(), 'dist', 'logo-og.png');
-    
-    if (fs.existsSync(publicPath)) {
-      return res.sendFile(publicPath);
-    } else if (fs.existsSync(distPath)) {
-      return res.sendFile(distPath);
-    }
-    res.status(404).send('Not found');
-  });
-
   // FIREBASE ADMIN: Set Custom Claims
   app.post("/api/admin/set-admin-claim", async (req, res) => {
     res.setHeader('X-API-Route', 'set-admin-claim');
@@ -1238,11 +1216,14 @@ async function startServer() {
       let cardData: any = null;
 
       // Fetch data from Supabase
-      if (type === 'home' || type === 'default' || type === 'logo') {
-        const logoBuffer = await CardGenerator.generateLogoOnly();
-        res.set('Content-Type', 'image/png');
-        res.set('Cache-Control', 'public, max-age=31536000');
-        return res.send(logoBuffer);
+      if (type === 'home' || type === 'default') {
+        cardData = {
+          athleteName: 'ArenaComp',
+          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
+          title: 'ArenaComp Platform',
+          modality: 'Jiu-Jitsu',
+          profileUrl: 'https://www.arenacomp.com.br'
+        };
       } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
