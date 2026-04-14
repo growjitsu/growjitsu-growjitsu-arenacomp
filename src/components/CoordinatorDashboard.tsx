@@ -313,7 +313,7 @@ function AthleteRow({ name, photo, belt, category, status }: any) {
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-[var(--border-ui)] overflow-hidden">
             <img 
-              src={photo || `https://picsum.photos/seed/${name}/100/100`} 
+              src={photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`} 
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
             />

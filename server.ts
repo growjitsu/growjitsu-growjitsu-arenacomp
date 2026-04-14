@@ -110,7 +110,11 @@ async function startServer() {
     });
   }
 
-  // --- START OF SHARE LOGIC ---
+// --- START OF SHARE LOGIC ---
+  const DEFAULT_OG_IMAGE = "https://images.unsplash.com/photo-1555597673-b21d5c935865?w=1200&h=630&fit=crop";
+  const DEFAULT_OG_TITLE = "ArenaComp - A Elite do Jiu-Jitsu";
+  const DEFAULT_OG_DESC = "A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe suas conquistas, acompanhe rankings e evolua sua jornada.";
+
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
@@ -121,23 +125,17 @@ async function startServer() {
     // Check if it's the root path (home)
     const isHome = !type && (!id || id === 'undefined' || id === '/');
 
-    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
-    
     if (req.url.startsWith('/api') || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       return next();
     }
 
     let cardData: any = null;
+    let ogImage = DEFAULT_OG_IMAGE;
+    let title = DEFAULT_OG_TITLE;
+    let description = DEFAULT_OG_DESC;
+
     try {
-      if (isHome) {
-        cardData = {
-          athleteName: 'ArenaComp',
-          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe suas conquistas e acompanhe rankings.',
-          title: 'ArenaComp Platform',
-          modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
-        };
-      } else {
+      if (!isHome) {
         // 1. Tenta decodificar como Base64 (formato antigo/fallback)
         if (id && id.length > 40 && !type) {
           try {
@@ -157,77 +155,46 @@ async function startServer() {
               .single();
             
             if (post) {
-              cardData = {
-                athleteName: post.profiles?.full_name || 'Atleta Arena',
-                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-                mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-                title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
-                modality: post.profiles?.modality || 'Arena'
-              };
+              title = `${post.profiles?.full_name || 'Atleta'} na ArenaComp`;
+              description = post.content || (type === 'clip' ? 'Confira este clip de Jiu-Jitsu!' : 'Confira esta postagem!');
+              
+              // Handle media_url (can be JSON or string)
+              let mediaUrl = post.media_url;
+              if (mediaUrl && mediaUrl.startsWith('[')) {
+                try {
+                  const urls = JSON.parse(mediaUrl);
+                  mediaUrl = urls[0];
+                } catch (e) {}
+              }
+              if (mediaUrl) ogImage = mediaUrl;
             }
-          } else if (type === 'profile' || type === 'ranking') {
+          } else if (type === 'profile' || type === 'ranking' || type === 'user') {
             const { data: profile } = await supabaseAdmin
               .from('profiles')
               .select('*')
-              .eq('id', id)
+              .or(`id.eq.${id},username.eq.${id.replace('@', '')}`)
               .single();
             
             if (profile) {
-              cardData = {
-                athleteName: profile.full_name || 'Atleta Arena',
-                achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-                mainImageUrl: profile.profile_photo,
-                title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
-                modality: profile.modality || 'Arena'
-              };
+              title = `${profile.full_name || 'Atleta'} | ArenaComp`;
+              description = type === 'ranking' 
+                ? `Veja a posição de ${profile.full_name} no Ranking Global ArenaComp!` 
+                : `Confira o perfil oficial de ${profile.full_name} na ArenaComp.`;
+              if (profile.profile_photo || profile.avatar_url) {
+                ogImage = profile.profile_photo || profile.avatar_url;
+              }
             }
           } else if (type === 'certificate') {
             const { data: cert } = await supabaseAdmin
               .from('certificates')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*, profiles(full_name)')
               .eq('id', id)
               .single();
             
             if (cert) {
-              cardData = {
-                athleteName: cert.profiles?.full_name || 'Atleta Arena',
-                achievement: `Certificado: ${cert.name}`,
-                mainImageUrl: cert.media_url,
-                title: 'Certificado ArenaComp',
-                modality: cert.profiles?.modality || 'Arena'
-              };
-            }
-          } else if (type === 'championship') {
-             const { data: champ } = await supabaseAdmin
-              .from('championship_results')
-              .select('*, profiles(username, full_name, modality)')
-              .eq('id', id)
-              .single();
-            
-            if (champ) {
-              cardData = {
-                athleteName: champ.profiles?.full_name || 'Atleta Arena',
-                achievement: `${champ.resultado} no ${champ.evento}`,
-                mainImageUrl: champ.media_url,
-                title: 'Conquista ArenaComp',
-                modality: champ.profiles?.modality || 'Arena'
-              };
-            }
-          } else if (type === 'fight') {
-             const { data: fight } = await supabaseAdmin
-              .from('fights')
-              .select('*, profiles(username, full_name, modality)')
-              .eq('id', id)
-              .single();
-            
-            if (fight) {
-              cardData = {
-                athleteName: fight.profiles?.full_name || 'Atleta Arena',
-                achievement: `Luta no ${fight.evento}`,
-                mainImageUrl: fight.media_url,
-                title: 'Luta ArenaComp',
-                modality: fight.profiles?.modality || 'Arena'
-              };
+              title = `Certificado: ${cert.name}`;
+              description = `Conquista de ${cert.profiles?.full_name || 'Atleta'} verificada pela ArenaComp.`;
+              if (cert.media_url) ogImage = cert.media_url;
             }
           }
         }
@@ -236,120 +203,70 @@ async function startServer() {
       console.error("[OG-TAGS] Error loading data:", err);
     }
 
-    const athleteName = cardData?.athleteName || "Atleta";
-    let title = isHome ? "ArenaComp - Jiu-Jitsu Platform" : (cardData?.title || "ArenaComp");
-    let description = isHome 
-      ? "A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe conquistas, acompanhe rankings e muito mais."
-      : (cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`);
-    
     // WhatsApp limit: 80 characters for description
-    if (description.length > 80) {
-      description = description.substring(0, 77) + "...";
+    if (description.length > 150) {
+      description = description.substring(0, 147) + "...";
     }
     
-    // Robust Base URL detection - FORCE HTTPS for WhatsApp
     const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
     let baseUrl = `https://${host}`;
-    
-    // Override with APP_URL if it seems correct for the current host
     if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
       baseUrl = process.env.APP_URL.replace(/\/$/, '');
       if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
 
-    const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=16`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
-    
-    const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
-    const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
-
-    // If it's NOT a crawler, we can just let the SPA handle it or redirect
-    if (!isCrawler) {
-      return res.redirect(redirectUrl);
-    }
+    const shareUrl = isHome ? baseUrl : `${baseUrl}${req.url}`;
+    const redirectUrl = isHome ? '/' : req.url;
 
     // FOR CRAWLERS: Return minimal HTML with OG tags
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR" prefix="og: http://ogp.me/ns#">
+    if (isCrawler) {
+      const html = `<!DOCTYPE html>
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>${title} | ArenaComp</title>
+    <title>${title}</title>
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="article">
+    <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
-    <meta property="og:image" content="${ogImageUrl}">
-    <meta property="og:image:secure_url" content="${ogImageUrl}">
-    <meta property="og:image:type" content="image/png">
+    <meta property="og:image" content="${ogImage}">
+    <meta property="og:image:secure_url" content="${ogImage}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="${title} - ArenaComp">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="${shareUrl}">
     <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
     <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
-    <meta name="twitter:image" content="${ogImageUrl}">
+    <meta name="twitter:image" content="${ogImage}">
 
-    <!-- Redirection for non-bots that might still hit this -->
-    <script type="text/javascript">
-        window.location.href = "${redirectUrl}";
-    </script>
+    <meta http-equiv="refresh" content="0;url=${redirectUrl}">
 </head>
 <body>
-    <h1>ArenaComp</h1>
-    <p>${description}</p>
-    <img src="${ogImageUrl}" alt="${title}">
-    <p>Redirecionando para a plataforma...</p>
+    <script>window.location.href = "${redirectUrl}";</script>
 </body>
 </html>`;
 
-    const buffer = Buffer.from(html, 'utf-8');
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.setHeader('X-Arena-Status', 'crawler-ssr');
-    return res.status(200).send(buffer);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.status(200).send(html);
+    }
+
+    // If not a crawler, just continue to static/vite
+    next();
   };
 
   // 1. Crawler Detection Middleware - MUST BE FIRST
-  app.use(async (req, res, next) => {
-    const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
-    
-    if (isCrawler && !req.url.startsWith('/api') && !req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
-      const pathParts = req.path.split('/').filter(Boolean);
-      if (pathParts[0] === 'share' && pathParts.length >= 2) {
-        req.params = pathParts.length >= 3 ? { type: pathParts[1], id: pathParts[2] } : { id: pathParts[1] };
-        return handleShareRequest(req, res, next);
-      }
-      if (pathParts.length >= 2) {
-        const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
-        const id = pathParts[1];
-        if (['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championships'].includes(type)) {
-          req.params = { type, id };
-          return handleShareRequest(req, res, next);
-        }
-      }
-      // If it's a crawler but doesn't match a specific share path, we still want to return a basic HTML with default tags
-      // but only if it's hitting a page route, not an asset
-      if (!req.path.includes('.')) {
-        return handleShareRequest(req, res, next);
-      }
-    }
-    next();
-  });
+  app.use(handleShareRequest);
 
-  // 2. Share Routes
-  app.get("/share/:type/:id", handleShareRequest);
-  app.get("/share/:id", handleShareRequest);
+  // 2. Share Routes (Explicitly handle /share for non-crawlers if needed, but middleware handles all)
+  app.get("/share/:type/:id", (req, res) => res.redirect(`/${req.params.type}/${req.params.id}`));
+  app.get("/share/:id", (req, res) => res.redirect(`/post/${req.params.id}`));
 
   // 3. Infrastructure Logging
   app.use((req, res, next) => {
@@ -712,7 +629,7 @@ async function startServer() {
           {
             id: 'demo-1',
             full_name: 'Atleta Exemplo 1',
-            profile_photo: 'https://picsum.photos/seed/athlete1/200/200',
+            profile_photo: `https://ui-avatars.com/api/?name=Atleta+Exemplo+1&background=random`,
             arena_score: 1500,
             username: 'exemplo1',
             role: 'athlete'
@@ -720,7 +637,7 @@ async function startServer() {
           {
             id: 'demo-2',
             full_name: 'Atleta Exemplo 2',
-            profile_photo: 'https://picsum.photos/seed/athlete2/200/200',
+            profile_photo: `https://ui-avatars.com/api/?name=Atleta+Exemplo+2&background=random`,
             arena_score: 1200,
             username: 'exemplo2',
             role: 'athlete'
@@ -1200,140 +1117,58 @@ async function startServer() {
   // ===========================================================================
 
   // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
+  // Simplified to avoid Puppeteer and heavy generation
   app.get("/api/og-image/:type/:id", async (req, res) => {
     const { type, id } = req.params;
-    console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
-
-    // Set a timeout for the entire operation to avoid hanging the scraper
-    const timeout = setTimeout(() => {
-      console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
-      if (!res.headersSent) {
-        res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
-      }
-    }, 4500);
+    const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1555597673-b21d5c935865?w=1200&h=630&fit=crop";
 
     try {
-      let cardData: any = null;
-
-      // Fetch data from Supabase
       if (type === 'home' || type === 'default') {
-        cardData = {
-          athleteName: 'ArenaComp',
-          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
-          title: 'ArenaComp Platform',
-          modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
-        };
-      } else if (type === 'post' || type === 'clip') {
+        return res.redirect(DEFAULT_IMAGE);
+      }
+
+      let imageUrl = DEFAULT_IMAGE;
+
+      if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
-          .select('*, profiles(username, full_name, profile_photo, modality)')
+          .select('media_url')
           .eq('id', id)
           .single();
         
-        if (post) {
-          cardData = {
-            athleteName: post.profiles?.full_name || 'Atleta Arena',
-            achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-            mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-            title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
-            modality: post.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/post/${id}`
-          };
+        if (post?.media_url) {
+          imageUrl = post.media_url;
+          if (imageUrl.startsWith('[')) {
+            try {
+              const urls = JSON.parse(imageUrl);
+              imageUrl = urls[0];
+            } catch (e) {}
+          }
         }
-      } else if (type === 'profile' || type === 'ranking') {
+      } else if (type === 'profile' || type === 'ranking' || type === 'user') {
         const { data: profile } = await supabaseAdmin
           .from('profiles')
-          .select('*')
-          .eq('id', id)
+          .select('profile_photo, avatar_url')
+          .or(`id.eq.${id},username.eq.${id.replace('@', '')}`)
           .single();
         
         if (profile) {
-          cardData = {
-            athleteName: profile.full_name || 'Atleta Arena',
-            achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-            mainImageUrl: profile.profile_photo,
-            title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
-            modality: profile.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/user/${profile.username}`
-          };
+          imageUrl = profile.profile_photo || profile.avatar_url || DEFAULT_IMAGE;
         }
       } else if (type === 'certificate') {
         const { data: cert } = await supabaseAdmin
           .from('certificates')
-          .select('*, profiles(username, full_name, modality)')
+          .select('media_url')
           .eq('id', id)
           .single();
         
-        if (cert) {
-          cardData = {
-            athleteName: cert.profiles?.full_name || 'Atleta Arena',
-            achievement: `Certificado: ${cert.name}`,
-            mainImageUrl: cert.media_url,
-            title: 'Certificado ArenaComp',
-            modality: cert.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/certificates/${id}`
-          };
-        }
-      } else if (type === 'championship') {
-         const { data: champ } = await supabaseAdmin
-          .from('championship_results')
-          .select('*, profiles(username, full_name, modality)')
-          .eq('id', id)
-          .single();
-        
-        if (champ) {
-          cardData = {
-            athleteName: champ.profiles?.full_name || 'Atleta Arena',
-            achievement: `${champ.resultado} no ${champ.evento}`,
-            mainImageUrl: champ.media_url,
-            title: 'Conquista ArenaComp',
-            modality: champ.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/championship/${id}`
-          };
-        }
-      } else if (type === 'fight') {
-         const { data: fight } = await supabaseAdmin
-          .from('fights')
-          .select('*, profiles(username, full_name, modality)')
-          .eq('id', id)
-          .single();
-        
-        if (fight) {
-          cardData = {
-            athleteName: fight.profiles?.full_name || 'Atleta Arena',
-            achievement: `Luta no ${fight.evento}`,
-            mainImageUrl: fight.media_url,
-            title: 'Luta ArenaComp',
-            modality: fight.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/fight/${id}`
-          };
-        }
+        if (cert?.media_url) imageUrl = cert.media_url;
       }
 
-      if (!cardData) {
-        clearTimeout(timeout);
-        return res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
-      }
-
-      // Generate card using Puppeteer
-      const buffer = await CardGenerator.generateAchievementCard({
-        athleteName: cardData.athleteName,
-        achievement: cardData.achievement,
-        title: cardData.title,
-        modality: cardData.modality,
-        date: new Date().toLocaleDateString('pt-BR'),
-        profileUrl: cardData.profileUrl
-      });
-
-      clearTimeout(timeout);
-      res.set('Content-Type', 'image/png');
-      res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-      res.send(buffer);
-    } catch (error: any) {
-      clearTimeout(timeout);
-      console.error(`[OG-IMAGE] Error generating image:`, error);
-      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      res.redirect(imageUrl);
+    } catch (error) {
+      console.error(`[OG-IMAGE] Error:`, error);
+      res.redirect(DEFAULT_IMAGE);
     }
   });
 

@@ -269,7 +269,7 @@ export default function TeamManagement() {
                       <div key={athlete.usuario_id} className="card-surface p-4 flex items-center gap-4 hover:border-emerald-500/30 transition-colors">
                         <div className="w-10 h-10 rounded-full bg-[var(--border-ui)] overflow-hidden">
                           <img 
-                            src={athlete.usuarios?.foto_url || `https://picsum.photos/seed/${athlete.usuario_id}/100/100`} 
+                            src={athlete.usuarios?.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(athlete.usuarios?.nome || 'Atleta')}&background=random`} 
                             className="w-full h-full object-cover"
                             referrerPolicy="no-referrer"
                           />
