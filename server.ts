@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=16`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
+      ? `${baseUrl}/api/og-image/home/default?v=17`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=17`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -1210,7 +1210,7 @@ async function startServer() {
       if (!res.headersSent) {
         res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
       }
-    }, 4500);
+    }, 8000);
 
     try {
       let cardData: any = null;

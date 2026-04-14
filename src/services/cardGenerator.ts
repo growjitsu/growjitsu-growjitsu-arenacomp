@@ -23,8 +23,8 @@ const CARD_TEMPLATE = `
     body {
       margin: 0;
       padding: 0;
-      width: 1080px;
-      height: 1350px;
+      width: 1200px;
+      height: 630px;
       background: #050505;
       font-family: 'Inter', sans-serif;
       color: #FFFFFF;
@@ -39,12 +39,13 @@ const CARD_TEMPLATE = `
       width: 100%;
       height: 100%;
       position: relative;
-      padding: 80px;
+      padding: 60px;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      border: 20px solid #D4AF37; /* Gold border */
+      border: 15px solid #1D4ED8; /* Blue border */
+      background: linear-gradient(135deg, #050505 0%, #0F172A 100%);
     }
 
     /* Background pattern */
@@ -55,63 +56,72 @@ const CARD_TEMPLATE = `
       width: 100%;
       height: 100%;
       background: 
-        radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(212, 175, 55, 0.1) 0%, transparent 50%);
+        radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 50%);
       z-index: 0;
     }
 
     .header {
       z-index: 1;
-      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 30px;
+    }
+
+    .logo-svg {
+      width: 100px;
+      height: 100px;
     }
 
     .title {
-      font-size: 80px;
+      font-size: 50px;
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: -2px;
-      color: #D4AF37;
-      margin-bottom: 20px;
-      text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+      letter-spacing: -1px;
+      color: #3B82F6;
+      text-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
     }
 
     .content {
       z-index: 1;
-      text-align: center;
+      text-align: left;
       flex-grow: 1;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      margin-top: 20px;
     }
 
     .athlete-name {
-      font-size: 120px;
+      font-size: 80px;
       font-weight: 900;
-      line-height: 0.9;
-      margin-bottom: 40px;
+      line-height: 1;
+      margin-bottom: 20px;
       text-transform: uppercase;
+      background: linear-gradient(to right, #FFFFFF, #94A3B8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .achievement-desc {
-      font-size: 48px;
+      font-size: 32px;
       font-weight: 400;
-      color: #AAAAAA;
-      margin-bottom: 60px;
+      color: #94A3B8;
       max-width: 800px;
-      margin-left: auto;
-      margin-right: auto;
+      line-height: 1.4;
     }
 
     .modality-tag {
       display: inline-block;
-      padding: 15px 40px;
-      background: #D4AF37;
-      color: #000;
+      padding: 10px 25px;
+      background: #1D4ED8;
+      color: #FFFFFF;
       font-weight: 700;
-      font-size: 32px;
-      border-radius: 100px;
+      font-size: 20px;
+      border-radius: 50px;
       text-transform: uppercase;
-      margin-bottom: 40px;
+      margin-bottom: 20px;
+      width: fit-content;
     }
 
     .footer {
@@ -125,73 +135,90 @@ const CARD_TEMPLATE = `
     .info-group {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 5px;
     }
 
     .date {
-      font-size: 24px;
-      color: #666666;
+      font-size: 18px;
+      color: #475569;
       text-transform: uppercase;
       font-weight: 700;
     }
 
     .branding {
-      font-size: 40px;
+      font-size: 32px;
       font-weight: 900;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
       color: #FFFFFF;
+      display: flex;
+      align-items: baseline;
+    }
+    
+    .branding .comp {
+      color: #3B82F6;
     }
 
     .qr-container {
       background: #FFFFFF;
-      padding: 15px;
-      border-radius: 20px;
-      width: 180px;
-      height: 180px;
+      padding: 10px;
+      border-radius: 15px;
+      width: 120px;
+      height: 120px;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
 
     .qr-container img {
       width: 100%;
       height: 100%;
     }
-
-    .badge {
-      position: absolute;
-      top: 60px;
-      right: 60px;
-      width: 150px;
-      height: 150px;
-      background: #D4AF37;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 60px;
-      box-shadow: 0 0 50px rgba(212, 175, 55, 0.5);
-    }
   </style>
 </head>
 <body>
   <div class="bg-pattern"></div>
   <div class="card-container">
-    <div class="badge">🏆</div>
-    
     <div class="header">
+      <svg class="logo-svg" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="shieldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#1E3A8A" />
+            <stop offset="100%" stopColor="#0F172A" />
+          </linearGradient>
+          <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3B82F6" />
+            <stop offset="50%" stopColor="#60A5FA" />
+            <stop offset="100%" stopColor="#2563EB" />
+          </linearGradient>
+          <linearGradient id="trophyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#60A5FA" />
+            <stop offset="50%" stopColor="#3B82F6" />
+            <stop offset="100%" stopColor="#1D4ED8" />
+          </linearGradient>
+        </defs>
+        <path d="M50 5 L15 20 V45 C15 65 30 85 50 95 C70 85 85 65 85 45 V20 L50 5Z" fill="url(#shieldGradient)" stroke="url(#borderGradient)" strokeWidth="4" strokeLinejoin="round" />
+        <g transform="translate(25, 25) scale(0.5)">
+          <path d="M20 10 H80 V40 C80 56.5 66.5 70 50 70 C33.5 70 20 56.5 20 40 V10Z" fill="url(#trophyGradient)" />
+          <path d="M20 20 H5 V35 C5 43.3 11.7 50 20 50 V20Z" fill="#2563EB" />
+          <path d="M80 20 H95 V35 C95 43.3 88.3 50 80 50 V20Z" fill="#2563EB" />
+          <rect x="42" y="70" width="16" height="15" fill="#1D4ED8" />
+          <path d="M30 85 H70 L75 95 H25 L30 85Z" fill="#1E40AF" />
+          <path d="M30 15 H40 V35 C40 40.5 35.5 45 30 45 V15Z" fill="white" fillOpacity="0.2" />
+        </g>
+      </svg>
       <div class="title">{{title}}</div>
     </div>
 
     <div class="content">
-      <div class="athlete-name">{{athleteName}}</div>
       <div class="modality-tag">{{modality}}</div>
+      <div class="athlete-name">{{athleteName}}</div>
       <div class="achievement-desc">{{achievement}}</div>
     </div>
 
     <div class="footer">
       <div class="info-group">
-        <div class="branding">ARENACOMP</div>
+        <div class="branding">ARENA<span class="comp">COMP</span></div>
         <div class="date">{{date}}</div>
       </div>
       <div class="qr-container">
@@ -268,16 +295,15 @@ export class CardGenerator {
       console.log('[CardGenerator] Abrindo nova página...');
       const page = await browser.newPage();
       
-      // Set viewport to card size
+      // Set viewport to card size (1200x630 for standard OG)
       await page.setViewport({
-        width: 1080,
-        height: 1350,
+        width: 1200,
+        height: 630,
         deviceScaleFactor: 2, // High resolution
       });
 
       console.log('[CardGenerator] Definindo conteúdo HTML...');
       // Set content and wait for fonts/images
-      // Usamos 'domcontentloaded' para ser mais rápido e menos propenso a falhas de rede externa
       await page.setContent(html, { 
         waitUntil: 'domcontentloaded',
         timeout: 20000 
