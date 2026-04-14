@@ -12,6 +12,12 @@ async function generate() {
     }
     fs.writeFileSync(path.join(publicDir, 'logo-og.png'), buffer);
     console.log('Logo saved to public/logo-og.png');
+
+    const distDir = path.join(process.cwd(), 'dist');
+    if (fs.existsSync(distDir)) {
+      fs.writeFileSync(path.join(distDir, 'logo-og.png'), buffer);
+      console.log('Logo saved to dist/logo-og.png');
+    }
   } catch (err) {
     console.error('Error:', err);
   }

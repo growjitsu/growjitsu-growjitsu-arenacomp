@@ -251,6 +251,11 @@ async function startServer() {
     const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
     let baseUrl = `https://${host}`;
     
+    // For home page in production, force the official domain to avoid preview issues
+    if (isHome && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      baseUrl = 'https://www.arenacomp.com.br';
+    }
+    
     // Override with APP_URL if it seems correct for the current host
     if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
       baseUrl = process.env.APP_URL.replace(/\/$/, '');
@@ -906,6 +911,19 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.setHeader('X-API-Route', 'health');
     res.json({ status: "ok", message: "ArenaComp API is running" });
+  });
+
+  // Explicit route for OG logo to ensure it's always served
+  app.get("/logo-og.png", (req, res) => {
+    const publicPath = path.join(process.cwd(), 'public', 'logo-og.png');
+    const distPath = path.join(process.cwd(), 'dist', 'logo-og.png');
+    
+    if (fs.existsSync(publicPath)) {
+      return res.sendFile(publicPath);
+    } else if (fs.existsSync(distPath)) {
+      return res.sendFile(distPath);
+    }
+    res.status(404).send('Not found');
   });
 
   // FIREBASE ADMIN: Set Custom Claims
