@@ -318,74 +318,142 @@ export class CardGenerator {
   private static logoTemplate = Handlebars.compile(LOGO_TEMPLATE);
 
   static async generateLogoOnly(): Promise<Buffer> {
-    console.log('[CardGenerator] Gerando imagem do logo com Canvas...');
+    console.log('[CardGenerator] Gerando imagem do logo oficial com Canvas...');
     try {
       const canvas = createCanvas(1200, 630);
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d') as any;
 
       // Background
       ctx.fillStyle = '#050505';
       ctx.fillRect(0, 0, 1200, 630);
 
-      // Draw Shield (simplified)
+      // --- Draw Shield ---
+      ctx.save();
+      ctx.translate(600 - 150, 315 - 200); // Center the shield (300x300 approx)
+      ctx.scale(3, 3); // Scale up the 100x100 path
+
+      // Shield Shape
       ctx.beginPath();
-      ctx.moveTo(600, 100);
-      ctx.lineTo(400, 180);
-      ctx.lineTo(400, 350);
-      ctx.quadraticCurveTo(400, 500, 600, 550);
-      ctx.quadraticCurveTo(800, 500, 800, 350);
-      ctx.lineTo(800, 180);
+      ctx.moveTo(50, 5);
+      ctx.lineTo(15, 20);
+      ctx.lineTo(15, 45);
+      ctx.bezierCurveTo(15, 65, 30, 85, 50, 95);
+      ctx.bezierCurveTo(70, 85, 85, 65, 85, 45);
+      ctx.lineTo(85, 20);
       ctx.closePath();
       
-      const gradient = ctx.createLinearGradient(400, 100, 800, 550);
-      gradient.addColorStop(0, '#1E3A8A');
-      gradient.addColorStop(1, '#0F172A');
-      ctx.fillStyle = gradient;
+      const shieldGrad = ctx.createLinearGradient(0, 0, 100, 100);
+      shieldGrad.addColorStop(0, '#1E3A8A');
+      shieldGrad.addColorStop(1, '#0F172A');
+      
+      ctx.fillStyle = shieldGrad;
       ctx.fill();
       
-      ctx.strokeStyle = '#3B82F6';
-      ctx.lineWidth = 10;
+      const borderGrad = ctx.createLinearGradient(0, 0, 100, 100);
+      borderGrad.addColorStop(0, '#3B82F6');
+      borderGrad.addColorStop(0.5, '#60A5FA');
+      borderGrad.addColorStop(1, '#2563EB');
+      
+      ctx.strokeStyle = borderGrad;
+      ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Draw Trophy (simplified)
-      ctx.fillStyle = '#3B82F6';
+      // --- Draw Trophy ---
+      ctx.save();
+      ctx.translate(25, 25);
+      ctx.scale(0.5, 0.5);
+      
+      const trophyGrad = ctx.createLinearGradient(0, 0, 0, 100);
+      trophyGrad.addColorStop(0, '#60A5FA');
+      trophyGrad.addColorStop(0.5, '#3B82F6');
+      trophyGrad.addColorStop(1, '#1D4ED8');
+      
       // Cup
       ctx.beginPath();
-      ctx.arc(600, 280, 80, 0, Math.PI, false);
-      ctx.lineTo(560, 400);
-      ctx.lineTo(640, 400);
+      ctx.moveTo(20, 10);
+      ctx.lineTo(80, 10);
+      ctx.lineTo(80, 40);
+      ctx.bezierCurveTo(80, 56.5, 66.5, 70, 50, 70);
+      ctx.bezierCurveTo(33.5, 70, 20, 56.5, 20, 40);
+      ctx.closePath();
+      ctx.fillStyle = trophyGrad;
+      ctx.fill();
+      
+      // Handles
+      ctx.fillStyle = '#2563EB';
+      // Left Handle
+      ctx.beginPath();
+      ctx.moveTo(20, 20);
+      ctx.lineTo(5, 20);
+      ctx.lineTo(5, 35);
+      ctx.bezierCurveTo(5, 43.3, 11.7, 50, 20, 50);
+      ctx.closePath();
+      ctx.fill();
+      // Right Handle
+      ctx.beginPath();
+      ctx.moveTo(80, 20);
+      ctx.lineTo(95, 20);
+      ctx.lineTo(95, 35);
+      ctx.bezierCurveTo(95, 43.3, 88.3, 50, 80, 50);
       ctx.closePath();
       ctx.fill();
       
       // Stem & Base
-      ctx.fillRect(580, 400, 40, 50);
-      ctx.fillRect(540, 450, 120, 20);
-
-      // Handles
-      ctx.strokeStyle = '#2563EB';
-      ctx.lineWidth = 15;
+      ctx.fillStyle = '#1D4ED8';
+      ctx.fillRect(42, 70, 16, 15);
       ctx.beginPath();
-      ctx.arc(520, 280, 40, Math.PI * 0.5, Math.PI * 1.5, false);
-      ctx.stroke();
+      ctx.moveTo(30, 85);
+      ctx.lineTo(70, 85);
+      ctx.lineTo(75, 95);
+      ctx.lineTo(25, 95);
+      ctx.closePath();
+      ctx.fillStyle = '#1E40AF';
+      ctx.fill();
+      
+      // Shine
       ctx.beginPath();
-      ctx.arc(680, 280, 40, Math.PI * 1.5, Math.PI * 0.5, false);
-      ctx.stroke();
+      ctx.moveTo(30, 15);
+      ctx.lineTo(40, 15);
+      ctx.lineTo(40, 35);
+      ctx.bezierCurveTo(40, 40.5, 35.5, 45, 30, 45);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fill();
+      
+      ctx.restore();
+      ctx.restore();
 
-      // Text
-      ctx.font = 'italic bold 120px Arial';
+      // --- Draw Text ---
       ctx.textAlign = 'center';
       
-      const textWidth = ctx.measureText('ARENACOMP').width;
-      const startX = 600 - textWidth / 2;
+      // Arena Comp
+      ctx.font = 'italic 900 100px Arial';
+      const arenaWidth = ctx.measureText('ARENA').width;
+      const compWidth = ctx.measureText('COMP').width;
+      const totalWidth = arenaWidth + compWidth + 10;
+      const startX = 600 - totalWidth / 2;
       
       ctx.fillStyle = '#FFFFFF';
-      ctx.fillText('ARENA', 600 - 120, 550);
+      ctx.fillText('ARENA', startX + arenaWidth / 2, 530);
+      
       ctx.fillStyle = '#3B82F6';
-      ctx.fillText('COMP', 600 + 120, 550);
+      ctx.fillText('COMP', startX + arenaWidth + 10 + compWidth / 2, 530);
+      
+      // Tagline
+      ctx.font = 'bold 20px Arial';
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+      // Manual letter spacing for "COMPETITION PLATFORM"
+      const tagline = "COMPETITION PLATFORM";
+      const spacing = 10;
+      let currentX = 600 - (tagline.length * spacing) / 2;
+      for (let i = 0; i < tagline.length; i++) {
+        ctx.fillText(tagline[i], currentX, 580);
+        currentX += spacing;
+      }
 
       return canvas.toBuffer('image/png');
     } catch (error) {
-      console.error('[CardGenerator] Erro ao gerar logo com Canvas:', error);
+      console.error('[CardGenerator] Erro ao gerar logo oficial:', error);
       throw error;
     }
   }
