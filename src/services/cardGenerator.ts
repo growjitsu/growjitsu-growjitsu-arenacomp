@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 import QRCode from 'qrcode';
 import Handlebars from 'handlebars';
+import { createCanvas, loadImage } from 'canvas';
 
 export interface CardData {
   title: string;
@@ -317,32 +318,74 @@ export class CardGenerator {
   private static logoTemplate = Handlebars.compile(LOGO_TEMPLATE);
 
   static async generateLogoOnly(): Promise<Buffer> {
-    console.log('[CardGenerator] Gerando imagem apenas do logo...');
+    console.log('[CardGenerator] Gerando imagem do logo com Canvas...');
     try {
-      const html = this.logoTemplate({});
-      const executablePath = await chromium.executablePath();
-      
-      const browser = await puppeteer.launch({
-        args: [
-          ...chromium.args,
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-        ],
-        executablePath,
-        headless: true,
-      });
+      const canvas = createCanvas(1200, 630);
+      const ctx = canvas.getContext('2d');
 
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1200, height: 630, deviceScaleFactor: 2 });
-      await page.setContent(html, { waitUntil: 'domcontentloaded' });
+      // Background
+      ctx.fillStyle = '#050505';
+      ctx.fillRect(0, 0, 1200, 630);
+
+      // Draw Shield (simplified)
+      ctx.beginPath();
+      ctx.moveTo(600, 100);
+      ctx.lineTo(400, 180);
+      ctx.lineTo(400, 350);
+      ctx.quadraticCurveTo(400, 500, 600, 550);
+      ctx.quadraticCurveTo(800, 500, 800, 350);
+      ctx.lineTo(800, 180);
+      ctx.closePath();
       
-      const buffer = await page.screenshot({ type: 'png' });
-      await browser.close();
-      return buffer as Buffer;
+      const gradient = ctx.createLinearGradient(400, 100, 800, 550);
+      gradient.addColorStop(0, '#1E3A8A');
+      gradient.addColorStop(1, '#0F172A');
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      
+      ctx.strokeStyle = '#3B82F6';
+      ctx.lineWidth = 10;
+      ctx.stroke();
+
+      // Draw Trophy (simplified)
+      ctx.fillStyle = '#3B82F6';
+      // Cup
+      ctx.beginPath();
+      ctx.arc(600, 280, 80, 0, Math.PI, false);
+      ctx.lineTo(560, 400);
+      ctx.lineTo(640, 400);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Stem & Base
+      ctx.fillRect(580, 400, 40, 50);
+      ctx.fillRect(540, 450, 120, 20);
+
+      // Handles
+      ctx.strokeStyle = '#2563EB';
+      ctx.lineWidth = 15;
+      ctx.beginPath();
+      ctx.arc(520, 280, 40, Math.PI * 0.5, Math.PI * 1.5, false);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(680, 280, 40, Math.PI * 1.5, Math.PI * 0.5, false);
+      ctx.stroke();
+
+      // Text
+      ctx.font = 'italic bold 120px Arial';
+      ctx.textAlign = 'center';
+      
+      const textWidth = ctx.measureText('ARENACOMP').width;
+      const startX = 600 - textWidth / 2;
+      
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('ARENA', 600 - 120, 550);
+      ctx.fillStyle = '#3B82F6';
+      ctx.fillText('COMP', 600 + 120, 550);
+
+      return canvas.toBuffer('image/png');
     } catch (error) {
-      console.error('[CardGenerator] Erro ao gerar logo:', error);
+      console.error('[CardGenerator] Erro ao gerar logo com Canvas:', error);
       throw error;
     }
   }
