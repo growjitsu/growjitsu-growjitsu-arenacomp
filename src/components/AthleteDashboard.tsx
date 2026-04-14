@@ -218,7 +218,7 @@ export default function AthleteDashboard({ onPhotoUpdate }: { onPhotoUpdate?: ()
                   </div>
                 )}
                 <img 
-                  src={previewUrl || signedPhotoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(athleteData?.nome_completo || profile?.nome || 'Atleta')}&background=random`} 
+                  src={previewUrl || signedPhotoUrl || `https://picsum.photos/seed/${profile?.id}/200/200`} 
                   className="w-full h-full rounded-full object-cover"
                   referrerPolicy="no-referrer"
                 />
