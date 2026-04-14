@@ -1,6 +1,6 @@
 
 async function test() {
-  const url = 'http://localhost:3000/share/post/17462e75-bf62-4dc7-9df0-de4dcb29888d';
+  const url = 'http://localhost:3000/';
   try {
     const response = await fetch(url, {
       headers: {

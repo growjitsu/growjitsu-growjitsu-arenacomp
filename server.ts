@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/logo/default?v=19`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=19`;
+      ? `${baseUrl}/logo-og.png?v=20`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=20`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
