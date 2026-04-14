@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/logo-og.png?v=20`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=20`;
+      ? `${baseUrl}/logo-og.png?v=21`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=21`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -278,7 +278,7 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="article">
+    <meta property="og:type" content="${isHome ? 'website' : 'article'}">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
