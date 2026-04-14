@@ -1208,7 +1208,7 @@ async function startServer() {
     const timeout = setTimeout(() => {
       console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
       if (!res.headersSent) {
-        res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+        res.redirect('https://www.arenacomp.com.br/logo.svg');
       }
     }, 4500);
 
@@ -1313,7 +1313,7 @@ async function startServer() {
 
       if (!cardData) {
         clearTimeout(timeout);
-        return res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+        return res.redirect('https://www.arenacomp.com.br/logo.svg');
       }
 
       // Generate card using Puppeteer
@@ -1333,7 +1333,7 @@ async function startServer() {
     } catch (error: any) {
       clearTimeout(timeout);
       console.error(`[OG-IMAGE] Error generating image:`, error);
-      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      res.redirect('https://www.arenacomp.com.br/logo.svg');
     }
   });
 
