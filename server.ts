@@ -118,7 +118,10 @@ async function startServer() {
     // Detect if it's a crawler
     const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
     
-    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Crawler: ${isCrawler} | UA: ${userAgent}`);
+    // Check if it's the root path (home)
+    const isHome = !type && (!id || id === 'undefined' || id === '/');
+
+    console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
     if (req.url.startsWith('/api') || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       return next();
@@ -126,91 +129,106 @@ async function startServer() {
 
     let cardData: any = null;
     try {
-      // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-      if (id && id.length > 40 && !type) {
-        try {
-          const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
-          const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
-          cardData = JSON.parse(jsonString);
-        } catch (e) {}
-      }
+      if (isHome) {
+        cardData = {
+          athleteName: 'ArenaComp',
+          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe suas conquistas e acompanhe rankings.',
+          title: 'ArenaComp Platform',
+          modality: 'Jiu-Jitsu',
+          profileUrl: 'https://www.arenacomp.com.br'
+        };
+      } else {
+        // 1. Tenta decodificar como Base64 (formato antigo/fallback)
+        if (id && id.length > 40 && !type) {
+          try {
+            const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
+            cardData = JSON.parse(jsonString);
+          } catch (e) {}
+        }
 
-      // 2. Se não decodificou e temos type, busca no Supabase usando ADMIN
-      if (!cardData && type && id) {
-        if (type === 'post' || type === 'clip') {
-          const { data: post } = await supabaseAdmin
-            .from('posts')
-            .select('*, profiles(username, full_name, profile_photo, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (post) {
-            cardData = {
-              athleteName: post.profiles?.full_name || 'Atleta Arena',
-              achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-              mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-              title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp'
-            };
-          }
-        } else if (type === 'profile' || type === 'ranking') {
-          const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('*')
-            .eq('id', id)
-            .single();
-          
-          if (profile) {
-            cardData = {
-              athleteName: profile.full_name || 'Atleta Arena',
-              achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-              mainImageUrl: profile.profile_photo,
-              title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp'
-            };
-          }
-        } else if (type === 'certificate') {
-          const { data: cert } = await supabaseAdmin
-            .from('certificates')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (cert) {
-            cardData = {
-              athleteName: cert.profiles?.full_name || 'Atleta Arena',
-              achievement: `Certificado: ${cert.name}`,
-              mainImageUrl: cert.media_url,
-              title: 'Certificado ArenaComp'
-            };
-          }
-        } else if (type === 'championship') {
-           const { data: champ } = await supabaseAdmin
-            .from('championship_results')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (champ) {
-            cardData = {
-              athleteName: champ.profiles?.full_name || 'Atleta Arena',
-              achievement: `${champ.resultado} no ${champ.evento}`,
-              mainImageUrl: champ.media_url,
-              title: 'Conquista ArenaComp'
-            };
-          }
-        } else if (type === 'fight') {
-           const { data: fight } = await supabaseAdmin
-            .from('fights')
-            .select('*, profiles(username, full_name, modality)')
-            .eq('id', id)
-            .single();
-          
-          if (fight) {
-            cardData = {
-              athleteName: fight.profiles?.full_name || 'Atleta Arena',
-              achievement: `Luta no ${fight.evento}`,
-              mainImageUrl: fight.media_url,
-              title: 'Luta ArenaComp'
-            };
+        // 2. Se não decodificou e temos type, busca no Supabase usando ADMIN
+        if (!cardData && type && id) {
+          if (type === 'post' || type === 'clip') {
+            const { data: post } = await supabaseAdmin
+              .from('posts')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (post) {
+              cardData = {
+                athleteName: post.profiles?.full_name || 'Atleta Arena',
+                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+                mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+                title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
+                modality: post.profiles?.modality || 'Arena'
+              };
+            }
+          } else if (type === 'profile' || type === 'ranking') {
+            const { data: profile } = await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .eq('id', id)
+              .single();
+            
+            if (profile) {
+              cardData = {
+                athleteName: profile.full_name || 'Atleta Arena',
+                achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
+                mainImageUrl: profile.profile_photo,
+                title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
+                modality: profile.modality || 'Arena'
+              };
+            }
+          } else if (type === 'certificate') {
+            const { data: cert } = await supabaseAdmin
+              .from('certificates')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (cert) {
+              cardData = {
+                athleteName: cert.profiles?.full_name || 'Atleta Arena',
+                achievement: `Certificado: ${cert.name}`,
+                mainImageUrl: cert.media_url,
+                title: 'Certificado ArenaComp',
+                modality: cert.profiles?.modality || 'Arena'
+              };
+            }
+          } else if (type === 'championship') {
+             const { data: champ } = await supabaseAdmin
+              .from('championship_results')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (champ) {
+              cardData = {
+                athleteName: champ.profiles?.full_name || 'Atleta Arena',
+                achievement: `${champ.resultado} no ${champ.evento}`,
+                mainImageUrl: champ.media_url,
+                title: 'Conquista ArenaComp',
+                modality: champ.profiles?.modality || 'Arena'
+              };
+            }
+          } else if (type === 'fight') {
+             const { data: fight } = await supabaseAdmin
+              .from('fights')
+              .select('*, profiles(username, full_name, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (fight) {
+              cardData = {
+                athleteName: fight.profiles?.full_name || 'Atleta Arena',
+                achievement: `Luta no ${fight.evento}`,
+                mainImageUrl: fight.media_url,
+                title: 'Luta ArenaComp',
+                modality: fight.profiles?.modality || 'Arena'
+              };
+            }
           }
         }
       }
@@ -219,8 +237,10 @@ async function startServer() {
     }
 
     const athleteName = cardData?.athleteName || "Atleta";
-    let title = cardData?.title || "ArenaComp";
-    let description = cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`;
+    let title = isHome ? "ArenaComp - Jiu-Jitsu Platform" : (cardData?.title || "ArenaComp");
+    let description = isHome 
+      ? "A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe conquistas, acompanhe rankings e muito mais."
+      : (cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`);
     
     // WhatsApp limit: 80 characters for description
     if (description.length > 80) {
@@ -237,9 +257,12 @@ async function startServer() {
       if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
 
-    const ogImageUrl = `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=15`;
-    const shareUrl = `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
-    const redirectUrl = `/${type ? type + '/' : ''}${id}`;
+    const ogImageUrl = isHome
+      ? `${baseUrl}/api/og-image/home/default?v=16`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
+    
+    const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
+    const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
     if (!isCrawler) {
@@ -1193,7 +1216,15 @@ async function startServer() {
       let cardData: any = null;
 
       // Fetch data from Supabase
-      if (type === 'post' || type === 'clip') {
+      if (type === 'home' || type === 'default') {
+        cardData = {
+          athleteName: 'ArenaComp',
+          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
+          title: 'ArenaComp Platform',
+          modality: 'Jiu-Jitsu',
+          profileUrl: 'https://www.arenacomp.com.br'
+        };
+      } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
           .select('*, profiles(username, full_name, profile_photo, modality)')
