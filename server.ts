@@ -1199,32 +1199,48 @@ async function startServer() {
   // END OF API SECTION
   // ===========================================================================
 
-  // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
-  app.get("/api/og-image/:type/:id", async (req, res) => {
-    const { type, id } = req.params;
-    console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
+// Cache for OG images to speed up crawler responses
+const ogImageCache = new Map<string, { buffer: Buffer, timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 
-    // Set a timeout for the entire operation to avoid hanging the scraper
-    const timeout = setTimeout(() => {
-      console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
-      if (!res.headersSent) {
-        res.redirect('https://www.arenacomp.com.br/logo.svg');
-      }
-    }, 4500);
+// 0.6. OG IMAGE GENERATION ENDPOINT (GET)
+app.get("/api/og-image/:type/:id", async (req, res) => {
+  const { type, id } = req.params;
+  const cacheKey = `${type}_${id}`;
+  
+  // Check cache first
+  const cached = ogImageCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    console.log(`[OG-IMAGE] Serving from cache: ${cacheKey}`);
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(cached.buffer);
+  }
 
-    try {
-      let cardData: any = null;
+  console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
 
-      // Fetch data from Supabase
-      if (type === 'home' || type === 'default') {
-        cardData = {
-          athleteName: 'ArenaComp',
-          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
-          title: 'ArenaComp Platform',
-          modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
-        };
-      } else if (type === 'post' || type === 'clip') {
+  // Set a timeout for the entire operation to avoid hanging the scraper
+  const timeout = setTimeout(() => {
+    console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
+    if (!res.headersSent) {
+      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+    }
+  }, 8000);
+
+  try {
+    let cardData: any = null;
+
+    // Fetch data from Supabase
+    if (type === 'home' || type === 'default') {
+      cardData = {
+        athleteName: 'ArenaComp',
+        achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
+        title: 'ArenaComp Platform',
+        modality: 'Jiu-Jitsu',
+        profileUrl: 'https://www.arenacomp.com.br',
+        isLandscape: true
+      };
+    } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
           .select('*, profiles(username, full_name, profile_photo, modality)')
@@ -1238,7 +1254,8 @@ async function startServer() {
             mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
             title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
             modality: post.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/post/${id}`
+            profileUrl: `https://arenacomp.com.br/post/${id}`,
+            isLandscape: true
           };
         }
       } else if (type === 'profile' || type === 'ranking') {
@@ -1255,7 +1272,8 @@ async function startServer() {
             mainImageUrl: profile.profile_photo,
             title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
             modality: profile.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/user/${profile.username}`
+            profileUrl: `https://arenacomp.com.br/user/${profile.username}`,
+            isLandscape: true
           };
         }
       } else if (type === 'certificate') {
@@ -1272,7 +1290,8 @@ async function startServer() {
             mainImageUrl: cert.media_url,
             title: 'Certificado ArenaComp',
             modality: cert.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/certificates/${id}`
+            profileUrl: `https://arenacomp.com.br/certificates/${id}`,
+            isLandscape: true
           };
         }
       } else if (type === 'championship') {
@@ -1289,7 +1308,8 @@ async function startServer() {
             mainImageUrl: champ.media_url,
             title: 'Conquista ArenaComp',
             modality: champ.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/championship/${id}`
+            profileUrl: `https://arenacomp.com.br/share/championship/${id}`,
+            isLandscape: true
           };
         }
       } else if (type === 'fight') {
@@ -1306,14 +1326,15 @@ async function startServer() {
             mainImageUrl: fight.media_url,
             title: 'Luta ArenaComp',
             modality: fight.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/fight/${id}`
+            profileUrl: `https://arenacomp.com.br/share/fight/${id}`,
+            isLandscape: true
           };
         }
       }
 
       if (!cardData) {
         clearTimeout(timeout);
-        return res.redirect('https://www.arenacomp.com.br/logo.svg');
+        return res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
       }
 
       // Generate card using Puppeteer
@@ -1326,6 +1347,9 @@ async function startServer() {
         profileUrl: cardData.profileUrl
       });
 
+      // Save to cache
+      ogImageCache.set(cacheKey, { buffer, timestamp: Date.now() });
+
       clearTimeout(timeout);
       res.set('Content-Type', 'image/png');
       res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
@@ -1333,7 +1357,7 @@ async function startServer() {
     } catch (error: any) {
       clearTimeout(timeout);
       console.error(`[OG-IMAGE] Error generating image:`, error);
-      res.redirect('https://www.arenacomp.com.br/logo.svg');
+      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
     }
   });
 

@@ -10,6 +10,7 @@ export interface CardData {
   modality: string;
   date?: string;
   profileUrl: string;
+  isLandscape?: boolean;
 }
 
 const CARD_TEMPLATE = `
@@ -23,8 +24,8 @@ const CARD_TEMPLATE = `
     body {
       margin: 0;
       padding: 0;
-      width: 1080px;
-      height: 1350px;
+      width: {{#if isLandscape}}1200px{{else}}1080px{{/if}};
+      height: {{#if isLandscape}}630px{{else}}1350px{{/if}};
       background: #050505;
       font-family: 'Inter', sans-serif;
       color: #FFFFFF;
@@ -39,12 +40,12 @@ const CARD_TEMPLATE = `
       width: 100%;
       height: 100%;
       position: relative;
-      padding: 80px;
+      padding: {{#if isLandscape}}40px 60px{{else}}80px{{/if}};
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      border: 20px solid #D4AF37; /* Gold border */
+      border: {{#if isLandscape}}10px{{else}}20px{{/if}} solid #D4AF37;
     }
 
     /* Background pattern */
@@ -62,22 +63,22 @@ const CARD_TEMPLATE = `
 
     .header {
       z-index: 1;
-      text-align: center;
+      text-align: {{#if isLandscape}}left{{else}}center{{/if}};
     }
 
     .title {
-      font-size: 80px;
+      font-size: {{#if isLandscape}}40px{{else}}80px{{/if}};
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: -2px;
+      letter-spacing: -1px;
       color: #D4AF37;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
       text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
     }
 
     .content {
       z-index: 1;
-      text-align: center;
+      text-align: {{#if isLandscape}}left{{else}}center{{/if}};
       flex-grow: 1;
       display: flex;
       flex-direction: column;
@@ -85,33 +86,35 @@ const CARD_TEMPLATE = `
     }
 
     .athlete-name {
-      font-size: 120px;
+      font-size: {{#if isLandscape}}70px{{else}}120px{{/if}};
       font-weight: 900;
       line-height: 0.9;
-      margin-bottom: 40px;
+      margin-bottom: 20px;
       text-transform: uppercase;
     }
 
     .achievement-desc {
-      font-size: 48px;
+      font-size: {{#if isLandscape}}28px{{else}}48px{{/if}};
       font-weight: 400;
       color: #AAAAAA;
-      margin-bottom: 60px;
-      max-width: 800px;
+      margin-bottom: 30px;
+      max-width: {{#if isLandscape}}700px{{else}}800px{{/if}};
+      {{#unless isLandscape}}
       margin-left: auto;
       margin-right: auto;
+      {{/unless}}
     }
 
     .modality-tag {
       display: inline-block;
-      padding: 15px 40px;
+      padding: {{#if isLandscape}}10px 25px{{else}}15px 40px{{/if}};
       background: #D4AF37;
       color: #000;
       font-weight: 700;
-      font-size: 32px;
+      font-size: {{#if isLandscape}}20px{{else}}32px{{/if}};
       border-radius: 100px;
       text-transform: uppercase;
-      margin-bottom: 40px;
+      margin-bottom: 20px;
     }
 
     .footer {
@@ -125,18 +128,18 @@ const CARD_TEMPLATE = `
     .info-group {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 5px;
     }
 
     .date {
-      font-size: 24px;
+      font-size: {{#if isLandscape}}16px{{else}}24px{{/if}};
       color: #666666;
       text-transform: uppercase;
       font-weight: 700;
     }
 
     .branding {
-      font-size: 40px;
+      font-size: {{#if isLandscape}}24px{{else}}40px{{/if}};
       font-weight: 900;
       letter-spacing: 2px;
       color: #FFFFFF;
@@ -144,10 +147,10 @@ const CARD_TEMPLATE = `
 
     .qr-container {
       background: #FFFFFF;
-      padding: 15px;
-      border-radius: 20px;
-      width: 180px;
-      height: 180px;
+      padding: 10px;
+      border-radius: 15px;
+      width: {{#if isLandscape}}100px{{else}}180px{{/if}};
+      height: {{#if isLandscape}}100px{{else}}180px{{/if}};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -160,10 +163,10 @@ const CARD_TEMPLATE = `
 
     .badge {
       position: absolute;
-      top: 60px;
-      right: 60px;
-      width: 180px;
-      height: 180px;
+      top: {{#if isLandscape}}40px{{else}}60px{{/if}};
+      right: {{#if isLandscape}}40px{{else}}60px{{/if}};
+      width: {{#if isLandscape}}120px{{else}}180px{{/if}};
+      height: {{#if isLandscape}}120px{{else}}180px{{/if}};
       display: flex;
       align-items: center;
       justify-content: center;
@@ -208,7 +211,7 @@ const CARD_TEMPLATE = `
         </g>
       </svg>
     </div>
-    
+
     <div class="header">
       <div class="title">{{title}}</div>
     </div>
@@ -286,28 +289,27 @@ export class CardGenerator {
       });
 
       console.log('[CardGenerator] Browser iniciado com sucesso');
-      return await this.renderCard(browser, html);
+      return await this.renderCard(browser, html, !!data.isLandscape);
     } catch (error: any) {
       console.error('🔥 ERRO REAL NA GERAÇÃO:', error);
       throw error;
     }
   }
 
-  private static async renderCard(browser: any, html: string): Promise<Buffer> {
+  private static async renderCard(browser: any, html: string, isLandscape: boolean): Promise<Buffer> {
     try {
       console.log('[CardGenerator] Abrindo nova página...');
       const page = await browser.newPage();
       
       // Set viewport to card size
       await page.setViewport({
-        width: 1080,
-        height: 1350,
+        width: isLandscape ? 1200 : 1080,
+        height: isLandscape ? 630 : 1350,
         deviceScaleFactor: 2, // High resolution
       });
 
       console.log('[CardGenerator] Definindo conteúdo HTML...');
       // Set content and wait for fonts/images
-      // Usamos 'domcontentloaded' para ser mais rápido e menos propenso a falhas de rede externa
       await page.setContent(html, { 
         waitUntil: 'domcontentloaded',
         timeout: 20000 
