@@ -258,8 +258,8 @@ async function startServer() {
     }
 
     const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=16`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
+      ? `${baseUrl}/api/og-image/home/default.jpg?v=17`
+      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}.jpg?v=17`;
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -284,7 +284,7 @@ async function startServer() {
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:image" content="${ogImageUrl}">
     <meta property="og:image:secure_url" content="${ogImageUrl}">
-    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${title} - ArenaComp">
@@ -1205,14 +1205,20 @@ const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours
 
 // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
 app.get("/api/og-image/:type/:id", async (req, res) => {
-  const { type, id } = req.params;
+  let { type, id } = req.params;
+  
+  // Remove extension if present
+  if (id.endsWith('.jpg') || id.endsWith('.jpeg') || id.endsWith('.png')) {
+    id = id.split('.')[0];
+  }
+
   const cacheKey = `${type}_${id}`;
   
   // Check cache first
   const cached = ogImageCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
     console.log(`[OG-IMAGE] Serving from cache: ${cacheKey}`);
-    res.set('Content-Type', 'image/png');
+    res.set('Content-Type', 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');
     return res.send(cached.buffer);
   }
@@ -1351,7 +1357,7 @@ app.get("/api/og-image/:type/:id", async (req, res) => {
       ogImageCache.set(cacheKey, { buffer, timestamp: Date.now() });
 
       clearTimeout(timeout);
-      res.set('Content-Type', 'image/png');
+      res.set('Content-Type', 'image/jpeg');
       res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
       res.send(buffer);
     } catch (error: any) {

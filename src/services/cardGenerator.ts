@@ -321,7 +321,8 @@ export class CardGenerator {
       console.log('[CardGenerator] Capturando screenshot...');
       // Take screenshot
       const buffer = await page.screenshot({
-        type: 'png',
+        type: 'jpeg',
+        quality: 90,
         fullPage: true,
       });
 
