@@ -65,45 +65,49 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const [isSharing, setIsSharing] = useState(false);
 
   const handleWhatsAppShare = async () => {
-    const text = `🔥 ${title}`;
+    const shareText = `🔥 ${title}${subtitle ? '\n' : ''}${subtitle || ''}`;
     
-    if (imageUrl && navigator.share && navigator.canShare) {
-      setIsSharing(true);
+    if (navigator.share) {
       try {
-        const result = await shareToSocial(imageUrl, text, url);
-        if (result.method === 'native') {
-          setIsSharing(false);
-          return;
-        }
+        // Sharing ONLY the URL and text triggers the "Link Preview" in WhatsApp
+        await navigator.share({
+          title: 'ArenaComp',
+          text: shareText,
+          url: url
+        });
+        return;
       } catch (err) {
-        console.error('Error sharing file to WhatsApp:', err);
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing to WhatsApp:', err);
+        }
       }
-      setIsSharing(false);
     }
 
-    // Fallback to link sharing
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${text}\n${subtitle ? subtitle + '\n' : ''}\nConfira na ArenaComp: ${url}`)}`;
+    // Fallback to wa.me link
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n\nConfira na ArenaComp: ${url}`)}`;
     window.open(whatsappUrl, '_blank');
   };
 
   const handleInstagramShare = async () => {
-    const text = subtitle || 'Confira este conteúdo na ArenaComp!';
+    const shareText = subtitle || 'Confira este conteúdo na ArenaComp!';
     
-    if (imageUrl && navigator.share && navigator.canShare) {
-      setIsSharing(true);
+    if (navigator.share) {
       try {
-        const result = await shareToSocial(imageUrl, text, url);
-        if (result.method === 'native') {
-          setIsSharing(false);
-          return;
-        }
+        // Sharing ONLY the URL triggers the "Link Preview" in Instagram DMs
+        await navigator.share({
+          title: 'ArenaComp',
+          text: shareText,
+          url: url
+        });
+        return;
       } catch (err) {
-        console.error('Error sharing file to Instagram:', err);
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing to Instagram:', err);
+        }
       }
-      setIsSharing(false);
     }
 
-    // Fallback logic if file sharing fails or is not supported
+    // Fallback logic for Instagram
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     

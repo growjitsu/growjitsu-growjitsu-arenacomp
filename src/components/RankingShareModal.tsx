@@ -109,33 +109,45 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
   };
 
   const handleInstagramShare = async () => {
-    if (!cardRef.current) return;
+    if (!shareUrl) {
+      toast.error('Gere o link primeiro!');
+      return;
+    }
     
-    setSharingSocial(true);
-    try {
-      const dataUrl = await toPng(cardRef.current, {
-        cacheBust: true,
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#000',
-      });
-
-      if (!dataUrl || dataUrl.length < 100) {
-        throw new Error('Imagem gerada é inválida');
+    const shareText = `Minha posição no Ranking ArenaComp 🔥`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ArenaComp',
+          text: shareText,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing to Instagram:', err);
+        }
       }
+    }
 
-      const result = await shareToSocial(dataUrl, `Minha posição no Ranking ArenaComp 🔥`, shareUrl || undefined);
-      
-      if (result.method === 'download') {
-        toast.info('Imagem baixada! Agora você pode compartilhar no Instagram.');
-      } else {
-        toast.success('Compartilhamento iniciado!');
-      }
-    } catch (error: any) {
-      console.error('Erro ao compartilhar no Instagram:', error);
-      toast.error(`Falha ao preparar imagem: ${error.message || 'Erro desconhecido'}`);
-    } finally {
-      setSharingSocial(false);
+    // Fallback logic for Instagram
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    navigator.clipboard.writeText(shareUrl);
+    
+    if (isAndroid) {
+      const intentUrl = `intent://instagram.com/#Intent;package=com.instagram.android;end`;
+      window.location.href = intentUrl;
+      toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
+    } else if (isIOS) {
+      const iosUrl = `instagram://app`;
+      window.location.href = iosUrl;
+      toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
+    } else {
+      window.open('https://www.instagram.com', '_blank');
+      toast.info('Link copiado! Compartilhe no seu perfil do Instagram.');
     }
   };
 
@@ -200,32 +212,31 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
   };
 
   const handleWhatsApp = async () => {
-    if (!cardRef.current) return;
+    if (!shareUrl) {
+      toast.error('Gere o link primeiro!');
+      return;
+    }
     
-    setSharingSocial(true);
-    try {
-      const dataUrl = await toPng(cardRef.current, {
-        cacheBust: true,
-        quality: 1,
-        pixelRatio: 2,
-        backgroundColor: '#000',
-      });
-
-      const result = await shareToSocial(dataUrl, `Minha posição no Ranking ArenaComp 🔥`, shareUrl || undefined);
-      
-      if (result.method === 'download') {
-        if (shareUrl) {
-          shareWhatsApp(shareUrl, `Confira minha posição no Ranking ArenaComp 🔥`);
+    const shareText = `Minha posição no Ranking ArenaComp 🔥`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'ArenaComp',
+          text: shareText,
+          url: shareUrl
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          console.error('Error sharing to WhatsApp:', err);
         }
       }
-    } catch (error) {
-      console.error('Erro ao compartilhar no WhatsApp:', error);
-      if (shareUrl) {
-        shareWhatsApp(shareUrl, `Confira minha posição no Ranking ArenaComp 🔥`);
-      }
-    } finally {
-      setSharingSocial(false);
     }
+
+    // Fallback to wa.me
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n\nConfira: ${shareUrl}`)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleCopyLink = () => {

@@ -295,8 +295,8 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
-    // Add cache buster for crawlers to ensure fresh preview
-    const cacheBuster = `v=${Date.now()}`;
+    // Add stable cache buster for crawlers
+    const cacheBuster = `v=arena-${id || 'home'}`;
     ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
@@ -316,6 +316,7 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
+    <meta property="og:site_name" content="ArenaComp">
     <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
@@ -325,13 +326,10 @@ async function startServer() {
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="${ogImageUrl.includes('.png') ? 'image/png' : 'image/jpeg'}">
-    <meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}">
-    <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="${shareUrl}">
     <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
     <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
     <meta name="twitter:image" content="${ogImageUrl}">
@@ -1344,8 +1342,8 @@ async function startServer() {
 
       console.log(`[OG-IMAGE] Redirecting to: ${imageUrl}`);
       
-      // Add cache buster to ensure fresh preview
-      const cacheBuster = `v=${Date.now()}`;
+      // Add stable cache buster to ensure fresh preview
+      const cacheBuster = `v=arena-${id}`;
       const finalUrl = imageUrl.includes('?') ? `${imageUrl}&${cacheBuster}` : `${imageUrl}?${cacheBuster}`;
       
       return res.redirect(finalUrl);
