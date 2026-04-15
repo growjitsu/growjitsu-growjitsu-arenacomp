@@ -38,10 +38,10 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
   ? createClient(supabaseUrl, supabaseSecretKey) 
   : supabase;
 
-// Institutional branded image for fallbacks - Professional Jiu-Jitsu competition image
+// Institutional branded image for fallbacks - Official ArenaComp Logo
 // This is the official institutional image for ArenaComp share previews
-const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
-const ARENA_LOGO_IMAGE = 'https://ui-avatars.com/api/?name=ArenaComp&background=0D8ABC&color=fff&size=512&bold=true';
+const ARENA_FALLBACK_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/public/posts/arenacomp-official-logo.png';
+const ARENA_LOGO_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/public/posts/arenacomp-official-logo.png';
 
 // Unified Crawler Detection Regex
 const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
@@ -273,13 +273,15 @@ async function startServer() {
     let ogImageUrl = ARENA_FALLBACK_IMAGE;
 
     if (isHome) {
-      ogImageUrl = ARENA_FALLBACK_IMAGE;
+      ogImageUrl = ARENA_LOGO_IMAGE;
     } else if (cardData?.mainImageUrl) {
       ogImageUrl = cardData.mainImageUrl;
     } else if (cardData?.media_url) {
       ogImageUrl = cardData.media_url;
     } else if (cardData?.profilePhoto) {
       ogImageUrl = cardData.profilePhoto;
+    } else if (cardData?.profile_photo) {
+      ogImageUrl = cardData.profile_photo;
     } else {
       const name = cardData?.athleteName || 'ArenaComp';
       ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
