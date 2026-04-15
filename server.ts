@@ -40,8 +40,8 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
 
 // Institutional branded image for fallbacks - Professional Jiu-Jitsu competition image
 // This is the official institutional image for ArenaComp share previews
-const ARENA_FALLBACK_IMAGE = 'https://ais-dev-aldqfugte6nbytqsnovtz6-14463330867.us-east1.run.app/logo-arenacomp.jpg';
-const ARENA_LOGO_IMAGE = 'https://ais-dev-aldqfugte6nbytqsnovtz6-14463330867.us-east1.run.app/logo-arenacomp.jpg';
+const ARENA_FALLBACK_IMAGE = '/logo-arenacomp.jpg';
+const ARENA_LOGO_IMAGE = '/logo-arenacomp.jpg';
 
 // Unified Crawler Detection Regex
 const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
