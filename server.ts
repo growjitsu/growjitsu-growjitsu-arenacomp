@@ -38,6 +38,9 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
   ? createClient(supabaseUrl, supabaseSecretKey) 
   : supabase;
 
+// Institutional branded image for fallbacks
+const ARENA_FALLBACK_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/arena-assets/arena-og-fallback.jpg';
+
 // Initialize Firebase Admin SDK
 try {
   initializeApp({
@@ -261,9 +264,6 @@ async function startServer() {
       if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
 
-    // FALLBACK IMAGE: High quality institutional image (Jiu-Jitsu themed)
-    const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
-
     let ogImageUrl = ARENA_FALLBACK_IMAGE;
 
     if (isHome) {
@@ -275,6 +275,10 @@ async function startServer() {
     } else if (cardData?.profilePhoto) {
       // Use profile photo as fallback for posts/achievements without media
       ogImageUrl = cardData.profilePhoto;
+    } else {
+      // If everything fails, use a dynamic avatar with the athlete's name as a better fallback than a generic image
+      const name = cardData?.athleteName || 'ArenaComp';
+      ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
     }
 
     // Ensure ogImageUrl is absolute and HTTPS
@@ -289,7 +293,7 @@ async function startServer() {
     if (!isHome && ogImageUrl === ARENA_FALLBACK_IMAGE && cardData?.profilePhoto) {
        ogImageUrl = cardData.profilePhoto;
     }
-    
+
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
@@ -751,7 +755,7 @@ async function startServer() {
           {
             id: 'demo-1',
             full_name: 'Atleta Exemplo 1',
-            profile_photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop',
+            profile_photo: 'https://ui-avatars.com/api/?name=Atleta+Exemplo+1&background=0D8ABC&color=fff',
             arena_score: 1500,
             username: 'exemplo1',
             role: 'athlete'
@@ -759,7 +763,7 @@ async function startServer() {
           {
             id: 'demo-2',
             full_name: 'Atleta Exemplo 2',
-            profile_photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop',
+            profile_photo: 'https://ui-avatars.com/api/?name=Atleta+Exemplo+2&background=0D8ABC&color=fff',
             arena_score: 1200,
             username: 'exemplo2',
             role: 'athlete'
@@ -1243,8 +1247,6 @@ async function startServer() {
     const { type, id } = req.params;
     console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
 
-    const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
-
     try {
       let imageUrl = ARENA_FALLBACK_IMAGE;
 
@@ -1253,52 +1255,78 @@ async function startServer() {
       } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
-          .select('media_url, media_urls')
+          .select('media_url, media_urls, profiles(full_name, profile_photo)')
           .eq('id', id)
           .single();
         
+        const profile = Array.isArray(post?.profiles) ? post.profiles[0] : post?.profiles;
+        
         if (post?.media_url || (post?.media_urls && post.media_urls[0])) {
           imageUrl = post.media_url || post.media_urls[0];
+        } else if (profile?.profile_photo) {
+          imageUrl = profile.profile_photo;
+        } else if (profile?.full_name) {
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff&size=512`;
         }
       } else if (type === 'profile' || type === 'ranking') {
         const { data: profile } = await supabaseAdmin
           .from('profiles')
-          .select('profile_photo')
+          .select('profile_photo, full_name')
           .eq('id', id)
           .single();
         
         if (profile?.profile_photo) {
           imageUrl = profile.profile_photo;
+        } else if (profile?.full_name) {
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff&size=512`;
         }
       } else if (type === 'certificate') {
         const { data: cert } = await supabaseAdmin
           .from('certificates')
-          .select('media_url')
+          .select('media_url, profiles(full_name, profile_photo)')
           .eq('id', id)
           .single();
         
+        const profile = Array.isArray(cert?.profiles) ? cert.profiles[0] : cert?.profiles;
+        
         if (cert?.media_url) {
           imageUrl = cert.media_url;
+        } else if (profile?.profile_photo) {
+          imageUrl = profile.profile_photo;
+        } else if (profile?.full_name) {
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff&size=512`;
         }
       } else if (type === 'championship') {
          const { data: champ } = await supabaseAdmin
           .from('championship_results')
-          .select('media_url')
+          .select('media_url, profiles(full_name, profile_photo)')
           .eq('id', id)
           .single();
         
+        const profile = Array.isArray(champ?.profiles) ? champ.profiles[0] : champ?.profiles;
+        
         if (champ?.media_url) {
           imageUrl = champ.media_url;
+        } else if (profile?.profile_photo) {
+          imageUrl = profile.profile_photo;
+        } else if (profile?.full_name) {
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff&size=512`;
         }
       } else if (type === 'fight') {
          const { data: fight } = await supabaseAdmin
           .from('fights')
-          .select('media_url')
+          .select('media_url, profiles(full_name, profile_photo)')
           .eq('id', id)
           .single();
         
+        const profile = Array.isArray(fight?.profiles) ? fight.profiles[0] : fight?.profiles;
+        
         if (fight?.media_url) {
           imageUrl = fight.media_url;
+        } else if (profile?.profile_photo) {
+          imageUrl = profile.profile_photo;
+        } else if (profile?.full_name) {
+          imageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff&size=512`;
         }
       }
 
