@@ -161,6 +161,7 @@ async function startServer() {
                 athleteName: post.profiles?.full_name || 'Atleta Arena',
                 achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
                 mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+                profilePhoto: post.profiles?.profile_photo,
                 title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
                 modality: post.profiles?.modality || 'Arena'
               };
@@ -184,7 +185,7 @@ async function startServer() {
           } else if (type === 'certificate') {
             const { data: cert } = await supabaseAdmin
               .from('certificates')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
               .eq('id', id)
               .single();
             
@@ -193,6 +194,7 @@ async function startServer() {
                 athleteName: cert.profiles?.full_name || 'Atleta Arena',
                 achievement: `Certificado: ${cert.name}`,
                 mainImageUrl: cert.media_url,
+                profilePhoto: cert.profiles?.profile_photo,
                 title: 'Certificado ArenaComp',
                 modality: cert.profiles?.modality || 'Arena'
               };
@@ -200,7 +202,7 @@ async function startServer() {
           } else if (type === 'championship') {
              const { data: champ } = await supabaseAdmin
               .from('championship_results')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
               .eq('id', id)
               .single();
             
@@ -209,6 +211,7 @@ async function startServer() {
                 athleteName: champ.profiles?.full_name || 'Atleta Arena',
                 achievement: `${champ.resultado} no ${champ.evento}`,
                 mainImageUrl: champ.media_url,
+                profilePhoto: champ.profiles?.profile_photo,
                 title: 'Conquista ArenaComp',
                 modality: champ.profiles?.modality || 'Arena'
               };
@@ -216,7 +219,7 @@ async function startServer() {
           } else if (type === 'fight') {
              const { data: fight } = await supabaseAdmin
               .from('fights')
-              .select('*, profiles(username, full_name, modality)')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
               .eq('id', id)
               .single();
             
@@ -225,6 +228,7 @@ async function startServer() {
                 athleteName: fight.profiles?.full_name || 'Atleta Arena',
                 achievement: `Luta no ${fight.evento}`,
                 mainImageUrl: fight.media_url,
+                profilePhoto: fight.profiles?.profile_photo,
                 title: 'Luta ArenaComp',
                 modality: fight.profiles?.modality || 'Arena'
               };
@@ -268,14 +272,22 @@ async function startServer() {
       ogImageUrl = cardData.mainImageUrl;
     } else if (cardData?.media_url) {
       ogImageUrl = cardData.media_url;
+    } else if (cardData?.profilePhoto) {
+      // Use profile photo as fallback for posts/achievements without media
+      ogImageUrl = cardData.profilePhoto;
     }
 
     // Ensure ogImageUrl is absolute and HTTPS
-    if (ogImageUrl.startsWith('/')) {
+    if (ogImageUrl && ogImageUrl.startsWith('/')) {
       ogImageUrl = `${baseUrl}${ogImageUrl}`;
     }
-    if (ogImageUrl.startsWith('http:')) {
+    if (ogImageUrl && ogImageUrl.startsWith('http:')) {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
+    }
+    
+    // If it's a post/achievement and we still have the fallback, try to make it more branded
+    if (!isHome && ogImageUrl === ARENA_FALLBACK_IMAGE && cardData?.profilePhoto) {
+       ogImageUrl = cardData.profilePhoto;
     }
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
@@ -343,21 +355,31 @@ async function startServer() {
     
     if (isCrawler && !req.url.startsWith('/api') && !req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       const pathParts = req.path.split('/').filter(Boolean);
+      
+      console.log(`[CRAWLER-DETECT] Path: ${req.path} | Parts: ${pathParts.join('/')}`);
+
+      // 1. Handle /share/:type/:id or /share/:id
       if (pathParts[0] === 'share' && pathParts.length >= 2) {
         req.params = pathParts.length >= 3 ? { type: pathParts[1], id: pathParts[2] } : { id: pathParts[1] };
         return handleShareRequest(req, res, next);
       }
+      
+      // 2. Handle /post/:id, /profile/:id, etc. directly
       if (pathParts.length >= 2) {
         const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
         const id = pathParts[1];
-        if (['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championships'].includes(type)) {
+        const validTypes = ['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championship', 'eventos'];
+        
+        if (validTypes.includes(type)) {
           req.params = { type, id };
           return handleShareRequest(req, res, next);
         }
       }
-      // If it's a crawler but doesn't match a specific share path, we still want to return a basic HTML with default tags
-      // but only if it's hitting a page route, not an asset
+
+      // 3. Fallback for home or other pages
       if (!req.path.includes('.')) {
+        // Ensure params are clean for home
+        req.params = {};
         return handleShareRequest(req, res, next);
       }
     }
