@@ -99,9 +99,9 @@ export const Logo: React.FC<LogoProps> = ({
         <div className="flex flex-col -space-y-1">
           <div className="flex items-baseline italic">
             <span className="text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
-            <span className="text-xl font-black text-blue-500 tracking-tighter uppercase">Comp</span>
+            <span className="text-xl font-black text-[var(--text-highlight)] tracking-tighter uppercase">Comp</span>
           </div>
-          <span className="text-[8px] font-bold text-blue-600/80 dark:text-blue-400/60 uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
+          <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
         </div>
       )}
     </div>

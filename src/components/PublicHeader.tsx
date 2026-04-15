@@ -18,7 +18,7 @@ export const PublicHeader: React.FC = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-20 bg-[#0A1F44]/80 backdrop-blur-xl border-b border-white/10 flex items-center justify-between px-4 md:px-12 z-50 transition-all duration-500">
+    <header className="fixed top-0 left-0 right-0 h-20 bg-[var(--header-bg)] backdrop-blur-xl border-b border-[var(--header-border)] flex items-center justify-between px-4 md:px-12 z-50 transition-all duration-500">
       {/* Left: Logo */}
       <div 
         className="flex items-center cursor-pointer group shrink-0" 
@@ -34,13 +34,13 @@ export const PublicHeader: React.FC = () => {
       >
         <div className="absolute inset-0 bg-blue-500/10 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity" />
         <div className="relative flex items-center">
-          <Search className="absolute left-3 md:left-4 text-gray-400 group-focus-within:text-blue-400 transition-colors w-4 h-4 md:w-5 md:h-5" />
+          <Search className="absolute left-3 md:left-4 text-[var(--text-muted)] group-focus-within:text-blue-400 transition-colors w-4 h-4 md:w-5 md:h-5" />
           <input 
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar..."
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-2 md:py-2.5 pl-10 md:pl-12 pr-3 md:pr-4 text-xs md:text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-white/10 transition-all"
+            className="w-full bg-[var(--header-search-bg)] border border-[var(--header-border)] rounded-2xl py-2 md:py-2.5 pl-10 md:pl-12 pr-3 md:pr-4 text-xs md:text-sm text-[var(--header-text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-blue-500/50 focus:bg-[var(--header-search-bg)] transition-all"
           />
         </div>
       </form>
@@ -49,7 +49,7 @@ export const PublicHeader: React.FC = () => {
       <div className="flex items-center space-x-2 md:space-x-4 shrink-0">
         <button 
           onClick={toggleTheme}
-          className="p-2 md:p-2.5 text-gray-400 hover:text-white bg-white/5 rounded-xl border border-white/10 transition-all hover:scale-105 active:scale-95"
+          className="p-2 md:p-2.5 text-[var(--text-muted)] hover:text-[var(--header-text)] bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
         >
           {theme === 'light' ? <Moon className="w-4 h-4 md:w-5 md:h-5" /> : <Sun className="w-4 h-4 md:w-5 md:h-5" />}
         </button>

@@ -39,7 +39,7 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
   : supabase;
 
 // Institutional branded image for fallbacks
-const ARENA_FALLBACK_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/arena-assets/arena-og-fallback.jpg';
+const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
 
 // Initialize Firebase Admin SDK
 try {
@@ -119,7 +119,7 @@ async function startServer() {
     const userAgent = req.get('User-Agent') || '';
     
     // Detect if it's a crawler
-    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
+    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i.test(userAgent);
     
     // Check if it's the root path (home)
     const isHome = !type && (!id || id === 'undefined' || id === '/');
@@ -285,6 +285,8 @@ async function startServer() {
     if (ogImageUrl && ogImageUrl.startsWith('/')) {
       ogImageUrl = `${baseUrl}${ogImageUrl}`;
     }
+    
+    // Force HTTPS for all image URLs to ensure WhatsApp compatibility
     if (ogImageUrl && ogImageUrl.startsWith('http:')) {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
@@ -311,13 +313,12 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="article">
+    <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:description" content="${description.replace(/"/g, '&quot;')}">
     <meta property="og:image" content="${ogImageUrl}">
     <meta property="og:image:secure_url" content="${ogImageUrl}">
-    <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="${title} - ArenaComp">

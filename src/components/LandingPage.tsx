@@ -89,9 +89,9 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
   ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-main)] selection:bg-bjj-blue selection:text-white">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text-main)] selection:bg-blue-600 selection:text-white">
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 h-20 border-b border-[var(--border-ui)] bg-[var(--bg-app)]/80 backdrop-blur-xl z-[100]">
+      <header className="fixed top-0 left-0 right-0 h-20 border-b border-[var(--header-border)] bg-[var(--header-bg)] backdrop-blur-xl z-[100]">
         <div className="max-w-7xl mx-auto h-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Logo size={44} showText={true} />
@@ -99,14 +99,14 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
 
           <nav className="hidden md:flex items-center gap-8">
             {['Sobre', 'Funcionalidades', 'Campeonatos', 'Planos'].map(item => (
-              <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-bold text-[var(--text-muted)] hover:text-bjj-blue transition-colors">{item}</a>
+              <a key={item} href={`#${item.toLowerCase()}`} className="text-sm font-bold text-[var(--text-muted)] hover:text-blue-600 transition-colors">{item}</a>
             ))}
           </nav>
 
           <div className="flex items-center gap-4">
             <button 
               onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
-              className="hidden sm:block text-sm font-bold hover:text-bjj-blue transition-colors"
+              className="hidden sm:block text-sm font-bold text-[var(--text-main)] hover:text-blue-600 transition-colors"
             >
               Entrar
             </button>
@@ -116,7 +116,7 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             >
               Começar Agora
             </button>
-            <button className="md:hidden p-2" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            <button className="md:hidden p-2 text-[var(--text-main)]" onClick={() => setIsMenuOpen(!isMenuOpen)}>
               {isMenuOpen ? <X /> : <Menu />}
             </button>
           </div>
@@ -130,11 +130,11 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed inset-0 top-20 bg-[var(--bg-app)] z-[90] p-6 md:hidden"
+            className="fixed inset-0 top-20 bg-[var(--bg)] z-[90] p-6 md:hidden"
           >
             <nav className="flex flex-col gap-6">
               {['Sobre', 'Funcionalidades', 'Campeonatos', 'Planos'].map(item => (
-                <a key={item} href={`#${item.toLowerCase()}`} className="text-2xl font-black font-display" onClick={() => setIsMenuOpen(false)}>{item}</a>
+                <a key={item} href={`#${item.toLowerCase()}`} className="text-2xl font-black font-display text-[var(--text-main)]" onClick={() => setIsMenuOpen(false)}>{item}</a>
               ))}
               <button 
                 onClick={() => { setShowAuthModal(true); setIsMenuOpen(false); }}
@@ -160,11 +160,11 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className="inline-block px-4 py-1.5 rounded-full bg-bjj-blue/10 text-bjj-blue text-xs font-black uppercase tracking-widest mb-6">
+            <span className="inline-block px-4 py-1.5 rounded-full bg-blue-600/10 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-widest mb-6">
               A Nova Referência Nacional
             </span>
-            <h1 className="text-5xl md:text-7xl font-black font-display tracking-tight leading-[0.9] mb-8">
-              O futuro dos campeonatos de <span className="text-bjj-blue">Jiu-Jitsu</span> começa aqui.
+            <h1 className="text-5xl md:text-7xl font-black font-display tracking-tight leading-[0.9] mb-8 text-[var(--text-main)]">
+              O futuro dos campeonatos de <span className="text-blue-600 dark:text-blue-400">Jiu-Jitsu</span> começa aqui.
             </h1>
             <p className="text-xl text-[var(--text-muted)] leading-relaxed mb-10 max-w-xl">
               Gestão inteligente, categorias automáticas por ano de nascimento, criação de chaves e placar eletrônico profissional em uma única plataforma.
@@ -205,23 +205,23 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             transition={{ duration: 0.8, delay: 0.2 }}
             className="relative"
           >
-            <div className="relative z-10 card-surface p-4 bg-zinc-900/50 backdrop-blur-sm border-white/10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
+            <div className="relative z-10 card-surface p-4 bg-[var(--surface)]/50 backdrop-blur-sm border-[var(--header-border)] shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
               <img 
-                src="https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/arena-assets/arena-og-fallback.jpg" 
+                src="https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=1200&h=630&q=80" 
                 className="rounded-xl w-full shadow-2xl"
                 alt="ArenaComp Dashboard"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute -bottom-6 -left-6 card-surface p-4 bg-bjj-blue text-white shadow-2xl -rotate-3">
+              <div className="absolute -bottom-6 -left-6 card-surface p-4 bg-blue-600 text-white shadow-2xl -rotate-3">
                 <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Placar ao Vivo</p>
                 <p className="text-2xl font-black tabular-nums">04:20</p>
               </div>
-              <div className="absolute -top-6 -right-6 card-surface p-4 bg-emerald-500 text-white shadow-2xl rotate-3">
+              <div className="absolute -top-6 -right-6 card-surface p-4 bg-emerald-600 text-white shadow-2xl rotate-3">
                 <CheckCircle size={24} />
                 <p className="text-xs font-bold mt-1">Categoria Confirmada</p>
               </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-tr from-bjj-blue/20 to-bjj-purple/20 blur-3xl -z-10" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/20 to-purple-600/20 blur-3xl -z-10" />
           </motion.div>
         </div>
       </section>
@@ -239,9 +239,9 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
               <motion.div 
                 key={i}
                 whileHover={{ y: -8 }}
-                className="card-surface p-8 bg-[var(--bg-app)] hover:border-bjj-blue/50 transition-colors"
+                className="card-surface p-8 bg-[var(--surface)] hover:border-blue-600/50 transition-colors"
               >
-                <div className="w-14 h-14 rounded-2xl bg-bjj-blue/10 flex items-center justify-center text-bjj-blue mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-600 dark:text-blue-400 mb-6">
                   <f.icon size={28} />
                 </div>
                 <h3 className="text-xl font-bold mb-3">{f.title}</h3>
