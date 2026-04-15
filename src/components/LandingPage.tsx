@@ -207,7 +207,7 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
           >
             <div className="relative z-10 card-surface p-4 bg-[var(--surface)]/50 backdrop-blur-sm border-[var(--header-border)] shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
               <img 
-                src="https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=1200&h=630&q=80" 
+                src="https://ais-dev-aldqfugte6nbytqsnovtz6-14463330867.us-east1.run.app/logo-arenacomp.jpg" 
                 className="rounded-xl w-full shadow-2xl"
                 alt="ArenaComp Dashboard"
                 referrerPolicy="no-referrer"
