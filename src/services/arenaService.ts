@@ -256,9 +256,9 @@ export const shareToArenaComp = async (data: CardData, shareUrl: string, customI
   return true;
 };
 
-export const shareToSocial = async (imageUrl: string, text: string) => {
+export const shareToSocial = async (imageUrl: string, text: string, url?: string) => {
   try {
-    console.log('[shareToSocial] Iniciando compartilhamento social:', { imageUrl: imageUrl.substring(0, 50) + '...', text });
+    console.log('[shareToSocial] Iniciando compartilhamento social:', { imageUrl: imageUrl.substring(0, 50) + '...', text, url });
     
     // Solução 2: Corrigir Fetch com CORS e cache: no-cache
     const response = await fetch(imageUrl, {
@@ -282,12 +282,15 @@ export const shareToSocial = async (imageUrl: string, text: string) => {
       type: blob.type || 'image/png',
     });
 
+    const shareText = url ? `${text}\n\nConfira na ArenaComp: ${url}` : text;
+
     // Solução 3: Fallback Robusto
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       console.log('[shareToSocial] Usando Web Share API nativa');
       await navigator.share({
         files: [file],
-        text: text,
+        title: 'ArenaComp',
+        text: shareText,
       });
       return { success: true, method: 'native' };
     } else {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Share2, Copy, Trophy, X, Check, Award, Plus, Loader2, Instagram, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { shareToArenaComp, CardData } from '../services/arenaService';
+import { shareToArenaComp, CardData, shareToSocial } from '../services/arenaService';
 import { toast } from 'sonner';
 
 interface ShareModalProps {
@@ -62,45 +62,62 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     }
   };
 
-  const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(`🔥 ${title}\n${subtitle ? subtitle + '\n' : ''}\nConfira na ArenaComp: ${url}`);
-    const whatsappUrl = `https://wa.me/?text=${text}`;
+  const [isSharing, setIsSharing] = useState(false);
+
+  const handleWhatsAppShare = async () => {
+    const text = `🔥 ${title}`;
+    
+    if (imageUrl && navigator.share && navigator.canShare) {
+      setIsSharing(true);
+      try {
+        const result = await shareToSocial(imageUrl, text, url);
+        if (result.method === 'native') {
+          setIsSharing(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Error sharing file to WhatsApp:', err);
+      }
+      setIsSharing(false);
+    }
+
+    // Fallback to link sharing
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${text}\n${subtitle ? subtitle + '\n' : ''}\nConfira na ArenaComp: ${url}`)}`;
     window.open(whatsappUrl, '_blank');
   };
 
   const handleInstagramShare = async () => {
-    // Instagram deep link logic
+    const text = subtitle || 'Confira este conteúdo na ArenaComp!';
+    
+    if (imageUrl && navigator.share && navigator.canShare) {
+      setIsSharing(true);
+      try {
+        const result = await shareToSocial(imageUrl, text, url);
+        if (result.method === 'native') {
+          setIsSharing(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Error sharing file to Instagram:', err);
+      }
+      setIsSharing(false);
+    }
+
+    // Fallback logic if file sharing fails or is not supported
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isAndroid = /Android/.test(navigator.userAgent);
     
-    // Copy link first as it's the most reliable way to share to Instagram (via Bio or Stories Link Sticker)
     await handleCopyLink();
     
     if (isAndroid) {
-      // Android Intent for Instagram
       const intentUrl = `intent://instagram.com/#Intent;package=com.instagram.android;end`;
       window.location.href = intentUrl;
       toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
     } else if (isIOS) {
-      // iOS URL Scheme
       const iosUrl = `instagram://app`;
       window.location.href = iosUrl;
       toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
-    } else if (navigator.share) {
-      // Web Share API fallback for mobile browsers
-      try {
-        await navigator.share({
-          title: title,
-          text: subtitle || 'Confira este conteúdo na ArenaComp!',
-          url: url,
-        });
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          console.error('Error sharing:', err);
-        }
-      }
     } else {
-      // Desktop fallback
       window.open('https://www.instagram.com', '_blank');
       toast.info('Link copiado! Compartilhe no seu perfil do Instagram.');
     }
@@ -166,12 +183,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               >
                 <div className="flex items-center gap-4 text-left">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-emerald-500 text-white">
-                    <MessageCircle size={24} />
+                    {isSharing ? <Loader2 className="w-6 h-6 animate-spin" /> : <MessageCircle size={24} />}
                   </div>
                   <div>
                     <h4 className="text-sm font-black uppercase italic text-emerald-500">WhatsApp</h4>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                      Enviar para contatos ou grupos
+                      {isSharing ? 'Preparando imagem...' : 'Enviar com preview de imagem'}
                     </p>
                   </div>
                 </div>
@@ -187,12 +204,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               >
                 <div className="flex items-center gap-4 text-left">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-gradient-to-tr from-amber-500 via-pink-500 to-violet-600 text-white">
-                    <Instagram size={24} />
+                    {isSharing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Instagram size={24} />}
                   </div>
                   <div>
                     <h4 className="text-sm font-black uppercase italic text-pink-500">Instagram</h4>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                      Compartilhar no Stories ou Feed
+                      {isSharing ? 'Preparando imagem...' : 'Compartilhar no Stories ou Feed'}
                     </p>
                   </div>
                 </div>

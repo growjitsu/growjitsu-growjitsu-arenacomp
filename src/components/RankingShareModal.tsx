@@ -124,11 +124,10 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
         throw new Error('Imagem gerada é inválida');
       }
 
-      const result = await shareToSocial(dataUrl, `Minha posição no Ranking ArenaComp 🔥`);
+      const result = await shareToSocial(dataUrl, `Minha posição no Ranking ArenaComp 🔥`, shareUrl || undefined);
       
       if (result.method === 'download') {
         toast.info('Imagem baixada! Agora você pode compartilhar no Instagram.');
-        alert("Baixe a imagem e compartilhe no Instagram");
       } else {
         toast.success('Compartilhamento iniciado!');
       }
@@ -200,9 +199,33 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
     }
   };
 
-  const handleWhatsApp = () => {
-    if (!shareUrl) return;
-    shareWhatsApp(shareUrl, `Confira minha posição no Ranking ArenaComp 🔥`);
+  const handleWhatsApp = async () => {
+    if (!cardRef.current) return;
+    
+    setSharingSocial(true);
+    try {
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        quality: 1,
+        pixelRatio: 2,
+        backgroundColor: '#000',
+      });
+
+      const result = await shareToSocial(dataUrl, `Minha posição no Ranking ArenaComp 🔥`, shareUrl || undefined);
+      
+      if (result.method === 'download') {
+        if (shareUrl) {
+          shareWhatsApp(shareUrl, `Confira minha posição no Ranking ArenaComp 🔥`);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao compartilhar no WhatsApp:', error);
+      if (shareUrl) {
+        shareWhatsApp(shareUrl, `Confira minha posição no Ranking ArenaComp 🔥`);
+      }
+    } finally {
+      setSharingSocial(false);
+    }
   };
 
   const handleCopyLink = () => {
@@ -321,9 +344,14 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
                       </button>
                       <button
                         onClick={handleWhatsApp}
-                        className="py-4 bg-[#25D366] hover:bg-[#128C7E] text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
+                        disabled={sharingSocial}
+                        className="py-4 bg-[#25D366] hover:bg-[#128C7E] disabled:opacity-50 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-600/20"
                       >
-                        <MessageCircle className="w-4 h-4" />
+                        {sharingSocial ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <MessageCircle className="w-4 h-4" />
+                        )}
                         WhatsApp
                       </button>
                     </div>
