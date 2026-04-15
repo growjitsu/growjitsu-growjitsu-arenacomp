@@ -184,7 +184,12 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             <div className="mt-12 flex items-center gap-6 text-sm text-[var(--text-muted)] font-medium">
               <div className="flex -space-x-3">
                 {[1,2,3,4].map(i => (
-                  <img key={i} src={`https://picsum.photos/seed/user${i}/100/100`} className="w-10 h-10 rounded-full border-2 border-[var(--bg-app)]" referrerPolicy="no-referrer" />
+                  <img key={i} src={`https://images.unsplash.com/photo-${[
+                    '1517841905240-472988babdf9',
+                    '1539571696357-5a69c17a67c6',
+                    '1507003211169-0a1dd7228f2d',
+                    '1500648767791-00dcc994a43e'
+                  ][i-1]}?w=100&h=100&fit=crop`} className="w-10 h-10 rounded-full border-2 border-[var(--bg-app)]" referrerPolicy="no-referrer" />
                 ))}
               </div>
               <p><span className="text-[var(--text-main)] font-bold">+2.500</span> atletas já utilizam a ArenaComp</p>
@@ -199,7 +204,7 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
           >
             <div className="relative z-10 card-surface p-4 bg-zinc-900/50 backdrop-blur-sm border-white/10 shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
               <img 
-                src="https://picsum.photos/seed/dashboard/1200/800" 
+                src="https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=800&auto=format&fit=crop" 
                 className="rounded-xl w-full shadow-2xl"
                 alt="ArenaComp Dashboard"
                 referrerPolicy="no-referrer"

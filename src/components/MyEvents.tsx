@@ -484,7 +484,7 @@ function EventOperational({ event, onBack, onEdit, onStartLuta }: {
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-full bg-[var(--border-ui)] overflow-hidden">
                             <img 
-                              src={reg.atletas?.usuarios?.foto_url || `https://picsum.photos/seed/${reg.id}/100/100`} 
+                              src={reg.atletas?.usuarios?.foto_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(reg.atletas?.usuarios?.nome || 'User')}&background=0D8ABC&color=fff`} 
                               className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                             />

@@ -247,7 +247,7 @@ async function startServer() {
       description = description.substring(0, 77) + "...";
     }
     
-    // Robust Base URL detection - FORCE HTTPS for WhatsApp
+// Robust Base URL detection - FORCE HTTPS for WhatsApp
     const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
     let baseUrl = `https://${host}`;
     
@@ -257,9 +257,26 @@ async function startServer() {
       if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
 
-    const ogImageUrl = isHome
-      ? `${baseUrl}/api/og-image/home/default?v=16`
-      : `${baseUrl}/api/og-image/${type || 'achievement'}/${id}?v=16`;
+    // FALLBACK IMAGE: High quality institutional image (Jiu-Jitsu themed)
+    const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
+
+    let ogImageUrl = ARENA_FALLBACK_IMAGE;
+
+    if (isHome) {
+      ogImageUrl = ARENA_FALLBACK_IMAGE;
+    } else if (cardData?.mainImageUrl) {
+      ogImageUrl = cardData.mainImageUrl;
+    } else if (cardData?.media_url) {
+      ogImageUrl = cardData.media_url;
+    }
+
+    // Ensure ogImageUrl is absolute and HTTPS
+    if (ogImageUrl.startsWith('/')) {
+      ogImageUrl = `${baseUrl}${ogImageUrl}`;
+    }
+    if (ogImageUrl.startsWith('http:')) {
+      ogImageUrl = ogImageUrl.replace('http:', 'https:');
+    }
     
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -712,7 +729,7 @@ async function startServer() {
           {
             id: 'demo-1',
             full_name: 'Atleta Exemplo 1',
-            profile_photo: 'https://picsum.photos/seed/athlete1/200/200',
+            profile_photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&h=200&fit=crop',
             arena_score: 1500,
             username: 'exemplo1',
             role: 'athlete'
@@ -720,7 +737,7 @@ async function startServer() {
           {
             id: 'demo-2',
             full_name: 'Atleta Exemplo 2',
-            profile_photo: 'https://picsum.photos/seed/athlete2/200/200',
+            profile_photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=200&h=200&fit=crop',
             arena_score: 1200,
             username: 'exemplo2',
             role: 'athlete'
@@ -1199,141 +1216,80 @@ async function startServer() {
   // END OF API SECTION
   // ===========================================================================
 
-  // 0.6. OG IMAGE GENERATION ENDPOINT (GET)
+  // 0.6. OG IMAGE GENERATION ENDPOINT (GET) - NOW A REDIRECT/PROXY TO AVOID PUPPETEER
   app.get("/api/og-image/:type/:id", async (req, res) => {
     const { type, id } = req.params;
     console.log(`[OG-IMAGE] Request received for type: ${type}, id: ${id}`);
 
-    // Set a timeout for the entire operation to avoid hanging the scraper
-    const timeout = setTimeout(() => {
-      console.error(`[OG-IMAGE] Timeout reached for ${type}/${id}`);
-      if (!res.headersSent) {
-        res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
-      }
-    }, 4500);
+    const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
 
     try {
-      let cardData: any = null;
+      let imageUrl = ARENA_FALLBACK_IMAGE;
 
-      // Fetch data from Supabase
       if (type === 'home' || type === 'default') {
-        cardData = {
-          athleteName: 'ArenaComp',
-          achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu.',
-          title: 'ArenaComp Platform',
-          modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
-        };
+        imageUrl = ARENA_FALLBACK_IMAGE;
       } else if (type === 'post' || type === 'clip') {
         const { data: post } = await supabaseAdmin
           .from('posts')
-          .select('*, profiles(username, full_name, profile_photo, modality)')
+          .select('media_url, media_urls')
           .eq('id', id)
           .single();
         
-        if (post) {
-          cardData = {
-            athleteName: post.profiles?.full_name || 'Atleta Arena',
-            achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-            mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-            title: type === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
-            modality: post.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/post/${id}`
-          };
+        if (post?.media_url || (post?.media_urls && post.media_urls[0])) {
+          imageUrl = post.media_url || post.media_urls[0];
         }
       } else if (type === 'profile' || type === 'ranking') {
         const { data: profile } = await supabaseAdmin
           .from('profiles')
-          .select('*')
+          .select('profile_photo')
           .eq('id', id)
           .single();
         
-        if (profile) {
-          cardData = {
-            athleteName: profile.full_name || 'Atleta Arena',
-            achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-            mainImageUrl: profile.profile_photo,
-            title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
-            modality: profile.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/user/${profile.username}`
-          };
+        if (profile?.profile_photo) {
+          imageUrl = profile.profile_photo;
         }
       } else if (type === 'certificate') {
         const { data: cert } = await supabaseAdmin
           .from('certificates')
-          .select('*, profiles(username, full_name, modality)')
+          .select('media_url')
           .eq('id', id)
           .single();
         
-        if (cert) {
-          cardData = {
-            athleteName: cert.profiles?.full_name || 'Atleta Arena',
-            achievement: `Certificado: ${cert.name}`,
-            mainImageUrl: cert.media_url,
-            title: 'Certificado ArenaComp',
-            modality: cert.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/certificates/${id}`
-          };
+        if (cert?.media_url) {
+          imageUrl = cert.media_url;
         }
       } else if (type === 'championship') {
          const { data: champ } = await supabaseAdmin
           .from('championship_results')
-          .select('*, profiles(username, full_name, modality)')
+          .select('media_url')
           .eq('id', id)
           .single();
         
-        if (champ) {
-          cardData = {
-            athleteName: champ.profiles?.full_name || 'Atleta Arena',
-            achievement: `${champ.resultado} no ${champ.evento}`,
-            mainImageUrl: champ.media_url,
-            title: 'Conquista ArenaComp',
-            modality: champ.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/championship/${id}`
-          };
+        if (champ?.media_url) {
+          imageUrl = champ.media_url;
         }
       } else if (type === 'fight') {
          const { data: fight } = await supabaseAdmin
           .from('fights')
-          .select('*, profiles(username, full_name, modality)')
+          .select('media_url')
           .eq('id', id)
           .single();
         
-        if (fight) {
-          cardData = {
-            athleteName: fight.profiles?.full_name || 'Atleta Arena',
-            achievement: `Luta no ${fight.evento}`,
-            mainImageUrl: fight.media_url,
-            title: 'Luta ArenaComp',
-            modality: fight.profiles?.modality || 'Arena',
-            profileUrl: `https://arenacomp.com.br/share/fight/${id}`
-          };
+        if (fight?.media_url) {
+          imageUrl = fight.media_url;
         }
       }
 
-      if (!cardData) {
-        clearTimeout(timeout);
-        return res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      // Ensure HTTPS
+      if (imageUrl.startsWith('http:')) {
+        imageUrl = imageUrl.replace('http:', 'https:');
       }
 
-      // Generate card using Puppeteer
-      const buffer = await CardGenerator.generateAchievementCard({
-        athleteName: cardData.athleteName,
-        achievement: cardData.achievement,
-        title: cardData.title,
-        modality: cardData.modality,
-        date: new Date().toLocaleDateString('pt-BR'),
-        profileUrl: cardData.profileUrl
-      });
-
-      clearTimeout(timeout);
-      res.set('Content-Type', 'image/png');
-      res.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-      res.send(buffer);
+      console.log(`[OG-IMAGE] Redirecting to: ${imageUrl}`);
+      return res.redirect(imageUrl);
     } catch (error: any) {
-      clearTimeout(timeout);
-      console.error(`[OG-IMAGE] Error generating image:`, error);
-      res.redirect('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=1200&h=630&fit=crop');
+      console.error(`[OG-IMAGE] Error resolving image:`, error);
+      return res.redirect(ARENA_FALLBACK_IMAGE);
     }
   });
 
