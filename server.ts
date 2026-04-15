@@ -38,8 +38,13 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
   ? createClient(supabaseUrl, supabaseSecretKey) 
   : supabase;
 
-// Institutional branded image for fallbacks
+// Institutional branded image for fallbacks - Professional Jiu-Jitsu competition image
+// This is the official institutional image for ArenaComp share previews
 const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
+const ARENA_LOGO_IMAGE = 'https://ui-avatars.com/api/?name=ArenaComp&background=0D8ABC&color=fff&size=512&bold=true';
+
+// Unified Crawler Detection Regex
+const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
 
 // Initialize Firebase Admin SDK
 try {
@@ -119,7 +124,7 @@ async function startServer() {
     const userAgent = req.get('User-Agent') || '';
     
     // Detect if it's a crawler
-    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i.test(userAgent);
+    const isCrawler = CRAWLER_REGEX.test(userAgent);
     
     // Check if it's the root path (home)
     const isHome = !type && (!id || id === 'undefined' || id === '/');
@@ -136,7 +141,7 @@ async function startServer() {
         cardData = {
           athleteName: 'ArenaComp',
           achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe suas conquistas e acompanhe rankings.',
-          title: 'ArenaComp Platform',
+          title: 'ArenaComp - Jiu-Jitsu Platform',
           modality: 'Jiu-Jitsu',
           profileUrl: 'https://www.arenacomp.com.br'
         };
@@ -249,12 +254,13 @@ async function startServer() {
       ? "A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe conquistas, acompanhe rankings e muito mais."
       : (cardData?.achievement || `${athleteName} compartilhou uma conquista! 🔥`);
     
-    // WhatsApp limit: 80 characters for description
-    if (description.length > 80) {
-      description = description.substring(0, 77) + "...";
+    // WhatsApp limit: 80 characters for description in some previews, but OG allows more.
+    // We'll keep it concise for better UX.
+    if (description.length > 150) {
+      description = description.substring(0, 147) + "...";
     }
     
-// Robust Base URL detection - FORCE HTTPS for WhatsApp
+    // Robust Base URL detection - FORCE HTTPS for WhatsApp
     const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
     let baseUrl = `https://${host}`;
     
@@ -273,10 +279,8 @@ async function startServer() {
     } else if (cardData?.media_url) {
       ogImageUrl = cardData.media_url;
     } else if (cardData?.profilePhoto) {
-      // Use profile photo as fallback for posts/achievements without media
       ogImageUrl = cardData.profilePhoto;
     } else {
-      // If everything fails, use a dynamic avatar with the athlete's name as a better fallback than a generic image
       const name = cardData?.athleteName || 'ArenaComp';
       ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
     }
@@ -291,10 +295,9 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
-    // If it's a post/achievement and we still have the fallback, try to make it more branded
-    if (!isHome && ogImageUrl === ARENA_FALLBACK_IMAGE && cardData?.profilePhoto) {
-       ogImageUrl = cardData.profilePhoto;
-    }
+    // Add cache buster for crawlers to ensure fresh preview
+    const cacheBuster = `v=${Date.now()}`;
+    ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -321,6 +324,7 @@ async function startServer() {
     <meta property="og:image:secure_url" content="${ogImageUrl}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:alt" content="${title} - ArenaComp">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
@@ -348,7 +352,9 @@ async function startServer() {
     const buffer = Buffer.from(html, 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Length', buffer.length);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.setHeader('X-Arena-Status', 'crawler-ssr');
     return res.status(200).send(buffer);
   };
@@ -356,7 +362,7 @@ async function startServer() {
   // 1. Crawler Detection Middleware - MUST BE FIRST
   app.use(async (req, res, next) => {
     const userAgent = req.get('User-Agent') || '';
-    const isCrawler = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver/i.test(userAgent);
+    const isCrawler = CRAWLER_REGEX.test(userAgent);
     
     if (isCrawler && !req.url.startsWith('/api') && !req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       const pathParts = req.path.split('/').filter(Boolean);
@@ -1332,12 +1338,17 @@ async function startServer() {
       }
 
       // Ensure HTTPS
-      if (imageUrl.startsWith('http:')) {
+      if (imageUrl && imageUrl.startsWith('http:')) {
         imageUrl = imageUrl.replace('http:', 'https:');
       }
 
       console.log(`[OG-IMAGE] Redirecting to: ${imageUrl}`);
-      return res.redirect(imageUrl);
+      
+      // Add cache buster to ensure fresh preview
+      const cacheBuster = `v=${Date.now()}`;
+      const finalUrl = imageUrl.includes('?') ? `${imageUrl}&${cacheBuster}` : `${imageUrl}?${cacheBuster}`;
+      
+      return res.redirect(finalUrl);
     } catch (error: any) {
       console.error(`[OG-IMAGE] Error resolving image:`, error);
       return res.redirect(ARENA_FALLBACK_IMAGE);

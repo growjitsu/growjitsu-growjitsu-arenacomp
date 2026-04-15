@@ -63,44 +63,46 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   };
 
   const handleWhatsAppShare = () => {
-    const text = encodeURIComponent(`${title}\n${subtitle || ''}\n\nConfira na ArenaComp: ${url}`);
+    const text = encodeURIComponent(`🔥 ${title}\n${subtitle ? subtitle + '\n' : ''}\nConfira na ArenaComp: ${url}`);
     const whatsappUrl = `https://wa.me/?text=${text}`;
     window.open(whatsappUrl, '_blank');
   };
 
   const handleInstagramShare = async () => {
-    // Instagram doesn't have a direct "share link" URL scheme that works reliably across all devices
-    // The best way to share to Instagram from a web app is using the Web Share API
-    // which allows the user to pick Instagram Stories or Feed directly.
+    // Instagram deep link logic
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
     
-    if (navigator.share) {
+    // Copy link first as it's the most reliable way to share to Instagram (via Bio or Stories Link Sticker)
+    await handleCopyLink();
+    
+    if (isAndroid) {
+      // Android Intent for Instagram
+      const intentUrl = `intent://instagram.com/#Intent;package=com.instagram.android;end`;
+      window.location.href = intentUrl;
+      toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
+    } else if (isIOS) {
+      // iOS URL Scheme
+      const iosUrl = `instagram://app`;
+      window.location.href = iosUrl;
+      toast.info('Link copiado! Abra o Instagram e cole nos seus Stories.');
+    } else if (navigator.share) {
+      // Web Share API fallback for mobile browsers
       try {
         await navigator.share({
           title: title,
           text: subtitle || 'Confira este conteúdo na ArenaComp!',
           url: url,
         });
-        toast.success('Compartilhamento iniciado!');
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
           console.error('Error sharing:', err);
-          // Fallback to copy link if share fails
-          handleCopyLink();
         }
       }
     } else {
-      // Fallback for desktop or browsers without Web Share API
-      // We try to open the app via URL scheme, if it fails, we copy the link
-      const instagramUrl = `instagram://app`;
-      
-      // Try to open the app
-      window.location.href = instagramUrl;
-      
-      // Also copy the link to clipboard as a fallback
-      setTimeout(() => {
-        handleCopyLink();
-        toast.info('Link copiado! Abra o Instagram e cole na sua bio ou stories.');
-      }, 500);
+      // Desktop fallback
+      window.open('https://www.instagram.com', '_blank');
+      toast.info('Link copiado! Compartilhe no seu perfil do Instagram.');
     }
   };
 
