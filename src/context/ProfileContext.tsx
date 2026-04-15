@@ -14,10 +14,25 @@ interface ProfileContextType {
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isProfileValid, setIsProfileValid] = useState<boolean | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [profile, setProfile] = useState<ArenaProfile | null>(null);
+  const [profile, setProfile] = useState<ArenaProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('arenacomp_profile_cache');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isProfileValid, setIsProfileValid] = useState<boolean | null>(() => {
+    try {
+      const saved = localStorage.getItem('arenacomp_profile_cache');
+      if (!saved) return null;
+      return isProfileComplete(JSON.parse(saved));
+    } catch {
+      return null;
+    }
+  });
+  const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('arenacomp_profile_cache'));
+  const [isLoading, setIsLoading] = useState(() => !localStorage.getItem('arenacomp_profile_cache'));
 
   const checkProfile = useCallback(async () => {
     try {
@@ -26,9 +41,6 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(true);
       }
       
-      // Small delay to ensure DB propagation if called immediately after save
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -36,6 +48,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsProfileValid(null);
         setIsLoggedIn(false);
         setIsLoading(false);
+        localStorage.removeItem('arenacomp_profile_cache');
         return false;
       }
 
@@ -73,14 +86,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         modalities: modalities || []
       };
 
-      // DEBUG CONTROLADO (Etapa 7)
-      console.log("[ARENACOMP] User atualizado:", completeProfile);
-      console.log("[ARENACOMP] Perfil completo:", isValid);
-      if (!isValid) {
-        console.warn('[ARENACOMP] Perfil incompleto. Campos faltando:', missingFields);
-      } else {
-        console.log('[ARENACOMP] Perfil está completo!');
-      }
+      // Update cache
+      localStorage.setItem('arenacomp_profile_cache', JSON.stringify(completeProfile));
 
       setProfile(completeProfile);
       setIsProfileValid(isValid);
@@ -91,7 +98,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setIsLoading(false);
       return false;
     }
-  }, []);
+  }, [profile]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {

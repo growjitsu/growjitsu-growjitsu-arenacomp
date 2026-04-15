@@ -73,7 +73,11 @@ export default function App() {
 function AppContent() {
   const { isProfileValid, isLoggedIn, isLoading: isProfileLoading, profile } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(() => {
+    // If we have a cached profile, we can skip the initial full-screen block
+    // and let the background validation handle it
+    return !localStorage.getItem('arenacomp_profile_cache');
+  });
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
@@ -214,7 +218,6 @@ function AppContent() {
       <div className="h-screen w-full flex items-center justify-center bg-[var(--bg)]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-          {isProfileLoading && <p className="text-sm text-muted-foreground animate-pulse">Validando perfil...</p>}
         </div>
       </div>
     );
