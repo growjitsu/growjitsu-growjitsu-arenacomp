@@ -38,10 +38,10 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
   ? createClient(supabaseUrl, supabaseSecretKey) 
   : supabase;
 
-// Institutional branded image for fallbacks - Official ArenaComp Logo
+// Institutional branded image for fallbacks - Professional Jiu-Jitsu competition image
 // This is the official institutional image for ArenaComp share previews
-const ARENA_FALLBACK_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/public/posts/arenacomp-official-logo.png';
-const ARENA_LOGO_IMAGE = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/public/posts/arenacomp-official-logo.png';
+const ARENA_FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1555597673-b21d5c935865?q=80&w=1200&h=630&auto=format&fit=crop';
+const ARENA_LOGO_IMAGE = 'https://ui-avatars.com/api/?name=ArenaComp&background=0D8ABC&color=fff&size=512&bold=true';
 
 // Unified Crawler Detection Regex
 const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
@@ -273,15 +273,13 @@ async function startServer() {
     let ogImageUrl = ARENA_FALLBACK_IMAGE;
 
     if (isHome) {
-      ogImageUrl = ARENA_LOGO_IMAGE;
+      ogImageUrl = ARENA_FALLBACK_IMAGE;
     } else if (cardData?.mainImageUrl) {
       ogImageUrl = cardData.mainImageUrl;
     } else if (cardData?.media_url) {
       ogImageUrl = cardData.media_url;
     } else if (cardData?.profilePhoto) {
       ogImageUrl = cardData.profilePhoto;
-    } else if (cardData?.profile_photo) {
-      ogImageUrl = cardData.profile_photo;
     } else {
       const name = cardData?.athleteName || 'ArenaComp';
       ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
@@ -297,8 +295,8 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
-    // Add stable cache buster for crawlers
-    const cacheBuster = `v=arena-${id || 'home'}`;
+    // Add cache buster for crawlers to ensure fresh preview
+    const cacheBuster = `v=${Date.now()}`;
     ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
@@ -318,7 +316,6 @@ async function startServer() {
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
     
     <!-- Open Graph / Facebook -->
-    <meta property="og:site_name" content="ArenaComp">
     <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
@@ -328,10 +325,13 @@ async function startServer() {
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:type" content="${ogImageUrl.includes('.png') ? 'image/png' : 'image/jpeg'}">
+    <meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}">
+    <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="${shareUrl}">
     <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
     <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
     <meta name="twitter:image" content="${ogImageUrl}">
@@ -1344,8 +1344,8 @@ async function startServer() {
 
       console.log(`[OG-IMAGE] Redirecting to: ${imageUrl}`);
       
-      // Add stable cache buster to ensure fresh preview
-      const cacheBuster = `v=arena-${id}`;
+      // Add cache buster to ensure fresh preview
+      const cacheBuster = `v=${Date.now()}`;
       const finalUrl = imageUrl.includes('?') ? `${imageUrl}&${cacheBuster}` : `${imageUrl}?${cacheBuster}`;
       
       return res.redirect(finalUrl);
