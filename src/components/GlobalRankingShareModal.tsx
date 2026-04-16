@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, Trophy, Users, User, Share2, Loader2, ChevronRight, MessageCircle } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
+import { generateCard, CardData } from '../services/arenaService';
+import { toast } from 'sonner';
 
 interface GlobalRankingShareModalProps {
   isOpen: boolean;
@@ -49,17 +51,21 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
         const { data, error } = await supabaseQuery;
         if (error) throw error;
 
-        setItems((data || []).map(p => ({
-          id: p.id,
-          name: p.full_name || 'Atleta Arena',
-          image: p.profile_photo || p.avatar_url,
-          score: Math.round(p.arena_score || 0),
-          subtitle: `${p.modality || 'Atleta'} • ${p.team || 'Independente'}`
-        })));
+        setItems((data || []).map(p => {
+          let imageUrl = p.profile_photo || p.avatar_url;
+          if (imageUrl && !imageUrl.startsWith('http') && imageUrl.startsWith('/')) {
+            imageUrl = `${window.location.origin}${imageUrl}`;
+          }
+          
+          return {
+            id: p.id,
+            name: p.full_name || 'Atleta Arena',
+            image: imageUrl,
+            score: Math.round(p.arena_score || 0),
+            subtitle: `${p.modality || 'Atleta'} • ${p.team || 'Independente'}`
+          };
+        }));
       } else {
-        // For teams, we use the aggregation or RPC
-        // If query is present, we filter. If not, we get top 10
-        // To be safe and efficient, let's fetch profiles and aggregate if no RPC is reliable for search
         const { data: teamData, error: teamError } = await supabase.rpc('get_team_rankings', {
           p_modality: null,
           p_country_id: null,
@@ -67,13 +73,20 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
         });
 
         if (!teamError && teamData) {
-          let filtered = teamData.map((t: any) => ({
-            id: t.team_id || t.team,
-            name: t.team_name || t.team,
-            image: t.logo_url,
-            score: Math.round(t.total_score || 0),
-            subtitle: `Equipe • ${t.athlete_count} Atletas`
-          }));
+          let filtered = teamData.map((t: any) => {
+            let logoUrl = t.logo_url;
+            if (logoUrl && !logoUrl.startsWith('http') && logoUrl.startsWith('/')) {
+              logoUrl = `${window.location.origin}${logoUrl}`;
+            }
+
+            return {
+              id: t.team_id || t.team,
+              name: t.team_name || t.team,
+              image: logoUrl,
+              score: Math.round(t.total_score || 0),
+              subtitle: `Equipe • ${t.athlete_count} Atletas`
+            };
+          });
 
           if (query) {
             filtered = filtered.filter((t: any) => 
@@ -84,7 +97,6 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
           }
           setItems(filtered);
         } else {
-          // Fallback manually
           const { data: profiles, error: pError } = await supabase
             .from('profiles')
             .select('team, team_id, arena_score')
@@ -122,6 +134,7 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
       }
     } catch (err) {
       console.error('Error fetching items for share modal:', err);
+      toast.error('Erro ao buscar dados do ranking.');
     } finally {
       setLoading(false);
     }
@@ -136,7 +149,6 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
     }
   }, [isOpen, fetchItems]);
 
-  // Debounce search
   useEffect(() => {
     if (!isOpen) return;
     const timer = setTimeout(() => {
@@ -146,6 +158,8 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
   }, [search, fetchItems, isOpen]);
 
   const handleShare = async (item: SelectionItem) => {
+    if (sharing) return; // Prevent double click
+    
     setSharing(item.id);
     const shareType = type === 'athletes' ? 'atleta' : 'equipe';
     
@@ -153,45 +167,50 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
       ? `Veja o ranking de ${item.name} na ArenaComp! 🔥`
       : `Veja o ranking da equipe ${item.name} na ArenaComp! 🏆`;
 
-    const description = type === 'athletes'
-      ? `Confira a posição de ${item.name} no ranking oficial da ArenaComp.`
-      : `Confira a posição da equipe ${item.name} no ranking oficial da ArenaComp.`;
-
-    // Create the standardized share payload
-    const payload = {
-      title: item.name,
-      description: description,
-      image: item.image,
-      type: shareType,
-      athleteName: item.name, // For backwards compatibility
-      achievement: description // For backwards compatibility
-    };
+    const description = `Posição #${item.score} no ranking ArenaComp. Confira agora!`;
 
     try {
-      // Encode standard payload to safe Base64
-      const jsonString = JSON.stringify(payload);
-      const base64Payload = btoa(unescape(encodeURIComponent(jsonString)))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
+      // Use short token system via generateCard
+      const cardData: any = {
+        title: item.name,
+        description: description,
+        image: item.image,
+        athleteName: item.name,
+        achievement: description,
+        modality: type === 'athletes' ? 'Atleta' : 'Equipe',
+        type: shareType,
+        realId: item.id
+      };
 
-      // Generate the URL in the standardized format
-      const shareUrl = `${window.location.origin}/share/${shareType}/${base64Payload}`;
-      console.log('[GlobalRankingShareModal] Sharing URL:', shareUrl);
+      const shareUrl = await generateCard(cardData);
+      console.log('[GlobalRankingShareModal] Sharing URL (Short Token):', shareUrl);
 
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Ranking ArenaComp',
-          text: text,
-          url: shareUrl,
-        });
+      const shareData = {
+        title: 'Ranking ArenaComp',
+        text: text,
+        url: shareUrl,
+      };
+
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        try {
+          await navigator.share(shareData);
+          toast.success('Compartilhado com sucesso!');
+          onClose();
+        } catch (navErr: any) {
+          if (navErr.name !== 'AbortError') {
+            throw navErr;
+          }
+        }
       } else {
         // Fallback to WhatsApp
-        const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text + " " + shareUrl)}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + shareUrl)}`;
         window.open(whatsappUrl, '_blank');
+        toast.info('Abrindo WhatsApp para compartilhar...');
+        onClose();
       }
     } catch (err) {
       console.error('Error sharing:', err);
+      toast.error('Ocorreu um erro ao gerar o link de compartilhamento.');
     } finally {
       setSharing(null);
     }

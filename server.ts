@@ -421,8 +421,13 @@ async function startServer() {
     }
 
     // Ensure ogImageUrl is absolute and HTTPS
-    if (ogImageUrl && ogImageUrl.startsWith('/')) {
-      ogImageUrl = `${baseUrl}${ogImageUrl}`;
+    if (ogImageUrl && !ogImageUrl.startsWith('http') && !ogImageUrl.startsWith('data:')) {
+      if (ogImageUrl.startsWith('/')) {
+        ogImageUrl = `${baseUrl}${ogImageUrl}`;
+      } else {
+        // If it doesn't start with / but is relative, prefix it anyway
+        ogImageUrl = `${baseUrl}/${ogImageUrl}`;
+      }
     }
     
     // Force HTTPS for all image URLs to ensure WhatsApp compatibility
@@ -634,6 +639,30 @@ async function startServer() {
     } catch (e) {
       console.error("[API-SHARE] Error creating share link:", e);
       res.status(500).json({ error: "Failed to create share link" });
+    }
+  });
+
+  app.get("/api/share/token/:token", (req, res) => {
+    const { token } = req.params;
+    try {
+      const shareLink = db.prepare('SELECT * FROM share_links WHERE token = ?').get(token) as any;
+      if (shareLink) {
+        res.json({
+          success: true,
+          data: {
+            title: shareLink.title,
+            description: shareLink.description,
+            image: shareLink.image,
+            type: shareLink.type,
+            created_at: shareLink.created_at
+          }
+        });
+      } else {
+        res.status(404).json({ error: "Token not found" });
+      }
+    } catch (e) {
+      console.error("[API-SHARE] Error fetching token:", e);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 

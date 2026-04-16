@@ -5,6 +5,7 @@ import { Logo } from '../components/Logo';
 import { Trophy, ArrowLeft, Share2, Download, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../services/supabase';
+import { getApiUrl } from '../lib/api';
 import { toast } from 'sonner';
 
 export const SharePage = () => {
@@ -22,49 +23,50 @@ export const SharePage = () => {
       try {
         let data: any = null;
 
-        // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-        if (id.length > 50) {
+        // 1. Tenta buscar via Token Curto (Nova Arquitetura)
+        if (id.length >= 6 && id.length <= 12) {
           try {
-            // Tornamos o Base64 URL-safe de volta para o formato padrão
+            const tokenRes = await fetch(getApiUrl(`/api/share/token/${id}`));
+            if (tokenRes.ok) {
+              const tokenData = await tokenRes.json();
+              if (tokenData.success && tokenData.data) {
+                const s = tokenData.data;
+                data = {
+                  athleteName: s.title,
+                  achievement: s.description,
+                  modality: 'Arena',
+                  mainImageUrl: s.image,
+                  title: s.title,
+                  type: s.type || type,
+                  realId: id
+                };
+                console.log('Dados carregados via Token Curto:', data);
+              }
+            }
+          } catch (tokenErr) {
+            console.warn('Erro ao buscar token curto:', tokenErr);
+          }
+        }
+
+        // 2. Tenta decodificar como Base64 (formato antigo/fallback)
+        if (!data && id.length > 50) {
+          try {
             const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
-            // Usamos decodeURIComponent + escape para garantir suporte a caracteres UTF-8 (acentos, etc)
-            data = JSON.parse(decodeURIComponent(escape(atob(base64))));
+            const decodedString = atob(base64);
+            // Handling UTF-8 decoding properly
+            const jsonString = decodeURIComponent(escape(decodedString));
+            data = JSON.parse(jsonString);
             console.log('Dados decodificados via Base64 URL-Safe (UTF-8):', data);
           } catch (e) {
             console.log('ID longo mas não é Base64 JSON válido ou erro de decodificação UTF-8');
           }
         }
 
-        // 2. Se não decodificou ou se temos um type explícito, busca via API/Supabase
+        // 3. Se não decodificou ou se temos um type explícito, busca via Supabase (Retro-compatibilidade direta)
         if (!data && type) {
-          console.log(`Buscando dados via API para type: ${type}, id: ${id}`);
+          console.log(`Buscando dados via Supabase para type: ${type}, id: ${id}`);
           
-          if (type === 'post' || type === 'clip') {
-            const { data: post } = await supabase
-              .from('posts')
-              .select('*')
-              .eq('id', id)
-              .single();
-            
-            if (post) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username, full_name, profile_photo, modality')
-                .eq('id', post.author_id)
-                .single();
-
-              data = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-                modality: profile?.modality || 'Feed',
-                date: new Date(post.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
-                mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-                type: type,
-                realId: id
-              };
-            }
-          } else if (type === 'profile') {
+          if (type === 'atleta' || type === 'profile') {
             const { data: profile } = await supabase
               .from('profiles')
               .select('*')
@@ -74,12 +76,40 @@ export const SharePage = () => {
             if (profile) {
               data = {
                 athleteName: profile.full_name || 'Atleta Arena',
-                achievement: 'Confira meu perfil na ArenaComp!',
+                achievement: type === 'atleta' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
                 modality: profile.modality || 'Atleta',
                 date: new Date().toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${profile.username}`,
-                mainImageUrl: profile.profile_photo,
-                type: 'profile',
+                profileUrl: `https://arenacomp.com.br/user/@${profile.username}`,
+                mainImageUrl: profile.profile_photo || profile.avatar_url,
+                type: type,
+                realId: id
+              };
+            }
+          } else if (type === 'equipe') {
+            // Simplified team data
+            data = {
+              athleteName: id,
+              achievement: 'Confira nossa equipe no ranking ArenaComp!',
+              modality: 'Equipe',
+              type: 'equipe',
+              realId: id
+            };
+          } else if (type === 'post' || type === 'clip') {
+            const { data: post } = await supabase
+              .from('posts')
+              .select('*, profiles(username, full_name, profile_photo, modality)')
+              .eq('id', id)
+              .single();
+            
+            if (post) {
+              data = {
+                athleteName: post.profiles?.full_name || 'Atleta Arena',
+                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+                modality: post.profiles?.modality || 'Feed',
+                date: new Date(post.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/user/@${post.profiles?.username}`,
+                mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
+                type: type,
                 realId: id
               };
             }
@@ -102,7 +132,7 @@ export const SharePage = () => {
                 achievement: `Certificado: ${cert.name}`,
                 modality: profile?.modality || 'Atleta',
                 date: new Date(cert.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
+                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
                 mainImageUrl: cert.media_url,
                 type: 'certificate',
                 realId: id
@@ -127,7 +157,7 @@ export const SharePage = () => {
                 achievement: `${champ.resultado} no ${champ.championship_name}`,
                 modality: profile?.modality || 'Atleta',
                 date: new Date(champ.data_evento + 'T00:00:00').toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
+                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
                 mainImageUrl: champ.media_url,
                 type: 'championship',
                 realId: id
@@ -152,7 +182,7 @@ export const SharePage = () => {
                 achievement: `Luta no ${fight.evento_nome}`,
                 modality: profile?.modality || 'Atleta',
                 date: new Date(fight.data_luta + 'T00:00:00').toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/@${profile?.username}`,
+                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
                 mainImageUrl: fight.media_url,
                 type: 'fight',
                 realId: id
@@ -184,8 +214,14 @@ export const SharePage = () => {
     const realId = cardData.realId;
 
     if (realId && contentType) {
-      // Usando window.location.href conforme solicitado para garantir o redirecionamento exato
       switch (contentType) {
+        case 'atleta':
+        case 'profile':
+          window.location.href = `/profile/${realId}`;
+          break;
+        case 'equipe':
+          window.location.href = `/rankings`;
+          break;
         case 'post':
           window.location.href = `/feed/post/${realId}`;
           break;
@@ -197,9 +233,6 @@ export const SharePage = () => {
           break;
         case 'championship':
           window.location.href = `/championships/${realId}`;
-          break;
-        case 'profile':
-          window.location.href = `/profile/${realId}`;
           break;
         case 'fight':
           window.location.href = `/fights/${realId}`;
