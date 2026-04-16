@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database, Share2 } from 'lucide-react';
 import { EliteArena } from './EliteArena';
 import { RankingShareModal } from './RankingShareModal';
@@ -8,6 +8,7 @@ import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
 import { getAthleteRankings } from '../services/arenaService';
+import { toast } from 'sonner';
 
 interface TeamRanking {
   team_id: string;
@@ -17,8 +18,10 @@ interface TeamRanking {
   athlete_count: number;
 }
 
-export const ArenaRankings: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'athletes' | 'teams'>('athletes');
+export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({ initialTab }) => {
+  const { id: teamIdFromUrl } = useParams<{ id: string }>();
+  const [activeTab, setActiveTab] = useState<'athletes' | 'teams'>(initialTab || 'athletes');
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teamIdFromUrl || null);
   const [rankings, setRankings] = useState<ArenaProfile[]>([]);
   const [teamRankings, setTeamRankings] = useState<TeamRanking[]>([]);
   const [availableLocations, setAvailableLocations] = useState<{city: string, country: string, city_id?: string, country_id?: string}[]>([]);
@@ -41,6 +44,23 @@ export const ArenaRankings: React.FC = () => {
     fetchDbCountries();
     fetchCurrentUser();
   }, []);
+
+  useEffect(() => {
+    let title = "Rankings | ArenaComp";
+    let description = "Confira os melhores atletas e equipes de Jiu-Jitsu no Ranking Oficial ArenaComp.";
+    
+    if (activeTab === 'athletes') {
+      title = "Ranking de Atletas | ArenaComp";
+      description = "Veja quem são os atletas de elite que lideram o Ranking ArenaComp nesta temporada.";
+    } else {
+      title = "Ranking de Equipes | ArenaComp";
+      description = "As academias mais fortes do Brasil e do mundo no Ranking de Equipes ArenaComp.";
+    }
+    
+    document.title = title;
+    const metaDesc = document.querySelector('meta[name="description"]');
+    if (metaDesc) metaDesc.setAttribute('content', description);
+  }, [activeTab]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -394,6 +414,32 @@ export const ArenaRankings: React.FC = () => {
     }
   };
 
+  const handleShareGeneralRanking = () => {
+    let id = activeTab === 'athletes' ? 'atletas' : 'equipes';
+    let shareUrl = `${window.location.origin}/ranking/${id}`;
+    let shareTitle = activeTab === 'athletes' ? 'Ranking de Atletas ArenaComp' : 'Ranking de Equipes ArenaComp';
+    
+    if (activeTab === 'teams' && selectedTeamId) {
+      shareUrl = `${window.location.origin}/ranking/equipe/${selectedTeamId}`;
+      shareTitle = 'Equipe no Ranking ArenaComp';
+    }
+
+    if (navigator.share) {
+      navigator.share({
+        title: shareTitle,
+        text: `Confira o ${shareTitle} na plataforma ArenaComp!`,
+        url: shareUrl
+      }).catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error('Error sharing:', err);
+        }
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      toast.success('Link do ranking copiado para a área de transferência!');
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
       {/* Header */}
@@ -405,17 +451,32 @@ export const ArenaRankings: React.FC = () => {
           <p className="text-[var(--text-muted)] text-xs uppercase tracking-[0.3em] font-bold">O topo do esporte nacional</p>
         </div>
 
-        {currentUser && userRankings && (
+        <div className="flex flex-wrap justify-center gap-3">
+          {currentUser && userRankings && (
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => setIsShareModalOpen(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
+            >
+              <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
+              <span>Compartilhar Meu Ranking</span>
+            </motion.button>
+          )}
+
           <motion.button
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            onClick={() => setIsShareModalOpen(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
+            onClick={handleShareGeneralRanking}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 border border-blue-500/20 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-600/20 transition-all hover:scale-105 group"
           >
-            <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
-            <span>Compartilhar Meu Ranking</span>
+            <Share2 size={14} className="group-hover:rotate-12 transition-transform" />
+            <span>
+              {activeTab === 'athletes' ? 'Compartilhar Ranking Atletas' : 
+               selectedTeamId ? 'Compartilhar Ranking Equipe' : 'Compartilhar Ranking Equipes'}
+            </span>
           </motion.button>
-        )}
+        </div>
       </div>
 
       {/* Elite Arena Section */}
@@ -607,7 +668,12 @@ export const ArenaRankings: React.FC = () => {
               teamRankings.map((team, index) => (
                 <div 
                   key={team.team_id}
-                  className="grid grid-cols-12 p-4 items-center hover:bg-[var(--primary)]/5 transition-colors"
+                  onClick={() => setSelectedTeamId(selectedTeamId === team.team_id ? null : team.team_id)}
+                  className={`grid grid-cols-12 p-4 items-center transition-all cursor-pointer border-l-4 ${
+                    selectedTeamId === team.team_id 
+                      ? 'bg-blue-600/10 border-blue-600' 
+                      : 'hover:bg-[var(--primary)]/5 border-transparent'
+                  }`}
                 >
                   <div className="col-span-1 text-center">
                     {index < 3 ? (
@@ -623,7 +689,9 @@ export const ArenaRankings: React.FC = () => {
                     )}
                   </div>
                   <div className="col-span-8 md:col-span-7 flex items-center space-x-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 flex items-center justify-center text-[var(--primary)] flex-shrink-0 overflow-hidden">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                      selectedTeamId === team.team_id ? 'bg-blue-600/20 text-blue-600' : 'bg-[var(--primary)]/10 text-[var(--primary)]'
+                    }`}>
                       {team.logo_url ? (
                         <img src={team.logo_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
@@ -631,12 +699,16 @@ export const ArenaRankings: React.FC = () => {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-sm text-[var(--text-main)] truncate">{team.team_name}</h3>
+                      <h3 className={`font-bold text-sm truncate ${selectedTeamId === team.team_id ? 'text-blue-500' : 'text-[var(--text-main)]'}`}>
+                        {team.team_name}
+                      </h3>
                       <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest truncate">Equipe / Academia</p>
                     </div>
                   </div>
                   <div className="col-span-3 md:col-span-2 text-center">
-                    <span className="text-[var(--primary)] font-extrabold text-sm">{Math.round(team.total_score)}</span>
+                    <span className={`font-extrabold text-sm ${selectedTeamId === team.team_id ? 'text-blue-500' : 'text-[var(--primary)]'}`}>
+                      {Math.round(team.total_score)}
+                    </span>
                   </div>
                   <div className="col-span-2 text-center hidden md:block">
                     <span className="text-[var(--text-muted)] font-bold text-sm">{team.athlete_count}</span>

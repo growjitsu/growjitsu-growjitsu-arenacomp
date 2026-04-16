@@ -415,6 +415,9 @@ function AppContent() {
       <Route path="/privacidade" element={<PrivacyPage />} />
       <Route path="/cookies" element={<CookiesPage />} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
+      <Route path="/ranking/atletas" element={renderLayout(<ArenaRankings initialTab="athletes" />, 'rankings')} />
+      <Route path="/ranking/equipes" element={renderLayout(<ArenaRankings initialTab="teams" />, 'rankings')} />
+      <Route path="/ranking/equipe/:id" element={renderLayout(<ArenaRankings initialTab="teams" />, 'rankings')} />
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
       <Route path="/profile" element={renderLayout(<ProfileWrapper />, 'profile')} />
