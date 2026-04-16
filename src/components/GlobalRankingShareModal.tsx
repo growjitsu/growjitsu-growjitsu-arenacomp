@@ -163,16 +163,16 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
     setSharing(item.id);
     const shareType = type === 'athletes' ? 'atleta' : 'equipe';
     
-    const text = type === 'athletes' 
-      ? `Veja o ranking de ${item.name} na ArenaComp! 🔥`
-      : `Veja o ranking da equipe ${item.name} na ArenaComp! 🏆`;
-
-    const description = `Posição #${item.score} no ranking ArenaComp. Confira agora!`;
+    // Padronização conforme solicitado:
+    // Título: {nome} no ranking ArenaComp
+    // Descrição: Posição #{posicao} no ranking. Veja agora no ArenaComp.
+    const title = `${item.name} no ranking ArenaComp`;
+    const description = `Posição #${item.score} no ranking. Veja agora no ArenaComp.`;
 
     try {
       // Use short token system via generateCard
       const cardData: any = {
-        title: item.name,
+        title: title,
         description: description,
         image: item.image,
         athleteName: item.name,
@@ -187,7 +187,7 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
 
       const shareData = {
         title: 'Ranking ArenaComp',
-        text: text,
+        text: title,
         url: shareUrl,
       };
 
@@ -203,7 +203,7 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
         }
       } else {
         // Fallback to WhatsApp
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + shareUrl)}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(title + " " + shareUrl)}`;
         window.open(whatsappUrl, '_blank');
         toast.info('Abrindo WhatsApp para compartilhar...');
         onClose();

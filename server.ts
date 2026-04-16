@@ -237,7 +237,7 @@ async function startServer() {
                 modality: post.profiles?.modality || 'Arena'
               };
             }
-          } else if (type === 'profile' || type === 'ranking') {
+          } else if (type === 'profile') {
             const { data: profile } = await supabaseAdmin
               .from('profiles')
               .select('*')
@@ -247,9 +247,9 @@ async function startServer() {
             if (profile) {
               cardData = {
                 athleteName: profile.full_name || 'Atleta Arena',
-                achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-                mainImageUrl: profile.profile_photo,
-                title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
+                achievement: 'Confira meu perfil na ArenaComp!',
+                mainImageUrl: profile.profile_photo || profile.avatar_url,
+                title: 'Perfil ArenaComp',
                 modality: profile.modality || 'Arena'
               };
             }
@@ -304,7 +304,7 @@ async function startServer() {
                 modality: fight.profiles?.modality || 'Arena'
               };
             }
-          } else if (type === 'ranking-atleta') {
+          } else if (type === 'ranking-atleta' || type === 'atleta' || type === 'ranking') {
             const { data: profile } = await supabaseAdmin
               .from('profiles')
               .select('*')
@@ -324,11 +324,11 @@ async function startServer() {
                 athleteName: profile.full_name || 'Atleta Arena',
                 achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
                 mainImageUrl: profile.profile_photo || profile.avatar_url,
-                title: `${profile.full_name || 'Atleta'} está no ranking ArenaComp`,
+                title: `${profile.full_name || 'Atleta'} no ranking ArenaComp`,
                 modality: profile.modality || 'Arena'
               };
             }
-          } else if (type === 'ranking-equipe') {
+          } else if (type === 'ranking-equipe' || type === 'equipe') {
             // First try to find team in the teams table for the logo
             const { data: teamData } = await supabaseAdmin
               .from('teams')
@@ -363,7 +363,7 @@ async function startServer() {
                 athleteName: actualTeamName,
                 achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
                 mainImageUrl: logoUrl,
-                title: `${actualTeamName} está no ranking ArenaComp`,
+                title: `${actualTeamName} no ranking ArenaComp`,
                 modality: 'Equipe'
               };
             } else if (teamData) {
@@ -372,7 +372,7 @@ async function startServer() {
                 athleteName: teamName,
                 achievement: `Veja o ranking da equipe ${teamName} no ArenaComp.`,
                 mainImageUrl: logoUrl,
-                title: `${teamName} está no ranking ArenaComp`,
+                title: `${teamName} no ranking ArenaComp`,
                 modality: 'Equipe'
               };
             }
