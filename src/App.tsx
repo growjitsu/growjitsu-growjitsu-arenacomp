@@ -244,24 +244,24 @@ function AppContent() {
         />
         
         {/* Mobile Header */}
-        <header className={`md:hidden fixed top-0 left-0 right-0 h-16 flex items-center justify-between px-6 z-40 transition-all duration-500 ${tabId === 'rankings' ? 'bg-[var(--bg)] border-b border-[var(--border-ui)]' : 'bg-transparent'}`}>
+        <header className={`md:hidden fixed top-0 left-0 right-0 h-14 flex items-center justify-between px-4 z-40 transition-all duration-500 ${tabId === 'rankings' ? 'bg-[var(--bg)] border-b border-[var(--border-ui)]' : 'bg-transparent'}`}>
           <div className="flex items-center cursor-pointer" onClick={() => navigate('/')}>
-            <Logo size={32} showText={true} />
+            <Logo showText={true} />
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
             <button 
               onClick={() => navigate('/search')}
-              className="p-2.5 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
+              className="p-2 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
             >
-              <Search size={20} />
+              <Search size={18} />
             </button>
             <button 
               onClick={() => navigate('/notifications')}
-              className="relative p-2.5 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
+              className="relative p-2 text-[var(--text-muted)] bg-[var(--surface)]/50 rounded-xl border border-[var(--border-ui)]"
             >
-              <Bell size={20} />
+              <Bell size={18} />
               {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[9px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)] shadow-lg">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-[var(--bg)] shadow-lg">
                   {unreadNotifications}
                 </span>
               )}
