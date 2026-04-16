@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useParams } from 'react-router-dom';
-import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X, MoreVertical, Trash2, Edit2, Archive, RotateCcw, ChevronRight, ExternalLink } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Award, Plus, Image as ImageIcon, User, Video, X, MoreVertical, Trash2, Edit2, Archive, RotateCcw, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
 import { supabase } from '../services/supabase';
@@ -60,6 +60,30 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [currentInFeedAdIndex, setCurrentInFeedAdIndex] = useState(0);
   const [currentTopAdIndex, setCurrentTopAdIndex] = useState(0);
+
+  const handlePrevTopAd = (e: React.MouseEvent, topAds: ArenaAd[]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentTopAdIndex(prev => (prev - 1 + topAds.length) % topAds.length);
+  };
+
+  const handleNextTopAd = (e: React.MouseEvent, topAds: ArenaAd[]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentTopAdIndex(prev => (prev + 1) % topAds.length);
+  };
+
+  const handlePrevInFeedAd = (e: React.MouseEvent, inFeedAds: ArenaAd[]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentInFeedAdIndex(prev => (prev - 1 + inFeedAds.length) % inFeedAds.length);
+  };
+
+  const handleNextInFeedAd = (e: React.MouseEvent, inFeedAds: ArenaAd[]) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentInFeedAdIndex(prev => (prev + 1) % inFeedAds.length);
+  };
 
   // Rotation for In-Feed Ads
   useEffect(() => {
@@ -851,8 +875,28 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
-                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/promo overflow-hidden shadow-2xl"
+                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/promo overflow-hidden shadow-2xl relative"
                       >
+                        {/* Manual Navigation Arrows */}
+                        {topAds.length > 1 && (
+                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
+                            <button
+                              onClick={(e) => handlePrevTopAd(e, topAds)}
+                              className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                              aria-label="Anúncio anterior"
+                            >
+                              <ChevronLeft size={18} />
+                            </button>
+                            <button
+                              onClick={(e) => handleNextTopAd(e, topAds)}
+                              className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                              aria-label="Próximo anúncio"
+                            >
+                              <ChevronRight size={18} />
+                            </button>
+                          </div>
+                        )}
+
                         {adMediaUrl && (
                           <div className="w-full md:w-64 aspect-[4/1] md:aspect-[12/3] rounded-xl overflow-hidden flex-shrink-0 bg-black border border-white/5">
                             {isVideo ? (
@@ -1240,6 +1284,26 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             onViewportEnter={() => trackAdEvent(currentAd.id, 'impression', userProfile?.id)}
                             className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/promo shadow-2xl"
                           >
+                            {/* Manual Navigation Arrows */}
+                            {inFeedAds.length > 1 && (
+                              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
+                                <button
+                                  onClick={(e) => handlePrevInFeedAd(e, inFeedAds)}
+                                  className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                                  aria-label="Anúncio anterior"
+                                >
+                                  <ChevronLeft size={18} />
+                                </button>
+                                <button
+                                  onClick={(e) => handleNextInFeedAd(e, inFeedAds)}
+                                  className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                                  aria-label="Próximo anúncio"
+                                >
+                                  <ChevronRight size={18} />
+                                </button>
+                              </div>
+                            )}
+
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center space-x-2">
                                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Patrocinado</span>

@@ -5,7 +5,7 @@ import {
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy, VenusAndMars,
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
-  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye
+  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
@@ -24,7 +24,6 @@ import { isProfileComplete, getMissingProfileFields } from '../utils/profileVali
 import { AchievementCard } from './AchievementCard';
 import { ShareModal } from './ShareModal';
 import { trackAdEvent } from '../services/adService';
-import { ExternalLink, ChevronRight } from 'lucide-react';
 
 export const ArenaProfileView: React.FC<{ 
   userId?: string; 
@@ -96,6 +95,18 @@ export const ArenaProfileView: React.FC<{
   const [dbCountries, setDbCountries] = useState<any[]>([]);
   const [ads, setAds] = useState<ArenaAd[]>([]);
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
+
+  const handlePrevAd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentAdIndex(prev => (prev - 1 + ads.length) % ads.length);
+  };
+
+  const handleNextAd = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentAdIndex(prev => (prev + 1) % ads.length);
+  };
 
   const fetchAds = async () => {
     // This is now handled by the onSnapshot listener in useEffect
@@ -2829,6 +2840,26 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
                 return (
                   <div className="relative">
+                    {/* Manual Navigation Arrows */}
+                    {ads.length > 1 && (
+                      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-30 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
+                        <button
+                          onClick={handlePrevAd}
+                          className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[var(--primary)] transition-all pointer-events-auto shadow-lg"
+                          aria-label="Anúncio anterior"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button
+                          onClick={handleNextAd}
+                          className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[var(--primary)] transition-all pointer-events-auto shadow-lg"
+                          aria-label="Próximo anúncio"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    )}
+
                     {/* Ad Label */}
                     <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)]/90 backdrop-blur-md rounded-xl shadow-lg border border-white/20">
                       <Zap size={12} className="text-white fill-white animate-pulse" />

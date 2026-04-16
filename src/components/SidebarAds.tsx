@@ -36,6 +36,18 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
   const adMediaUrl = currentAd.media_url_sidebar || currentAd.media_url;
   const isVideo = adMediaUrl?.match(/\.(mp4|webm|ogg|mov)$/i) || adMediaUrl?.includes('video');
 
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + sidebarAds.length) % sidebarAds.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % sidebarAds.length);
+  };
+
   return (
     <div className="sticky top-[24px] space-y-6 max-h-[calc(100vh-120px)] overflow-y-auto pr-2 custom-scrollbar pb-10">
       <AnimatePresence mode="wait">
@@ -47,6 +59,26 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
           transition={{ duration: 0.5 }}
           className="group relative bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--border-ui)] rounded-[2.5rem] overflow-hidden hover:border-[var(--primary)]/40 transition-all duration-500 shadow-2xl"
         >
+          {/* Manual Navigation Arrows */}
+          {sidebarAds.length > 1 && (
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button
+                onClick={handlePrev}
+                className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[var(--primary)] transition-all pointer-events-auto shadow-lg"
+                aria-label="Anúncio anterior"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={handleNext}
+                className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[var(--primary)] transition-all pointer-events-auto shadow-lg"
+                aria-label="Próximo anúncio"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+
           <a 
             href={currentAd.link_url} 
             target="_blank" 
