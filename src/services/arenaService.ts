@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { ArenaFight, ArenaProfile, Team } from '../types';
+import { getApiUrl } from '../lib/api';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
   // Fetch all fights for the athlete
@@ -184,10 +185,36 @@ export const generateCard = async (data: CardData) => {
   // Se tivermos o realId e o type, usamos o novo formato curto para evitar URI_TOO_LONG
   if (data.type && data.realId) {
     const shareUrl = generateShareLink({ type: data.type, id: data.realId });
-    console.log('[arenaService] URL curta gerada:', shareUrl);
+    console.log('[arenaService] URL direta gerada:', shareUrl);
     return shareUrl;
   }
 
+  // --- ARQUITETURA DE TOKEN CURTO (Short Link) ---
+  try {
+    const response = await fetch(getApiUrl('/api/share/create'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: data.title || data.athleteName || 'ArenaComp',
+        description: data.description || data.achievement || 'Confira este conteúdo na ArenaComp!',
+        image: data.image || data.mainImageUrl,
+        type: data.type || 'post'
+      })
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.shareUrl) {
+        const fullUrl = `${window.location.origin}${result.shareUrl}`;
+        console.log('[arenaService] Link curto (Token) gerado via API:', fullUrl);
+        return fullUrl;
+      }
+    }
+  } catch (err) {
+    console.warn('[arenaService] Erro ao criar link curto, usando fallback Base64:', err);
+  }
+
+  // --- FALLBACK: Base64 Decoding (Retro-compatibilidade) ---
   try {
     // Standardize the payload to { title, description, image, type }
     const standardizedPayload = {
@@ -195,7 +222,6 @@ export const generateCard = async (data: CardData) => {
       description: data.description || data.achievement || 'Confira este conteúdo na ArenaComp!',
       image: data.image || data.mainImageUrl,
       type: data.type || 'post',
-      // Maintain extra fields for backward compatibility if needed by the server fallback
       athleteName: data.athleteName,
       achievement: data.achievement,
       modality: data.modality,

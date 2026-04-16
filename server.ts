@@ -103,7 +103,26 @@ db.exec(`
     score_a2 TEXT,
     FOREIGN KEY(championship_id) REFERENCES championships(id)
   );
+
+  CREATE TABLE IF NOT EXISTS share_links (
+    token TEXT PRIMARY KEY,
+    title TEXT,
+    description TEXT,
+    image TEXT,
+    type TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
 `);
+
+function generateShortToken(length = 8) {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let token = '';
+  for (let i = 0; i < length; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
 
 async function startServer() {
   const app = express();
@@ -150,9 +169,29 @@ async function startServer() {
           mainImageUrl: ARENA_LOGO_IMAGE // Always use official logo
         };
       } else {
-        // --- 1. PRIORITY: Base64 Decoding ---
+        // --- 1. PRIORITY: Short Token Lookup ---
+        if (id && id.length >= 6 && id.length <= 12) {
+          try {
+            const shareLink = db.prepare('SELECT * FROM share_links WHERE token = ?').get(id) as any;
+            if (shareLink) {
+              cardData = {
+                title: shareLink.title,
+                achievement: shareLink.description,
+                mainImageUrl: shareLink.image,
+                type: shareLink.type,
+                athleteName: shareLink.title,
+                modality: 'Arena'
+              };
+              console.log(`[OG-TAGS] Successfully retrieved short link data for token: ${id}`);
+            }
+          } catch (e) {
+            console.error(`[OG-TAGS] Error looking up token ${id}:`, e);
+          }
+        }
+
+        // --- 2. SECOND PRIORITY: Base64 Decoding (Retro-compatibility) ---
         // Check if ID looks like a Base64 payload (typically longer and no dots)
-        if (id && id.length > 30) {
+        if (!cardData && id && id.length > 30) {
           try {
             // Support URL-safe Base64
             const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
@@ -557,6 +596,45 @@ async function startServer() {
     res.setHeader('Expires', '0');
     
     next();
+  });
+
+  // --- NEW: SHORT LINK CREATION API ---
+  app.post("/api/share/create", (req, res) => {
+    const { title, description, image, type } = req.body;
+    
+    if (!title || !description) {
+      return res.status(400).json({ error: "Title and description are required" });
+    }
+
+    // Security: Filter out Base64 images if they somehow payloaded here
+    let imageUrl = image;
+    if (imageUrl && imageUrl.startsWith('data:image')) {
+      console.warn('[API-SHARE] Ignored Base64 image in share creation');
+      imageUrl = null; 
+    }
+
+    // Logic for official fallback image if no image provided
+    if (!imageUrl) {
+      const host = (req.get('x-forwarded-host') || req.get('host'));
+      imageUrl = `https://${host}/logo-arenacomp.jpg`;
+    }
+
+    const token = generateShortToken(8);
+    
+    try {
+      db.prepare('INSERT INTO share_links (token, title, description, image, type) VALUES (?, ?, ?, ?, ?)')
+        .run(token, title, description, imageUrl, type || 'post');
+      
+      console.log(`[API-SHARE] Created short link: ${token} for type: ${type}`);
+      res.json({ 
+        success: true,
+        token, 
+        shareUrl: `/share/${type || 'post'}/${token}` 
+      });
+    } catch (e) {
+      console.error("[API-SHARE] Error creating share link:", e);
+      res.status(500).json({ error: "Failed to create share link" });
+    }
   });
 
   // 0.1. CRITICAL API ROUTE - ANALYTICS
