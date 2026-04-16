@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database, Share2 } from 'lucide-react';
 import { EliteArena } from './EliteArena';
 import { RankingShareModal } from './RankingShareModal';
+import { GlobalRankingShareModal } from './GlobalRankingShareModal';
 import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
@@ -29,6 +30,7 @@ export const ArenaRankings: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<ArenaProfile | null>(null);
   const [userRankings, setUserRankings] = useState<{world: number, national: number, city: number} | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isGlobalShareModalOpen, setIsGlobalShareModalOpen] = useState(false);
   const [filter, setFilter] = useState({
     scope: 'Mundial',
     modality: 'Todas',
@@ -406,15 +408,26 @@ export const ArenaRankings: React.FC = () => {
         </div>
 
         {currentUser && userRankings && (
-          <motion.button
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={() => setIsShareModalOpen(true)}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
-          >
-            <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
-            <span>Compartilhar Meu Ranking</span>
-          </motion.button>
+          <div className="flex flex-wrap justify-center gap-4">
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => setIsShareModalOpen(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
+            >
+              <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
+              <span>Compartilhar Meu Ranking</span>
+            </motion.button>
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              onClick={() => setIsGlobalShareModalOpen(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 border border-transparent rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group shadow-lg shadow-[var(--primary)]/20"
+            >
+              <Share2 size={14} className="text-white group-hover:rotate-12 transition-transform" />
+              <span>Compartilhar Ranking</span>
+            </motion.button>
+          </div>
         )}
       </div>
 
@@ -669,6 +682,12 @@ export const ArenaRankings: React.FC = () => {
           }}
         />
       )}
+
+      <GlobalRankingShareModal 
+        isOpen={isGlobalShareModalOpen}
+        onClose={() => setIsGlobalShareModalOpen(false)}
+        type={activeTab}
+      />
     </div>
   );
 };

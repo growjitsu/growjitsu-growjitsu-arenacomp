@@ -241,6 +241,60 @@ async function startServer() {
                 modality: fight.profiles?.modality || 'Arena'
               };
             }
+          } else if (type === 'ranking-atleta') {
+            const { data: profile } = await supabaseAdmin
+              .from('profiles')
+              .select('*')
+              .eq('id', id)
+              .single();
+            
+            if (profile) {
+              const { count: rankCount } = await supabaseAdmin
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .neq('role', 'admin')
+                .eq('perfil_publico', true)
+                .gt('arena_score', profile.arena_score || 0);
+
+              const rank = (rankCount || 0) + 1;
+              cardData = {
+                athleteName: profile.full_name || 'Atleta Arena',
+                achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
+                mainImageUrl: profile.profile_photo || profile.avatar_url,
+                title: `${profile.full_name || 'Atleta'} está no ranking ArenaComp`,
+                modality: profile.modality || 'Arena'
+              };
+            }
+          } else if (type === 'ranking-equipe') {
+            const { data: teamProfiles } = await supabaseAdmin
+              .from('profiles')
+              .select('arena_score, team, team_id')
+              .or(`team_id.eq."${id}",team.eq."${id}"`);
+            
+            if (teamProfiles && teamProfiles.length > 0) {
+              const teamName = teamProfiles[0].team || id;
+              const teamId = teamProfiles[0].team_id || teamName;
+              
+              const { data: allRankings } = await supabaseAdmin.rpc('get_team_rankings');
+              let rank = 1;
+              let logoUrl = null;
+              if (allRankings) {
+                const sorted = allRankings.sort((a: any, b: any) => (b.total_score || 0) - (a.total_score || 0));
+                const idx = sorted.findIndex((t: any) => (t.team_id === teamId || t.team_name === teamName));
+                if (idx !== -1) {
+                  rank = idx + 1;
+                  logoUrl = sorted[idx].logo_url;
+                }
+              }
+
+              cardData = {
+                athleteName: teamName,
+                achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
+                mainImageUrl: logoUrl,
+                title: `${teamName} está no ranking ArenaComp`,
+                modality: 'Equipe'
+              };
+            }
           }
         }
       }
@@ -377,6 +431,13 @@ async function startServer() {
       
       // 2. Handle /post/:id, /profile/:id, etc. directly
       if (pathParts.length >= 2) {
+        // Support /ranking/atleta/:id and /ranking/equipe/:id
+        if (pathParts[0] === 'ranking' && pathParts.length >= 3) {
+           const subType = pathParts[1]; // atleta or equipe
+           req.params = { type: `ranking-${subType}`, id: pathParts[2] };
+           return handleShareRequest(req, res, next);
+        }
+
         const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
         const id = pathParts[1];
         const validTypes = ['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championship', 'eventos'];

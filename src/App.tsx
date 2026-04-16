@@ -414,6 +414,8 @@ function AppContent() {
       <Route path="/termos" element={<TermsPage />} />
       <Route path="/privacidade" element={<PrivacyPage />} />
       <Route path="/cookies" element={<CookiesPage />} />
+      <Route path="/ranking/atleta/:id" element={<Navigate to="/rankings" replace />} />
+      <Route path="/ranking/equipe/:id" element={<Navigate to="/rankings" replace />} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
