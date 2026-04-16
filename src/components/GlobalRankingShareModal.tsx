@@ -148,13 +148,37 @@ export const GlobalRankingShareModal: React.FC<GlobalRankingShareModalProps> = (
   const handleShare = async (item: SelectionItem) => {
     setSharing(item.id);
     const shareType = type === 'athletes' ? 'atleta' : 'equipe';
-    const shareUrl = `${window.location.origin}/ranking/${shareType}/${item.id}`;
     
     const text = type === 'athletes' 
       ? `Veja o ranking de ${item.name} na ArenaComp! 🔥`
       : `Veja o ranking da equipe ${item.name} na ArenaComp! 🏆`;
 
+    const description = type === 'athletes'
+      ? `Confira a posição de ${item.name} no ranking oficial da ArenaComp.`
+      : `Confira a posição da equipe ${item.name} no ranking oficial da ArenaComp.`;
+
+    // Create the standardized share payload
+    const payload = {
+      title: item.name,
+      description: description,
+      image: item.image,
+      type: shareType,
+      athleteName: item.name, // For backwards compatibility
+      achievement: description // For backwards compatibility
+    };
+
     try {
+      // Encode standard payload to safe Base64
+      const jsonString = JSON.stringify(payload);
+      const base64Payload = btoa(unescape(encodeURIComponent(jsonString)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      // Generate the URL in the standardized format
+      const shareUrl = `${window.location.origin}/share/${shareType}/${base64Payload}`;
+      console.log('[GlobalRankingShareModal] Sharing URL:', shareUrl);
+
       if (navigator.share) {
         await navigator.share({
           title: 'Ranking ArenaComp',

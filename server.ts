@@ -129,6 +129,9 @@ async function startServer() {
     // Check if it's the root path (home)
     const isHome = !type && (!id || id === 'undefined' || id === '/');
 
+    // Official logo mapping for homepage
+    const OFFICIAL_LOGO_URL = ARENA_LOGO_IMAGE.startsWith('http') ? ARENA_LOGO_IMAGE : `https://${req.get('host')}${ARENA_LOGO_IMAGE}`;
+
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
     if (req.url.startsWith('/api') || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
@@ -143,23 +146,41 @@ async function startServer() {
           achievement: 'A plataforma definitiva para atletas e organizadores de Jiu-Jitsu. Compartilhe suas conquistas e acompanhe rankings.',
           title: 'ArenaComp - Jiu-Jitsu Platform',
           modality: 'Jiu-Jitsu',
-          profileUrl: 'https://www.arenacomp.com.br'
+          profileUrl: 'https://www.arenacomp.com.br',
+          mainImageUrl: ARENA_LOGO_IMAGE // Always use official logo
         };
       } else {
-        // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-        if (id && id.length > 40) {
+        // --- 1. PRIORITY: Base64 Decoding ---
+        // Check if ID looks like a Base64 payload (typically longer and no dots)
+        if (id && id.length > 30) {
           try {
+            // Support URL-safe Base64
             const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
-            const decoded = JSON.parse(jsonString);
-            if (decoded && decoded.athleteName) {
-              cardData = decoded;
+            const decodedString = Buffer.from(base64, 'base64').toString('utf-8');
+            
+            // Try to parse JSON
+            const decoded = JSON.parse(decodedString);
+            
+            // Standardize decoded data
+            if (decoded && (decoded.title || decoded.athleteName)) {
+              cardData = {
+                title: decoded.title || decoded.athleteName,
+                achievement: decoded.description || decoded.achievement,
+                mainImageUrl: decoded.image || decoded.mainImageUrl,
+                type: decoded.type || type,
+                athleteName: decoded.athleteName || decoded.title,
+                modality: decoded.modality || 'Arena'
+              };
+              console.log(`[OG-TAGS] Successfully decoded Base64 payload for ${id}`);
             }
-          } catch (e) {}
+          } catch (e) {
+            // Not a valid Base64 JSON, continue to fallback
+          }
         }
 
-        // 2. Se não decodificou e temos type, busca no Supabase usando ADMIN
+        // --- 2. FALLBACK: Type-based lookup (Retro-compatibility) ---
         if (!cardData && type && id) {
+          // If Base64 decoding failed or wasn't present, use the fallback logic
           if (type === 'post' || type === 'clip') {
             const { data: post } = await supabaseAdmin
               .from('posts')
@@ -378,6 +399,15 @@ async function startServer() {
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
+    
+    // Safety check for ogImageUrl
+    if (isHome) {
+      ogImageUrl = ARENA_LOGO_IMAGE;
+    }
+    
+    if (ogImageUrl && ogImageUrl.startsWith('/')) {
+       ogImageUrl = `${baseUrl}${ogImageUrl}`;
+    }
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
     if (!isCrawler) {

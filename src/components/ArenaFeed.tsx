@@ -551,14 +551,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   const handleShare = async (post: ArenaPost) => {
-    console.log('🔗 SHARE DATA:', {
-      type: 'post',
-      id: post.id,
-      fullData: post
-    });
-    const shareUrl = `${window.location.origin}/share/post/${post.id}`;
-    
-    let firstImageUrl = post.media_url;
+    let firstImageUrl = post.media_url || '';
     try {
       if (post.media_url?.startsWith('[')) {
         const urls = JSON.parse(post.media_url);
@@ -566,27 +559,36 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
       }
     } catch (e) {}
 
-    setShareModalData({
-      title: 'Compartilhar Postagem',
-      subtitle: post.content || 'Confira esta postagem na ArenaComp!',
-      url: shareUrl,
-      imageUrl: firstImageUrl,
-      onGenerate: () => {
-        setAchievementData({
-          title: 'Nova Postagem',
-          athleteName: post.author?.full_name || 'Atleta Arena',
-          achievement: post.content || 'Compartilhou um post',
-          modality: 'Feed',
-          date: new Date(post.created_at).toLocaleDateString(),
-          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
-          type: 'post',
-          realId: post.id,
-          mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0])
-        });
-        setIsAchievementCardOpen(true);
-      }
-    });
-    setIsShareModalOpen(true);
+    const cardData: CardData = {
+      title: post.author?.full_name || 'Postagem Arena',
+      description: post.content || 'Confira esta postagem na ArenaComp!',
+      image: firstImageUrl,
+      type: 'post',
+      athleteName: post.author?.full_name || 'Atleta Arena',
+      achievement: post.content || 'Compartilhou um post',
+      modality: 'Feed',
+      date: new Date(post.created_at).toLocaleDateString(),
+      realId: post.id,
+      mainImageUrl: firstImageUrl
+    };
+
+    try {
+      const shareUrl = await generateCard(cardData);
+      
+      setShareModalData({
+        title: 'Compartilhar Postagem',
+        subtitle: post.content || 'Confira esta postagem na ArenaComp!',
+        url: shareUrl,
+        imageUrl: firstImageUrl,
+        onGenerate: () => {
+          setAchievementData(cardData);
+          setIsAchievementCardOpen(true);
+        }
+      });
+      setIsShareModalOpen(true);
+    } catch (err) {
+      console.error('Error generating share link:', err);
+    }
   };
 
   const compressImage = (file: File, targetRatio: '4:5' | '1:1' | '1.91:1' | 'original' = 'original'): Promise<Blob> => {

@@ -154,13 +154,15 @@ export const getTeams = async () => {
 
 export interface CardData {
   title?: string;
+  description?: string;
+  image?: string;
   athleteName: string;
   achievement: string;
   modality: string;
   date?: string;
-  profileUrl: string;
+  profileUrl?: string;
   mainImageUrl?: string;
-  type?: 'post' | 'certificate' | 'clip' | 'profile' | 'ranking';
+  type?: 'post' | 'certificate' | 'clip' | 'profile' | 'ranking' | 'fight' | 'championship';
   realId?: string;
 }
 
@@ -187,10 +189,21 @@ export const generateCard = async (data: CardData) => {
   }
 
   try {
-    // Encode data to Base64 to create a shareable ID (Fallback para compatibilidade)
+    // Standardize the payload to { title, description, image, type }
+    const standardizedPayload = {
+      title: data.title || data.athleteName || 'ArenaComp',
+      description: data.description || data.achievement || 'Confira este conteúdo na ArenaComp!',
+      image: data.image || data.mainImageUrl,
+      type: data.type || 'post',
+      // Maintain extra fields for backward compatibility if needed by the server fallback
+      athleteName: data.athleteName,
+      achievement: data.achievement,
+      modality: data.modality,
+      realId: data.realId
+    };
+
+    const jsonString = JSON.stringify(standardizedPayload);
     // Usamos encodeURIComponent + unescape para garantir suporte a caracteres UTF-8 (acentos, etc)
-    const jsonString = JSON.stringify(data);
-    // Tornamos o Base64 seguro para URL (substituindo + por - e / por _)
     const base64Data = btoa(unescape(encodeURIComponent(jsonString)))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
@@ -199,7 +212,7 @@ export const generateCard = async (data: CardData) => {
     // Use the new format /share/${type}/${id}
     const type = data.type || 'post';
     const shareUrl = `${window.location.origin}/share/${type}/${base64Data}`;
-    console.log('[arenaService] URL de compartilhamento gerada (Base64 URL-Safe):', shareUrl);
+    console.log('[arenaService] URL de compartilhamento padronizada (Base64 URL-Safe):', shareUrl);
     
     return shareUrl;
   } catch (error: any) {

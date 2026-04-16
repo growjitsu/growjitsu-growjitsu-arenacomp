@@ -110,33 +110,44 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
 
   const handleShare = async () => {
     if (!post) return;
-    console.log('🔗 SHARE DATA:', {
-      type: 'post',
-      id: post.id,
-      fullData: post
-    });
-    const shareUrl = `${window.location.origin}/share/post/${post.id}`;
     
-    setShareModalData({
-      title: 'Compartilhar Postagem',
-      subtitle: post.content || 'Confira esta postagem na ArenaComp!',
-      url: shareUrl,
-      onGenerate: () => {
-        setAchievementData({
-          title: 'Nova Postagem',
-          athleteName: post.author?.full_name || 'Atleta Arena',
-          achievement: post.content || 'Compartilhou um post',
-          modality: 'Feed',
-          date: new Date(post.created_at).toLocaleDateString(),
-          profileUrl: `https://arenacomp.com/${post.author?.username || 'atleta'}`,
-          type: 'post',
-          realId: post.id,
-          mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0])
-        });
-        setIsAchievementCardOpen(true);
+    let firstImageUrl = post.media_url || '';
+    try {
+      if (post.media_url?.startsWith('[')) {
+        const urls = JSON.parse(post.media_url);
+        firstImageUrl = urls[0];
       }
-    });
-    setIsShareModalOpen(true);
+    } catch (e) {}
+
+    const cardData: CardData = {
+      title: 'Postagem Arena',
+      athleteName: post.author?.full_name || 'Atleta Arena',
+      achievement: post.content || 'Compartilhou um post',
+      modality: 'Feed',
+      date: new Date(post.created_at).toLocaleDateString(),
+      type: 'post',
+      realId: post.id,
+      mainImageUrl: firstImageUrl,
+      image: firstImageUrl,
+      description: post.content || 'Confira esta postagem na ArenaComp!'
+    };
+
+    try {
+      const shareUrl = await generateCard(cardData);
+      
+      setShareModalData({
+        title: 'Compartilhar Postagem',
+        subtitle: post.content || 'Confira esta postagem na ArenaComp!',
+        url: shareUrl,
+        onGenerate: () => {
+          setAchievementData(cardData);
+          setIsAchievementCardOpen(true);
+        }
+      });
+      setIsShareModalOpen(true);
+    } catch (err) {
+      console.error('Error generating share link:', err);
+    }
   };
 
   const handleAddComment = async () => {
