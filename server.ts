@@ -147,11 +147,14 @@ async function startServer() {
         };
       } else {
         // 1. Tenta decodificar como Base64 (formato antigo/fallback)
-        if (id && id.length > 40 && !type) {
+        if (id && id.length > 40) {
           try {
             const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
             const jsonString = decodeURIComponent(escape(Buffer.from(base64, 'base64').toString('binary')));
-            cardData = JSON.parse(jsonString);
+            const decoded = JSON.parse(jsonString);
+            if (decoded && decoded.athleteName) {
+              cardData = decoded;
+            }
           } catch (e) {}
         }
 
@@ -266,30 +269,48 @@ async function startServer() {
               };
             }
           } else if (type === 'ranking-equipe') {
+            // First try to find team in the teams table for the logo
+            const { data: teamData } = await supabaseAdmin
+              .from('teams')
+              .select('name, logo_url')
+              .or(`id.eq."${id}",name.eq."${id}"`)
+              .maybeSingle();
+
+            const teamName = teamData?.name || id;
+            let logoUrl = teamData?.logo_url || null;
+            
             const { data: teamProfiles } = await supabaseAdmin
               .from('profiles')
               .select('arena_score, team, team_id')
               .or(`team_id.eq."${id}",team.eq."${id}"`);
             
             if (teamProfiles && teamProfiles.length > 0) {
-              const teamName = teamProfiles[0].team || id;
-              const teamId = teamProfiles[0].team_id || teamName;
+              const actualTeamName = teamProfiles[0].team || teamName;
+              const teamId = teamProfiles[0].team_id || actualTeamName;
               
               const { data: allRankings } = await supabaseAdmin.rpc('get_team_rankings');
               let rank = 1;
-              let logoUrl = null;
               if (allRankings) {
                 const sorted = allRankings.sort((a: any, b: any) => (b.total_score || 0) - (a.total_score || 0));
-                const idx = sorted.findIndex((t: any) => (t.team_id === teamId || t.team_name === teamName));
+                const idx = sorted.findIndex((t: any) => (t.team_id === teamId || t.team_name === actualTeamName));
                 if (idx !== -1) {
                   rank = idx + 1;
-                  logoUrl = sorted[idx].logo_url;
+                  if (!logoUrl) logoUrl = sorted[idx].logo_url;
                 }
               }
 
               cardData = {
-                athleteName: teamName,
+                athleteName: actualTeamName,
                 achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
+                mainImageUrl: logoUrl,
+                title: `${actualTeamName} está no ranking ArenaComp`,
+                modality: 'Equipe'
+              };
+            } else if (teamData) {
+               // If no profiles found but team exists
+               cardData = {
+                athleteName: teamName,
+                achievement: `Veja o ranking da equipe ${teamName} no ArenaComp.`,
                 mainImageUrl: logoUrl,
                 title: `${teamName} está no ranking ArenaComp`,
                 modality: 'Equipe'
@@ -349,9 +370,11 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
-    // Add cache buster for crawlers to ensure fresh preview
-    const cacheBuster = `v=${Date.now()}`;
-    ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
+    // Add cache buster ONLY for local images (starts with baseUrl) to avoid breaking external signed URLs
+    if (ogImageUrl && ogImageUrl.startsWith(baseUrl)) {
+      const cacheBuster = `v=${Date.now()}`;
+      ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
+    }
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
@@ -378,7 +401,7 @@ async function startServer() {
     <meta property="og:image:secure_url" content="${ogImageUrl}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:type" content="${ogImageUrl.includes('.png') ? 'image/png' : 'image/jpeg'}">
+    <meta property="og:image:type" content="${ogImageUrl.toLowerCase().includes('.png') ? 'image/png' : 'image/jpeg'}">
     <meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
