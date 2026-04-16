@@ -27,19 +27,22 @@ export const trackAdEvent = async (
   try {
     const deviceInfo = getDeviceInfo();
     
-    await fetch(getApiUrl('/api/trackPromotionEvent'), {
+    // Using generic names to bypass ad blockers
+    await fetch(getApiUrl('/api/pAnalytics'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        adId,
-        eventType,
-        userId,
-        deviceInfo
+        pid: adId,
+        et: eventType,
+        uid: userId,
+        cli: deviceInfo
       })
     });
   } catch (error) {
-    console.error('[AdService] Erro ao rastrear evento:', error);
+    // Silently handle errors to not pollute user experience
+    // Ad analytics are secondary to core app functionality
+    console.warn('[Analytics] Skipped tracking');
   }
 };

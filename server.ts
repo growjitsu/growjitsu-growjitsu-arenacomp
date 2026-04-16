@@ -1016,14 +1016,14 @@ async function startServer() {
     }
   });
 
-  // PROMOTION TRACKING API (Renamed from trackAdEvent to bypass ad blockers)
-  app.post("/api/trackPromotionEvent", async (req, res) => {
-    res.setHeader('X-API-Route', 'trackPromotionEvent');
+  // PROMOTION ANALYTICS API (Bypassing ad blockers)
+  app.post("/api/pAnalytics", async (req, res) => {
+    res.setHeader('X-API-Route', 'pAnalytics');
     try {
-      const { adId, eventType, userId, deviceInfo } = req.body;
+      const { pid, et, uid, cli } = req.body;
       
-      if (!adId || !eventType) {
-        return res.status(400).json({ error: "adId and eventType are required" });
+      if (!pid || !et) {
+        return res.status(400).json({ error: "Missing parameters" });
       }
 
       const userAgent = req.headers['user-agent'] || '';
@@ -1035,14 +1035,14 @@ async function startServer() {
       const { error } = await supabaseAdmin
         .from('arena_ad_events')
         .insert([{
-          ad_id: adId,
-          event_type: eventType,
-          user_id: userId || null,
+          ad_id: pid,
+          event_type: et,
+          user_id: uid || null,
           ip_address: typeof ipAddress === 'string' ? ipAddress : (Array.isArray(ipAddress) ? ipAddress[0] : null),
           user_agent: userAgent,
-          device_type: deviceInfo?.device || 'desktop',
-          os: deviceInfo?.os || 'Unknown',
-          browser: deviceInfo?.browser || 'Unknown',
+          device_type: cli?.device || 'desktop',
+          os: cli?.os || 'Unknown',
+          browser: cli?.browser || 'Unknown',
           country: country,
           created_at: new Date().toISOString()
         }]);
@@ -1050,15 +1050,15 @@ async function startServer() {
       if (error) throw error;
 
       // Update summary counts in arena_ads
-      if (eventType === 'impression') {
-        await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: adId });
-      } else if (eventType === 'click') {
-        await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: adId });
+      if (et === 'impression') {
+        await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: pid });
+      } else if (et === 'click') {
+        await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: pid });
       }
 
       res.json({ status: "ok" });
     } catch (error: any) {
-      console.error('[API] Erro ao rastrear evento de anúncio:', error);
+      console.error('[API] Erro ao rastrear analiticos:', error);
       res.status(500).json({ error: error.message });
     }
   });
