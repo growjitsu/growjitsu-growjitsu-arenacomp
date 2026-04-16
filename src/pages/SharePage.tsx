@@ -8,7 +8,7 @@ import { supabase } from '../services/supabase';
 import { toast } from 'sonner';
 
 export const SharePage = () => {
-  const { type, id, subId } = useParams<{ type?: string; id: string; subId?: string }>();
+  const { type, id } = useParams<{ type?: string; id: string }>();
   const navigate = useNavigate();
   const [cardData, setCardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -82,41 +82,6 @@ export const SharePage = () => {
                 type: 'profile',
                 realId: id
               };
-            }
-          } else if (type === 'ranking') {
-            if (id === 'atletas' || id === 'athletes') {
-              data = {
-                title: 'Ranking de Atletas ArenaComp',
-                achievement: 'Confira os melhores atletas de Jiu-Jitsu no Ranking ArenaComp. Veja quem está no topo!',
-                athleteName: 'ArenaComp',
-                type: 'ranking',
-                realId: id
-              };
-            } else if (id === 'equipes' || id === 'teams') {
-              data = {
-                title: 'Ranking de Equipes ArenaComp',
-                achievement: 'Confira as melhores equipes de Jiu-Jitsu no Ranking ArenaComp. Quem domina o tatame?',
-                athleteName: 'ArenaComp',
-                type: 'ranking',
-                realId: id
-              };
-            } else if (id === 'equipe' || id === 'team') {
-              const { data: team } = await supabase
-                .from('teams')
-                .select('*')
-                .eq('id', subId || id) // Use subId from params
-                .single();
-              
-              if (team) {
-                data = {
-                  athleteName: team.name,
-                  achievement: `Confira a performance da equipe ${team.name} no Ranking ArenaComp.`,
-                  mainImageUrl: team.logo_url,
-                  title: `Equipe ${team.name} | ArenaComp`,
-                  type: 'ranking',
-                  realId: `equipe/${team.id}`
-                };
-              }
             }
           } else if (type === 'certificate') {
             const { data: cert } = await supabase
@@ -238,9 +203,6 @@ export const SharePage = () => {
           break;
         case 'fight':
           window.location.href = `/fights/${realId}`;
-          break;
-        case 'ranking':
-          window.location.href = `/ranking/${realId}`;
           break;
         default:
           window.location.href = '/feed';

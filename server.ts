@@ -174,53 +174,7 @@ async function startServer() {
                 modality: post.profiles?.modality || 'Arena'
               };
             }
-          } else if (type === 'ranking') {
-            if (id === 'atletas' || id === 'athletes') {
-              cardData = {
-                title: 'Ranking de Atletas ArenaComp',
-                achievement: 'Confira os melhores atletas de Jiu-Jitsu no Ranking ArenaComp. Veja quem está no topo!',
-                athleteName: 'ArenaComp'
-              };
-            } else if (id === 'equipes' || id === 'teams') {
-              cardData = {
-                title: 'Ranking de Equipes ArenaComp',
-                achievement: 'Confira as melhores equipes de Jiu-Jitsu no Ranking ArenaComp. Quem domina o tatame?',
-                athleteName: 'ArenaComp'
-              };
-            } else if ((id === 'equipe' || id === 'team') && req.params.subId) {
-              const { data: team } = await supabaseAdmin
-                .from('teams')
-                .select('*')
-                .eq('id', req.params.subId)
-                .single();
-              
-              if (team) {
-                cardData = {
-                  title: `Equipe ${team.name} no Ranking ArenaComp`,
-                  achievement: `Confira a performance da equipe ${team.name} e seus atletas no Ranking Profissional ArenaComp.`,
-                  mainImageUrl: team.logo_url,
-                  athleteName: team.name
-                };
-              }
-            } else {
-              // Existing individual profile ranking share logic
-              const { data: profile } = await supabaseAdmin
-                .from('profiles')
-                .select('*')
-                .eq('id', id)
-                .single();
-              
-              if (profile) {
-                cardData = {
-                  athleteName: profile.full_name || 'Atleta Arena',
-                  achievement: `Confira minha posição no Ranking ArenaComp!`,
-                  mainImageUrl: profile.profile_photo,
-                  title: 'Ranking ArenaComp',
-                  modality: profile.modality || 'Arena'
-                };
-              }
-            }
-          } else if (type === 'profile') {
+          } else if (type === 'profile' || type === 'ranking') {
             const { data: profile } = await supabaseAdmin
               .from('profiles')
               .select('*')
@@ -230,9 +184,9 @@ async function startServer() {
             if (profile) {
               cardData = {
                 athleteName: profile.full_name || 'Atleta Arena',
-                achievement: 'Confira meu perfil na ArenaComp!',
+                achievement: type === 'ranking' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
                 mainImageUrl: profile.profile_photo,
-                title: 'Perfil ArenaComp',
+                title: type === 'ranking' ? 'Ranking ArenaComp' : 'Perfil ArenaComp',
                 modality: profile.modality || 'Arena'
               };
             }
@@ -346,17 +300,7 @@ async function startServer() {
     ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
-    let redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}${req.params.subId ? '/' + req.params.subId : ''}`;
-
-    // Fix for ranking sub-routes
-    if (type === 'ranking') {
-      if (id !== 'atletas' && id !== 'athletes' && id !== 'equipes' && id !== 'teams' && id !== 'equipe' && id !== 'team' && !req.params.subId) {
-        // Individual athlete share
-        redirectUrl = `/ranking/atleta/${id}`;
-      } else if ((id === 'equipe' || id === 'team') && req.params.subId) {
-        redirectUrl = `/ranking/equipe/${req.params.subId}`;
-      }
-    }
+    const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
     if (!isCrawler) {
@@ -435,11 +379,10 @@ async function startServer() {
       if (pathParts.length >= 2) {
         const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
         const id = pathParts[1];
-        const subId = pathParts[2];
         const validTypes = ['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championship', 'eventos'];
         
         if (validTypes.includes(type)) {
-          req.params = { type, id, subId };
+          req.params = { type, id };
           return handleShareRequest(req, res, next);
         }
       }
@@ -455,7 +398,6 @@ async function startServer() {
   });
 
   // 2. Share Routes
-  app.get("/share/:type/:id/:subId", handleShareRequest);
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
 
