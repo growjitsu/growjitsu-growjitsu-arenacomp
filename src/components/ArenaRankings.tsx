@@ -19,9 +19,10 @@ interface TeamRanking {
 }
 
 export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({ initialTab }) => {
-  const { id: teamIdFromUrl } = useParams<{ id: string }>();
+  const { id: urlId } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<'athletes' | 'teams'>(initialTab || 'athletes');
-  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(teamIdFromUrl || null);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(activeTab === 'teams' ? urlId || null : null);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(activeTab === 'athletes' ? urlId || null : null);
   const [rankings, setRankings] = useState<ArenaProfile[]>([]);
   const [teamRankings, setTeamRankings] = useState<TeamRanking[]>([]);
   const [availableLocations, setAvailableLocations] = useState<{city: string, country: string, city_id?: string, country_id?: string}[]>([]);
@@ -416,12 +417,15 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
 
   const handleShareGeneralRanking = () => {
     let id = activeTab === 'athletes' ? 'atletas' : 'equipes';
-    let shareUrl = `${window.location.origin}/ranking/${id}`;
+    let shareUrl = `${window.location.origin}/share/ranking/${id}`;
     let shareTitle = activeTab === 'athletes' ? 'Ranking de Atletas ArenaComp' : 'Ranking de Equipes ArenaComp';
     
     if (activeTab === 'teams' && selectedTeamId) {
-      shareUrl = `${window.location.origin}/ranking/equipe/${selectedTeamId}`;
+      shareUrl = `${window.location.origin}/share/ranking/equipe/${selectedTeamId}`;
       shareTitle = 'Equipe no Ranking ArenaComp';
+    } else if (activeTab === 'athletes' && selectedAthleteId) {
+      shareUrl = `${window.location.origin}/share/ranking/${selectedAthleteId}`;
+      shareTitle = 'Atleta no Ranking ArenaComp';
     }
 
     if (navigator.share) {
@@ -472,8 +476,9 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
           >
             <Share2 size={14} className="group-hover:rotate-12 transition-transform" />
             <span>
-              {activeTab === 'athletes' ? 'Compartilhar Ranking Atletas' : 
-               selectedTeamId ? 'Compartilhar Ranking Equipe' : 'Compartilhar Ranking Equipes'}
+              {activeTab === 'athletes' 
+                ? (selectedAthleteId ? 'Compartilhar Ranking Atleta' : 'Compartilhar Ranking Atletas') 
+                : (selectedTeamId ? 'Compartilhar Ranking Equipe' : 'Compartilhar Ranking Equipes')}
             </span>
           </motion.button>
         </div>
@@ -625,10 +630,14 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
 
             {activeTab === 'athletes' ? (
               rankings.map((athlete, index) => (
-                <Link 
-                  to={`/user/@${athlete.username}`}
+                <div 
                   key={athlete.id}
-                  className="grid grid-cols-12 p-4 items-center hover:bg-[var(--primary)]/5 transition-colors cursor-pointer"
+                  onClick={() => setSelectedAthleteId(selectedAthleteId === athlete.id ? null : athlete.id)}
+                  className={`grid grid-cols-12 p-4 items-center transition-all cursor-pointer border-l-4 ${
+                    selectedAthleteId === athlete.id 
+                      ? 'bg-blue-600/10 border-blue-600' 
+                      : 'hover:bg-[var(--primary)]/5 border-transparent'
+                  }`}
                 >
                   <div className="col-span-1 text-center">
                     {index < 3 ? (
@@ -650,19 +659,35 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-sm text-[var(--text-main)] truncate">{athlete.full_name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-bold text-sm truncate ${selectedAthleteId === athlete.id ? 'text-blue-500' : 'text-[var(--text-main)]'}`}>
+                          {athlete.full_name}
+                        </h3>
+                        {selectedAthleteId === athlete.id && (
+                          <Link 
+                            to={`/user/@${athlete.username}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                            title="Ver Perfil"
+                          >
+                            <User size={10} />
+                          </Link>
+                        )}
+                      </div>
                       <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest truncate">
                         {athlete.modality} • {athlete.state} {athlete.team && `• ${athlete.team}`}
                       </p>
                     </div>
                   </div>
                   <div className="col-span-3 md:col-span-2 text-center">
-                    <span className="text-[var(--primary)] font-extrabold text-sm">{Math.round(athlete.arena_score)}</span>
+                    <span className={`font-extrabold text-sm ${selectedAthleteId === athlete.id ? 'text-blue-500' : 'text-[var(--primary)]'}`}>
+                      {Math.round(athlete.arena_score)}
+                    </span>
                   </div>
                   <div className="col-span-2 text-center hidden md:block">
                     <span className="text-[var(--text-muted)] font-bold text-sm">{athlete.wins}</span>
                   </div>
-                </Link>
+                </div>
               ))
             ) : (
               teamRankings.map((team, index) => (

@@ -346,7 +346,17 @@ async function startServer() {
     ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
 
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
-    const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}${req.params.subId ? '/' + req.params.subId : ''}`;
+    let redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}${req.params.subId ? '/' + req.params.subId : ''}`;
+
+    // Fix for ranking sub-routes
+    if (type === 'ranking') {
+      if (id !== 'atletas' && id !== 'athletes' && id !== 'equipes' && id !== 'teams' && id !== 'equipe' && id !== 'team' && !req.params.subId) {
+        // Individual athlete share
+        redirectUrl = `/ranking/atleta/${id}`;
+      } else if ((id === 'equipe' || id === 'team') && req.params.subId) {
+        redirectUrl = `/ranking/equipe/${req.params.subId}`;
+      }
+    }
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
     if (!isCrawler) {
