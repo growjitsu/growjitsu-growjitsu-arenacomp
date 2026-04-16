@@ -40,9 +40,9 @@ export const PublicFooter: React.FC = () => {
         <div>
           <h4 className="text-[var(--text-main)] font-black uppercase tracking-widest text-xs mb-6">Institucional</h4>
           <ul className="space-y-4">
-            <li><a href="#" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Termos de Uso</a></li>
-            <li><a href="#" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Política de Privacidade</a></li>
-            <li><a href="#" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Cookies</a></li>
+            <li><Link to="/termos" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Termos de Uso</Link></li>
+            <li><Link to="/privacidade" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Política de Privacidade</Link></li>
+            <li><Link to="/cookies" className="text-[var(--text-muted)] hover:text-blue-500 text-sm transition-colors">Cookies</Link></li>
           </ul>
         </div>
 

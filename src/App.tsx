@@ -27,6 +27,9 @@ import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { AdminAds } from './components/Admin/AdminAds';
 import { LandingPage } from './pages/LandingPage';
+import { TermsPage } from './pages/Institutional/TermsPage';
+import { PrivacyPage } from './pages/Institutional/PrivacyPage';
+import { CookiesPage } from './pages/Institutional/CookiesPage';
 import { Logo } from './components/Logo';
 import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
@@ -408,6 +411,9 @@ function AppContent() {
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
       <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />
       <Route path="/home-public" element={<LandingPage />} />
+      <Route path="/termos" element={<TermsPage />} />
+      <Route path="/privacidade" element={<PrivacyPage />} />
+      <Route path="/cookies" element={<CookiesPage />} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
       <Route path="/rankings" element={renderLayout(<ArenaRankings />, 'rankings')} />
       <Route path="/search" element={renderLayout(<ArenaSearch />, 'search')} />
