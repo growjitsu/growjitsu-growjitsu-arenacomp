@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Trophy, Medal, Target, Filter, ChevronDown, Users, User, Database, Share2 } from 'lucide-react';
 import { EliteArena } from './EliteArena';
 import { RankingShareModal } from './RankingShareModal';
+import { RankingPickerModal } from './RankingPickerModal';
 import { supabase } from '../services/supabase';
 import { ArenaProfile } from '../types';
 import { modalities } from '../utils/data';
@@ -23,8 +24,11 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
   const [activeTab, setActiveTab] = useState<'athletes' | 'teams'>(initialTab || 'athletes');
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(activeTab === 'teams' ? urlId || null : null);
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(activeTab === 'athletes' ? urlId || null : null);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [pickerType, setPickerType] = useState<'athletes' | 'teams'>('athletes');
   const [rankings, setRankings] = useState<ArenaProfile[]>([]);
   const [teamRankings, setTeamRankings] = useState<TeamRanking[]>([]);
+  const [shareData, setShareData] = useState<any>(null);
   const [availableLocations, setAvailableLocations] = useState<{city: string, country: string, city_id?: string, country_id?: string}[]>([]);
   const [dbCountries, setDbCountries] = useState<{id: string, name: string}[]>([]);
   const [dbCities, setDbCities] = useState<{id: string, name: string}[]>([]);
@@ -415,37 +419,147 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
     }
   };
 
-  const handleShareGeneralRanking = () => {
-    let id = activeTab === 'athletes' ? 'atletas' : 'equipes';
-    let shareUrl = `${window.location.origin}/share/ranking/${id}`;
-    let shareTitle = activeTab === 'athletes' ? 'Ranking de Atletas ArenaComp' : 'Ranking de Equipes ArenaComp';
-    
-    if (activeTab === 'teams' && selectedTeamId) {
-      shareUrl = `${window.location.origin}/share/ranking/equipe/${selectedTeamId}`;
-      shareTitle = 'Equipe no Ranking ArenaComp';
-    } else if (activeTab === 'athletes' && selectedAthleteId) {
-      shareUrl = `${window.location.origin}/share/ranking/${selectedAthleteId}`;
-      shareTitle = 'Atleta no Ranking ArenaComp';
+  const handleShareGeneralRanking = async () => {
+    // If we have a selection, use it. If not, open picker.
+    let selectedEntity = null;
+    let type: 'athletes' | 'teams' = activeTab;
+
+    if (activeTab === 'athletes' && selectedAthleteId) {
+      selectedEntity = rankings.find(a => a.id === selectedAthleteId);
+    } else if (activeTab === 'teams' && selectedTeamId) {
+      selectedEntity = teamRankings.find(t => t.team_id === selectedTeamId);
     }
 
-    if (navigator.share) {
-      navigator.share({
-        title: shareTitle,
-        text: `Confira o ${shareTitle} na plataforma ArenaComp!`,
-        url: shareUrl
-      }).catch(err => {
-        if (err.name !== 'AbortError') {
-          console.error('Error sharing:', err);
-        }
+    if (!selectedEntity) {
+      setPickerType(activeTab);
+      setIsPickerOpen(true);
+      return;
+    }
+
+    // If we have a selected entity, open the share modal for it
+    if (activeTab === 'athletes') {
+      const athlete = selectedEntity as ArenaProfile;
+      const rankingInfo = await getAthleteRankings(athlete);
+      setShareData({
+        athleteName: athlete.full_name,
+        profilePhoto: athlete.profile_photo || athlete.avatar_url,
+        position: rankingInfo.world,
+        modality: athlete.modality || 'Jiu-Jitsu',
+        score: Math.round(athlete.arena_score || 0),
+        scope: 'Mundial',
+        profileUrl: `${window.location.origin}/share/ranking/${athlete.id}`
       });
     } else {
-      navigator.clipboard.writeText(shareUrl);
-      toast.success('Link do ranking copiado para a área de transferência!');
+      const team = selectedEntity as TeamRanking;
+      setShareData({
+        athleteName: team.team_name,
+        profilePhoto: team.logo_url,
+        position: teamRankings.findIndex(t => t.team_id === team.team_id) + 1,
+        modality: 'Equipe',
+        score: Math.round(team.total_score),
+        scope: 'Mundial',
+        profileUrl: `${window.location.origin}/share/ranking/equipe/${team.team_id}`
+      });
+    }
+    setIsShareModalOpen(true);
+  };
+
+  const handleMyRankingShare = () => {
+    if (!currentUser || !userRankings) return;
+    
+    setShareData({
+      athleteName: currentUser.full_name,
+      profilePhoto: currentUser.profile_photo || currentUser.avatar_url,
+      position: filter.scope === 'Mundial' ? userRankings.world : 
+                filter.scope === 'Nacional' ? userRankings.national : 
+                userRankings.city,
+      modality: currentUser.modality || 'Atleta',
+      score: currentUser.arena_score,
+      category: currentUser.category,
+      scope: filter.scope,
+      location: filter.scope === 'Mundial' ? 'Mundo' : 
+                filter.scope === 'Nacional' ? currentUser.country : 
+                currentUser.city,
+      profileUrl: `${window.location.origin}/user/@${currentUser.username}`
+    });
+    setIsShareModalOpen(true);
+  };
+
+  const handleEntitySelect = async (entity: any) => {
+    setIsPickerOpen(false);
+    setLoading(true);
+    
+    try {
+      if (pickerType === 'athletes') {
+        const rankingInfo = await getAthleteRankings(entity);
+        setShareData({
+          athleteName: entity.full_name,
+          profilePhoto: entity.profile_photo || entity.avatar_url,
+          position: rankingInfo.world,
+          modality: entity.modality || 'Jiu-Jitsu',
+          score: Math.round(entity.arena_score || 0),
+          scope: 'Mundial',
+          profileUrl: `${window.location.origin}/share/ranking/${entity.id}`
+        });
+        setIsShareModalOpen(true);
+      } else {
+        // For teams, we need to find their position
+        // If they are in the current teamRankings, it's easy
+        const foundIndex = teamRankings.findIndex(t => t.team_id === entity.id);
+        let pos = foundIndex !== -1 ? foundIndex + 1 : 0;
+        let score = 0;
+        
+        if (foundIndex !== -1) {
+          score = teamRankings[foundIndex].total_score;
+        } else {
+          // Fallback: use RPC to get team ranking specifically
+          const { data } = await supabase.rpc('get_team_rankings', {
+            p_modality: null,
+            p_country_id: null,
+            p_city_id: null
+          });
+          const extendedIndex = data?.findIndex((t: any) => (t.team_id === entity.id || t.team === entity.name));
+          pos = extendedIndex !== -1 ? extendedIndex + 1 : 100; // Fallback to 100+
+          score = data?.[extendedIndex]?.total_score || 0;
+        }
+
+        setShareData({
+          athleteName: entity.name,
+          profilePhoto: entity.logo_url,
+          position: pos,
+          modality: 'Equipe',
+          score: Math.round(score),
+          scope: 'Mundial',
+          profileUrl: `${window.location.origin}/share/ranking/equipe/${entity.id}`
+        });
+        setIsShareModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error sharing entity:', error);
+      toast.error('Erro ao buscar dados do ranking.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
+      <RankingPickerModal 
+        isOpen={isPickerOpen} 
+        onClose={() => setIsPickerOpen(false)} 
+        type={pickerType}
+        onSelect={handleEntitySelect}
+      />
+      {shareData && (
+        <RankingShareModal 
+          isOpen={isShareModalOpen} 
+          onClose={() => {
+            setIsShareModalOpen(false);
+            setShareData(null);
+          }} 
+          data={shareData}
+        />
+      )}
       {/* Header */}
       <div className="text-center space-y-4">
         <div className="space-y-2">
@@ -460,7 +574,7 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              onClick={() => setIsShareModalOpen(true)}
+              onClick={handleMyRankingShare}
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105 group"
             >
               <Share2 size={14} className="text-[var(--primary)] group-hover:rotate-12 transition-transform" />
@@ -744,28 +858,6 @@ export const ArenaRankings: React.FC<{ initialTab?: 'athletes' | 'teams' }> = ({
           </div>
         )}
       </div>
-
-      {currentUser && userRankings && (
-        <RankingShareModal
-          isOpen={isShareModalOpen}
-          onClose={() => setIsShareModalOpen(false)}
-          data={{
-            athleteName: currentUser.full_name,
-            profilePhoto: currentUser.profile_photo || currentUser.avatar_url,
-            position: filter.scope === 'Mundial' ? userRankings.world : 
-                      filter.scope === 'Nacional' ? userRankings.national : 
-                      userRankings.city,
-            modality: currentUser.modality || 'Atleta',
-            score: currentUser.arena_score,
-            category: currentUser.category,
-            scope: filter.scope,
-            location: filter.scope === 'Mundial' ? 'Mundo' : 
-                      filter.scope === 'Nacional' ? currentUser.country : 
-                      currentUser.city,
-            profileUrl: `${window.location.origin}/user/@${currentUser.username}`
-          }}
-        />
-      )}
     </div>
   );
 };
