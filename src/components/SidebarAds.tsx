@@ -61,7 +61,7 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
         >
           {/* Manual Navigation Arrows */}
           {sidebarAds.length > 1 && (
-            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
+            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
               <button
                 onClick={handlePrev}
                 className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[var(--primary)] transition-all pointer-events-auto shadow-lg"

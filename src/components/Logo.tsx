@@ -96,12 +96,12 @@ export const Logo: React.FC<LogoProps> = ({
       </div>
 
       {showText && (
-        <div className="flex flex-col -space-y-1 hidden sm:flex">
+        <div className="flex flex-col -space-y-1">
           <div className="flex items-baseline italic">
-            <span className="text-lg sm:text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
-            <span className="text-lg sm:text-xl font-black text-[var(--text-highlight)] tracking-tighter uppercase">Comp</span>
+            <span className="text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
+            <span className="text-xl font-black text-[var(--text-highlight)] tracking-tighter uppercase">Comp</span>
           </div>
-          <span className="text-[6px] sm:text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-[0.3em] pl-0.5 hidden sm:block">Competition Platform</span>
+          <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
         </div>
       )}
     </div>

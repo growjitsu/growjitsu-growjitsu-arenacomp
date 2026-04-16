@@ -103,21 +103,21 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-4">
             <button 
               onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
-              className="hidden md:block text-sm font-bold text-[var(--text-main)] hover:text-blue-600 transition-colors"
+              className="hidden sm:block text-sm font-bold text-[var(--text-main)] hover:text-blue-600 transition-colors"
             >
               Entrar
             </button>
             <button 
               onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }}
-              className="hidden sm:flex btn-primary py-2 px-4 sm:py-2.5 sm:px-6 text-xs sm:text-sm shadow-blue-500/20"
+              className="btn-primary py-2.5 px-6 text-sm shadow-blue-500/20"
             >
               Começar Agora
             </button>
-            <button className="md:hidden p-2 text-[var(--text-main)] hover:bg-white/5 rounded-xl transition-colors" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-              {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            <button className="md:hidden p-2 text-[var(--text-main)]" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+              {isMenuOpen ? <X /> : <Menu />}
             </button>
           </div>
         </div>
@@ -134,20 +134,13 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
           >
             <nav className="flex flex-col gap-6">
               {['Sobre', 'Funcionalidades', 'Campeonatos', 'Planos'].map(item => (
-                <a key={item} href={`#${item.toLowerCase()}`} className="text-2xl font-black font-display text-[var(--text-main)] hover:text-blue-600 transition-colors" onClick={() => setIsMenuOpen(false)}>{item}</a>
+                <a key={item} href={`#${item.toLowerCase()}`} className="text-2xl font-black font-display text-[var(--text-main)]" onClick={() => setIsMenuOpen(false)}>{item}</a>
               ))}
-              <div className="h-px bg-[var(--header-border)] my-2" />
               <button 
-                onClick={() => { setAuthMode('login'); setShowAuthModal(true); setIsMenuOpen(false); }}
-                className="text-xl font-black font-display text-[var(--text-main)] text-left hover:text-blue-600 transition-colors"
+                onClick={() => { setShowAuthModal(true); setIsMenuOpen(false); }}
+                className="btn-primary w-full py-4"
               >
-                Entrar
-              </button>
-              <button 
-                onClick={() => { setAuthMode('signup'); setShowAuthModal(true); setIsMenuOpen(false); }}
-                className="btn-primary w-full py-4 text-lg"
-              >
-                Começar Agora
+                Entrar na Plataforma
               </button>
             </nav>
           </motion.div>

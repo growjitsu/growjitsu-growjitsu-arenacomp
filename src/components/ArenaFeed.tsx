@@ -879,7 +879,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                       >
                         {/* Manual Navigation Arrows */}
                         {topAds.length > 1 && (
-                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
+                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
                             <button
                               onClick={(e) => handlePrevTopAd(e, topAds)}
                               className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
@@ -1286,7 +1286,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           >
                             {/* Manual Navigation Arrows */}
                             {inFeedAds.length > 1 && (
-                              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
+                              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
                                 <button
                                   onClick={(e) => handlePrevInFeedAd(e, inFeedAds)}
                                   className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
