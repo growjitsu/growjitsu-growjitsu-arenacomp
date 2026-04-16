@@ -17,18 +17,48 @@ export const RankingPickerModal: React.FC<RankingPickerModalProps> = ({ isOpen, 
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
       setSearchTerm('');
       setResults([]);
+      fetchInitialResults();
     }
   }, [isOpen]);
+
+  const fetchInitialResults = async () => {
+    setLoading(true);
+    try {
+      if (type === 'athletes') {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .neq('role', 'admin')
+          .eq('perfil_publico', true)
+          .order('arena_score', { ascending: false })
+          .limit(10);
+        if (error) throw error;
+        setResults(data || []);
+      } else {
+        const { data, error } = await supabase
+          .from('teams')
+          .select('*')
+          .order('total_score', { ascending: false })
+          .limit(10);
+        if (error) throw error;
+        setResults(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching initial results:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchTerm.length >= 2) {
         handleSearch();
-      } else {
-        setResults([]);
+      } else if (searchTerm.length === 0 && isOpen) {
+        fetchInitialResults();
       }
     }, 500);
 
@@ -115,42 +145,47 @@ export const RankingPickerModal: React.FC<RankingPickerModalProps> = ({ isOpen, 
                     <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Buscando na Arena...</p>
                   </div>
-                ) : searchTerm.length >= 2 && results.length === 0 ? (
+                ) : results.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 italic">Nenhum resultado encontrado para "{searchTerm}"</p>
                   </div>
                 ) : (
-                  results.map((result) => (
-                    <button
-                      key={result.id}
-                      onClick={() => onSelect(result)}
-                      className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group"
-                    >
-                      <div className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                        {(type === 'athletes' ? result.profile_photo || result.avatar_url : result.logo_url) ? (
-                          <img 
-                            src={type === 'athletes' ? result.profile_photo || result.avatar_url : result.logo_url} 
-                            alt="" 
-                            className="w-full h-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          type === 'athletes' ? <User size={20} className="text-zinc-600" /> : <Users size={20} className="text-zinc-600" />
-                        )}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <h4 className="font-black uppercase italic text-sm text-white tracking-tight group-hover:text-blue-500 transition-colors">
-                          {type === 'athletes' ? result.full_name : result.name}
-                        </h4>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                          {type === 'athletes' ? `@${result.username || 'arena'}` : `Equipe / Academia`}
-                        </p>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                        <ChevronRight size={16} />
-                      </div>
-                    </button>
-                  ))
+                  <div className="space-y-2">
+                    {searchTerm.length === 0 && (
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 mb-4 px-2">Sugestões em Destaque</p>
+                    )}
+                    {results.map((result) => (
+                      <button
+                        key={result.id}
+                        onClick={() => onSelect(result)}
+                        className="w-full flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all group"
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-zinc-800 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {(type === 'athletes' ? result.profile_photo || result.avatar_url : result.logo_url) ? (
+                            <img 
+                              src={type === 'athletes' ? result.profile_photo || result.avatar_url : result.logo_url} 
+                              alt="" 
+                              className="w-full h-full object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            type === 'athletes' ? <User size={20} className="text-zinc-600" /> : <Users size={20} className="text-zinc-600" />
+                          )}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <h4 className="font-black uppercase italic text-sm text-white tracking-tight group-hover:text-blue-500 transition-colors">
+                            {type === 'athletes' ? result.full_name : result.name}
+                          </h4>
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            {type === 'athletes' ? `@${result.username || 'arena'}` : `Equipe / Academia`}
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <ChevronRight size={16} />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 )}
                 {searchTerm.length < 2 && (
                   <div className="text-center py-12 space-y-4">

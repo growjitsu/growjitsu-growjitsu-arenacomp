@@ -42,59 +42,73 @@ export const RankingShareModal: React.FC<RankingShareModalProps> = ({ isOpen, on
   const handleGenerateShareLink = async () => {
     if (!cardRef.current) return;
     setLoading(true);
+    let publicUrl = data.profilePhoto; // Fallback para a foto original
+    
     try {
-      // 1. Gerar a imagem do card visual para o preview social
-      // Usamos JPEG com qualidade 0.8 para reduzir o tamanho do arquivo (melhor para WhatsApp)
-      const dataUrl = await toJpeg(cardRef.current, {
-        cacheBust: true,
-        quality: 0.8,
-        pixelRatio: 1.5,
-        backgroundColor: '#000',
-      });
-
-      if (!dataUrl) throw new Error('Falha ao gerar imagem do card');
-
-      // 2. Converter dataUrl para Blob
-      const imgResponse = await fetch(dataUrl);
-      const blob = await imgResponse.blob();
-
-      // 3. Upload para o Supabase Storage
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Usuário não autenticado');
-
-      const fileName = `ranking-share-${user.id}-${Date.now()}.jpg`;
-      const filePath = `${user.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('posts')
-        .upload(filePath, blob, {
-          contentType: 'image/jpeg',
-          upsert: true
+      // 1. Tentar gerar a imagem do card visual para o preview social
+      console.log('[RankingShareModal] Iniciando geração do card...');
+      
+      try {
+        const dataUrl = await toJpeg(cardRef.current, {
+          cacheBust: true,
+          quality: 0.8,
+          pixelRatio: 1.2, // Reduzido ligeiramente para performance
+          backgroundColor: '#000',
+          skipFonts: true, // Ignorar fontes externas para evitar erros de CORS
         });
 
-      if (uploadError) throw uploadError;
+        if (dataUrl && dataUrl.length > 1000) {
+          // 2. Converter dataUrl para Blob
+          const imgResponse = await fetch(dataUrl);
+          const blob = await imgResponse.blob();
 
-      // 4. Obter a URL pública da imagem do card
-      const { data: { publicUrl } } = supabase.storage
-        .from('posts')
-        .getPublicUrl(filePath);
+          // 3. Tentar Upload para o Supabase Storage (apenas se autenticado)
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            const fileName = `ranking-share-${user.id}-${Date.now()}.jpg`;
+            const filePath = `${user.id}/${fileName}`;
 
-      // 5. Gerar o link com a URL da imagem do card
+            const { error: uploadError } = await supabase.storage
+              .from('posts')
+              .upload(filePath, blob, {
+                contentType: 'image/jpeg',
+                upsert: true
+              });
+
+            if (!uploadError) {
+              const { data: { publicUrl: uploadedUrl } } = supabase.storage
+                .from('posts')
+                .getPublicUrl(filePath);
+              publicUrl = uploadedUrl;
+              console.log('[RankingShareModal] Card enviado com sucesso:', publicUrl);
+            } else {
+              console.warn('[RankingShareModal] Falha no upload do card, usando fallback da foto:', uploadError);
+            }
+          }
+        }
+      } catch (imgError) {
+        console.warn('[RankingShareModal] Falha ao gerar/upload do card visual, usando foto original:', imgError);
+        // Não jogamos erro aqui, usamos o fallback da foto original
+      }
+
+      // 5. Gerar o link final
       const cardData: CardData = {
         title: `TOP ${data.position} NO RANKING ${data.scope.toUpperCase()}`,
         athleteName: data.athleteName,
         achievement: `Estou no ${getPositionText(data.position)} do Ranking ${data.scope} de ${data.modality}${data.category ? ` (${data.category})` : ''}!`,
         modality: data.modality,
         profileUrl: data.profileUrl,
-        mainImageUrl: publicUrl, // Agora usamos a imagem real do card!
-        type: 'ranking' // Mudamos para 'ranking' para melhor identificação
+        mainImageUrl: publicUrl,
+        type: 'ranking'
       };
+      
       const url = await generateCard(cardData);
       setShareUrl(url);
-      toast.success('Link de compartilhamento gerado com preview!');
+      toast.success('Link de compartilhamento gerado!');
     } catch (error: any) {
-      console.error('Erro ao gerar link:', error);
-      toast.error('Falha ao gerar o link de compartilhamento.');
+      console.error('Erro crítico ao gerar link:', error);
+      toast.error('Ocorreu um problema, mas você ainda pode compartilhar via outros botões.');
     } finally {
       setLoading(false);
     }
