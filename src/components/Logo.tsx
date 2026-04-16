@@ -21,10 +21,10 @@ export const Logo: React.FC<LogoProps> = ({
   const finalSize = size || defaultSize;
 
   return (
-    <div className={`flex items-center gap-2 md:gap-3 ${className}`}>
+    <div className={`flex items-center gap-1.5 md:gap-3 ${className}`}>
       <div 
         style={size ? { width: size, height: size } : {}}
-        className={`relative flex items-center justify-center group ${!size ? 'w-9 h-9 md:w-11 md:h-11' : ''}`}
+        className={`relative flex items-center justify-center group ${!size ? 'w-8 h-8 md:w-11 md:h-11' : ''}`}
       >
         {/* Shield Background with Glow */}
         <div className="absolute inset-0 bg-blue-600/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -98,10 +98,10 @@ export const Logo: React.FC<LogoProps> = ({
       {showText && (
         <div className="flex flex-col -space-y-1">
           <div className="flex items-baseline italic">
-            <span className="text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
-            <span className="text-xl font-black text-[var(--text-highlight)] tracking-tighter uppercase">Comp</span>
+            <span className="text-lg md:text-xl font-black text-[var(--text-main)] tracking-tighter uppercase">Arena</span>
+            <span className="text-lg md:text-xl font-black text-[var(--text-highlight)] tracking-tighter uppercase">Comp</span>
           </div>
-          <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
+          <span className="hidden sm:block text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-[0.3em] pl-0.5">Competition Platform</span>
         </div>
       )}
     </div>
