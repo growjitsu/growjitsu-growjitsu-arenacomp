@@ -6,6 +6,8 @@ import fs from "fs";
 import cors from "cors";
 import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
+import puppeteer from 'puppeteer-core';
+import chromium from '@sparticuz/chromium-min';
 import dotenv from "dotenv";
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
@@ -663,6 +665,95 @@ async function startServer() {
     } catch (e) {
       console.error("[API-SHARE] Error fetching token:", e);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // --- NEW: ATHLETE RESUME PDF GENERATION ---
+  app.get("/api/resume/pdf/:userId", async (req, res) => {
+    const { userId } = req.params;
+    console.log(`[API-RESUME] Generating PDF for user: ${userId}`);
+    
+    let browser: any = null;
+    try {
+      const executablePath = await chromium.executablePath();
+      if (!executablePath) {
+        throw new Error('Chromium background binary not found. Please ensure dependencies are installed.');
+      }
+
+      browser = await puppeteer.launch({
+        args: [
+          ...chromium.args,
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--single-process',
+        ],
+        executablePath,
+        headless: true,
+      });
+
+      const page = await browser.newPage();
+      
+      // Construct the local URL. 
+      const host = req.get('host') || '0.0.0.0:3000';
+      const protocol = req.get('x-forwarded-proto') || 'http';
+      const url = `${protocol}://${host}/curriculo/${userId}`;
+      
+      console.log(`[API-RESUME] Navigating to: ${url}`);
+      
+      // We set a high timeout because Supabase might take a bit to respond
+      await page.goto(url, {
+        waitUntil: 'networkidle2', 
+        timeout: 45000
+      });
+
+      // Wait a bit more for any animations to finish
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Inject PDF-specific styles to ensure a clean layout
+      await page.addStyleTag({
+        content: `
+          body { background-color: #f8fafc !important; }
+          .sticky { display: none !important; }
+          #resume-content { 
+            padding: 40px !important; 
+            margin: 0 auto !important; 
+            max-width: 800px !important;
+            box-shadow: none !important;
+            border: none !important;
+            background-color: transparent !important;
+          }
+          button { display: none !important; }
+          .rounded-\\[3rem\\] { border-radius: 2rem !important; }
+          .rounded-\\[2\\.5rem\\] { border-radius: 1.5rem !important; }
+        `
+      });
+
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
+        }
+      });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=Curriculo_ArenaComp_${userId}.pdf`);
+      res.send(pdf);
+
+    } catch (error: any) {
+      console.error('[API-RESUME] Error generating PDF:', error);
+      // If we already set headers to PDF, we might need to reset or just end
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: error.message });
+      }
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
     }
   });
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Bell, User, Heart, MessageCircle, PlusCircle, ChevronRight } from 'lucide-react';
+import { Bell, User, Heart, MessageCircle, PlusCircle, ChevronRight, Target } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { Link } from 'react-router-dom';
 
 interface Notification {
   id: string;
-  type: 'follow' | 'like' | 'comment' | 'post';
+  type: 'follow' | 'like' | 'comment' | 'post' | 'challenge_received' | 'challenge_accepted' | 'challenge_updated';
   read: boolean;
   created_at: string;
   actor: {
@@ -77,6 +77,12 @@ export const ArenaNotifications: React.FC = () => {
         return 'comentou na sua publicação';
       case 'post':
         return 'fez uma nova publicação';
+      case 'challenge_received':
+        return 'lançou um DESAFIO 1x1 para você!';
+      case 'challenge_accepted':
+        return 'ACEITOU seu desafio! Prepare-se para a luta.';
+      case 'challenge_updated':
+        return 'atualizou o status de um desafio.';
       default:
         return 'interagiu com você';
     }
@@ -92,6 +98,10 @@ export const ArenaNotifications: React.FC = () => {
         return <MessageCircle size={14} className="text-emerald-500" />;
       case 'post':
         return <PlusCircle size={14} className="text-[var(--primary)]" />;
+      case 'challenge_received':
+      case 'challenge_accepted':
+      case 'challenge_updated':
+        return <Target size={14} className="text-[var(--primary)]" />;
       default:
         return <Bell size={14} />;
     }

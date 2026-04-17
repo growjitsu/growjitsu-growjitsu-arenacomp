@@ -93,6 +93,27 @@ export interface ArenaFight {
   created_at: string;
 }
 
+export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed';
+export type ChallengeOutcome = 'challenger_win' | 'challenged_win' | 'draw';
+export type ChallengeResolution = 'fight' | 'non_attendance' | 'manual';
+
+export interface ArenaChallenge {
+  id: string;
+  challenger_id: string;
+  challenged_id: string;
+  event_id?: string;
+  event_name?: string;
+  status: ChallengeStatus;
+  outcome?: ChallengeOutcome;
+  resolution_type?: ChallengeResolution;
+  created_at: string;
+  updated_at: string;
+  accepted_at?: string;
+  completed_at?: string;
+  challenger?: ArenaProfile;
+  challenged?: ArenaProfile;
+}
+
 export type ChampionshipPlacement = 'Campeão' | 'Vice-campeão' | 'Terceiro lugar' | 'Participação';
 
 export interface ArenaChampionshipResult {

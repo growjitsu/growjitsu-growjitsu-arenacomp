@@ -16,6 +16,7 @@ import { ArenaSettings } from './components/ArenaSettings';
 import { ArenaAuth } from './components/ArenaAuth';
 import { ArenaNotifications } from './components/ArenaNotifications';
 import { SharePage } from './pages/SharePage';
+import { AthleteResume } from './pages/AthleteResume';
 import { CreatePostModal } from './components/CreatePostModal';
 import { UserTypeSelection } from './components/UserTypeSelection';
 import { AdminLayout } from './components/Admin/AdminLayout';
@@ -438,6 +439,7 @@ function AppContent() {
       <Route path="/post/:id" element={<Navigate to="/" replace />} />
       <Route path="/clip/:id" element={<Navigate to="/clips" replace />} />
       <Route path="/certificate/:id" element={<Navigate to="/profile" replace />} />
+      <Route path="/curriculo/:userId" element={<AthleteResume />} />
       <Route path="/share/:type/:id" element={<SharePage />} />
       <Route path="/share/:id" element={<SharePage />} />
 

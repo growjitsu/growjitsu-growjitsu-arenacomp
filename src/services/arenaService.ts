@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { ArenaFight, ArenaProfile, Team } from '../types';
+import { ArenaFight, ArenaProfile, Team, ArenaAd } from '../types';
 import { getApiUrl } from '../lib/api';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
@@ -19,16 +19,40 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   if (champError) throw champError;
 
+  // Fetch all completed challenges for the athlete
+  const { data: challenges, error: challengeError } = await supabase
+    .from('challenges')
+      .select('*')
+      .eq('status', 'completed')
+      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
+
+  if (challengeError) throw challengeError;
+
   // Calculate Fight Stats
   let wins = fights.filter(f => f.resultado === 'win').length;
   let losses = fights.filter(f => f.resultado === 'loss').length;
+  let draws = 0;
+
+  // Add Challenge Stats
+  challenges?.forEach(c => {
+    if (c.challenger_id === athleteId) {
+      if (c.outcome === 'challenger_win') wins++;
+      else if (c.outcome === 'challenged_win') losses++;
+      else if (c.outcome === 'draw') draws++;
+    } else {
+      if (c.outcome === 'challenged_win') wins++;
+      else if (c.outcome === 'challenger_win') losses++;
+      else if (c.outcome === 'draw') draws++;
+    }
+  });
   
-  // Arena Score from Fights = (wins * 10) - (losses * 3) + (submissions/knockouts * 5)
+  // Arena Score from Fights/Challenges = (wins * 15) - (losses * 5) + (draws * 2) + (submissions/knockouts * 5)
+  // Scoring update: increased fight weight to distinguish from championships
   const bonusPoints = fights.filter(f => 
     f.resultado === 'win' && (f.tipo_vitoria === 'finalização' || f.tipo_vitoria === 'nocaute')
   ).length * 5;
 
-  let arenaScore = (wins * 10) - (losses * 3) + bonusPoints;
+  let arenaScore = (wins * 15) - (losses * 5) + (draws * 2) + bonusPoints;
 
   // Add Championship Stats
   championships?.forEach(champ => {
@@ -57,6 +81,7 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
     .update({
       wins,
       losses,
+      draws,
       total_fights: totalFights,
       win_rate: winRate,
       arena_score: arenaScore,
@@ -151,6 +176,47 @@ export const getTeams = async () => {
     
   if (error) throw error;
   return data as Team[];
+};
+
+export const searchAthletes = async (query: string) => {
+  if (!query || query.length < 2) return [];
+  
+  // Search by name
+  const { data: byName, error: errorName } = await supabase
+    .from('profiles')
+    .select('*, teams(name)')
+    .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%`)
+    .eq('perfil_publico', true)
+    .limit(10);
+    
+  if (errorName) throw errorName;
+
+  // Search by team name
+  const { data: byTeam, error: errorTeam } = await supabase
+    .from('profiles')
+    .select('*, teams(name)')
+    .eq('perfil_publico', true)
+    .ilike('team', `%${query}%`)
+    .limit(10);
+
+  if (errorTeam) throw errorTeam;
+
+  // Combine and unique
+  const combined = [...(byName || []), ...(byTeam || [])];
+  const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+  
+  return unique.slice(0, 15) as ArenaProfile[];
+};
+
+export const getActivePromotions = async () => {
+  const { data, error } = await supabase
+    .from('arena_ads')
+    .select('*')
+    .eq('active', true)
+    .order('created_at', { ascending: false });
+    
+  if (error) throw error;
+  return data as ArenaAd[];
 };
 
 export interface CardData {

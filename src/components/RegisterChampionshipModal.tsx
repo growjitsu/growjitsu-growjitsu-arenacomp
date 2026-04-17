@@ -4,6 +4,7 @@ import { X, Trophy, Target, MapPin, Calendar, User, Save, Camera, Award, Shield,
 import { supabase } from '../services/supabase';
 import { modalities, ageCategories, belts } from '../utils/data';
 import { calculateAndUpdateStats } from '../services/arenaService';
+import { challengeService } from '../services/challengeService';
 import { getWeightCategory, getAgeCategory, getCompetitionAge } from '../services/categorization';
 import { ChampionshipPlacement, ArenaChampionshipResult, Gender } from '../types';
 
@@ -241,6 +242,13 @@ export const RegisterChampionshipModal: React.FC<RegisterChampionshipModalProps>
 
       // 3. Update athlete stats
       await calculateAndUpdateStats(athleteId);
+      
+      // 4. Check for challenges that might be resolved by this registration (non-attendance)
+      try {
+        await challengeService.checkChallengesForNonAttendance(formData.event_id || '', formData.championship_name);
+      } catch (err) {
+        console.error('Error checking challenges for non-attendance:', err);
+      }
       
       onChampionshipRegistered();
       onClose();

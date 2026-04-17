@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { 
   Award, Target, TrendingUp, Grid, History, MapPin, Calendar, 
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
@@ -13,11 +14,13 @@ import { supabase } from '../services/supabase';
 import { auth, db } from '../firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useProfile } from '../context/ProfileContext';
-import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality, ArenaAd } from '../types';
+import { ArenaProfile, ArenaResult, ArenaPost, ArenaChampionshipResult, ArenaFight, Team, ArenaCertificate, UserModality, ArenaAd, ArenaChallenge } from '../types';
 import { countries, modalities, belts } from '../utils/data';
 import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
+import { ChallengeModal } from './ChallengeModal';
+import { challengeService } from '../services/challengeService';
 import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
@@ -36,11 +39,12 @@ export const ArenaProfileView: React.FC<{
   const [results, setResults] = useState<ArenaResult[]>([]);
   const [championships, setChampionships] = useState<ArenaChampionshipResult[]>([]);
   const [fights, setFights] = useState<ArenaFight[]>([]);
+  const [challenges, setChallenges] = useState<ArenaChallenge[]>([]);
   const [posts, setPosts] = useState<ArenaPost[]>([]);
   const [archivedPosts, setArchivedPosts] = useState<ArenaPost[]>([]);
   const [certificates, setCertificates] = useState<ArenaCertificate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'posts' | 'certificates' | 'championships' | 'fights' | 'archive' | 'intelligence'>('posts');
+  const [activeTab, setActiveTab] = useState<'posts' | 'certificates' | 'championships' | 'fights' | 'archive' | 'intelligence' | 'challenges'>('posts');
   const [isEditing, setIsEditing] = useState(forceEdit || false);
   const [editData, setEditData] = useState<Partial<ArenaProfile>>({});
   const [saving, setSaving] = useState(false);
@@ -62,6 +66,7 @@ export const ArenaProfileView: React.FC<{
   const [editHashtags, setEditHashtags] = useState('');
   const [isRegisterFightModalOpen, setIsRegisterFightModalOpen] = useState(false);
   const [isRegisterChampionshipModalOpen, setIsRegisterChampionshipModalOpen] = useState(false);
+  const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<ArenaChampionshipResult | null>(null);
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
@@ -713,6 +718,19 @@ export const ArenaProfileView: React.FC<{
         .order('data_luta', { ascending: false });
       
       setFights(fightsData || []);
+
+      // Fetch Challenges
+      const { data: challengesData } = await supabase
+        .from('challenges')
+        .select(`
+          *,
+          challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url),
+          challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)
+        `)
+        .or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`)
+        .order('created_at', { ascending: false });
+      
+      setChallenges(challengesData || []);
 
       // Fetch Posts
       const { data: postsData } = await supabase
@@ -1636,6 +1654,21 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
     }
   };
 
+  const handleUpdateChallenge = async (challengeId: string, status: 'accepted' | 'declined' | 'completed', outcome?: 'challenger_win' | 'challenged_win' | 'draw', resolution_type?: 'fight' | 'non_attendance' | 'manual') => {
+    try {
+      if (status === 'completed' && outcome && resolution_type) {
+        await challengeService.resolveChallenge(challengeId, outcome, resolution_type);
+      } else {
+        await challengeService.updateChallengeStatus(challengeId, status);
+      }
+      // Refresh to get updated data
+      fetchProfileData();
+    } catch (err: any) {
+      console.error('Error updating challenge:', err);
+      alert('Erro ao atualizar desafio: ' + err.message);
+    }
+  };
+
   const totalFights = profile ? (profile.total_fights || (profile.wins + profile.losses)) : 0;
   const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
 
@@ -2197,7 +2230,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           </div>
           
           {!isOwnProfile && !isEditing && (
-            <div className="pb-4 flex items-center space-x-2">
+            <div className="pb-4 flex flex-wrap items-center justify-center md:justify-start gap-2">
               <button
                 onClick={handleFollow}
                 className={`px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
@@ -2208,6 +2241,17 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               >
                 {isFollowing ? 'Seguindo' : 'Seguir'}
               </button>
+
+              {profile.role === 'athlete' && (
+                <button
+                  onClick={() => setIsChallengeModalOpen(true)}
+                  className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
+                >
+                  <Target size={14} />
+                  <span>Desafiar</span>
+                </button>
+              )}
+
               <button
                 onClick={() => {
                   if (profile) {
@@ -2235,6 +2279,26 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
           {isOwnProfile && !isEditing && profile.role !== 'admin' && (
             <div className="pb-4 flex flex-wrap gap-2">
+              {profile.role === 'athlete' && (
+                <>
+                  <button
+                    onClick={() => setIsChallengeModalOpen(true)}
+                    className="px-4 md:px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
+                  >
+                    <Target size={14} className="text-[var(--primary)]" />
+                    <span>Desafiar Atleta</span>
+                  </button>
+
+                  <Link
+                    to={`/curriculo/${profile.id}`}
+                    className="px-4 md:px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
+                  >
+                    <FileText size={14} className="text-[var(--primary)]" />
+                    <span>Meu Currículo</span>
+                  </Link>
+                </>
+              )}
+
               {profile.tipo === 'nao_atleta' ? (
                 <button
                   onClick={async () => {
@@ -3000,6 +3064,15 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               Lutas
               {activeTab === 'fights' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
+            <button
+              onClick={() => setActiveTab('challenges')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
+                activeTab === 'challenges' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              Desafios
+              {activeTab === 'challenges' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
+            </button>
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('archive')}
@@ -3565,6 +3638,115 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   <div className="py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhuma luta registrada</div>
                 )}
               </div>
+            ) : activeTab === 'challenges' ? (
+              <div className="space-y-4">
+                {challenges.length > 0 ? challenges.map((challenge) => {
+                  const isChallenger = challenge.challenger_id === profile?.id;
+                  const opponent = isChallenger ? challenge.challenged : challenge.challenger;
+                  const opponentId = isChallenger ? challenge.challenged_id : challenge.challenger_id;
+                  
+                  return (
+                    <div key={challenge.id} className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] p-6 space-y-4 group hover:border-[var(--primary)]/30 transition-all">
+                      <div className="flex items-center justify-between">
+                         <div className="flex items-center space-x-4">
+                           <div className="relative">
+                             <img 
+                               src={opponent?.profile_photo || opponent?.avatar_url || 'https://via.placeholder.com/150'} 
+                               alt="" 
+                               className="w-12 h-12 rounded-full object-cover border-2 border-[var(--border-ui)] group-hover:border-[var(--primary)]/50 transition-all"
+                               referrerPolicy="no-referrer"
+                             />
+                             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[var(--surface)] border border-[var(--border-ui)] rounded-full flex items-center justify-center">
+                               <Target size={12} className="text-[var(--primary)]" />
+                             </div>
+                           </div>
+                           <div>
+                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
+                               {isChallenger ? 'Você desafiou' : 'Desafiou você'}
+                             </p>
+                             <Link to={`/profile/${opponentId}`} className="text-sm font-black text-[var(--text-main)] hover:text-[var(--primary)] uppercase italic">
+                               {opponent?.full_name || 'Atleta'}
+                             </Link>
+                           </div>
+                         </div>
+                         <div className="text-right">
+                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              challenge.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
+                              challenge.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' :
+                              challenge.status === 'completed' ? 'bg-blue-500/10 text-blue-500' :
+                              'bg-rose-500/10 text-rose-500'
+                            }`}>
+                              {challenge.status === 'pending' ? 'Pendente' :
+                               challenge.status === 'accepted' ? 'Aceito' :
+                               challenge.status === 'completed' ? 'Concluído' :
+                               challenge.status === 'declined' ? 'Recusado' : 'Cancelado'}
+                            </span>
+                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 py-4 border-y border-[var(--border-ui)]">
+                        <div>
+                          <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Evento Previsto</p>
+                          <p className="text-xs font-bold text-[var(--text-main)] uppercase">{challenge.event_name || 'NÃO DEFINIDO'}</p>
+                        </div>
+                        {challenge.outcome && (
+                          <div>
+                            <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Resultado</p>
+                            <p className={`text-xs font-black uppercase ${
+                              (isChallenger && challenge.outcome === 'challenger_win') || (!isChallenger && challenge.outcome === 'challenged_win')
+                                ? 'text-emerald-500' : challenge.outcome === 'draw' ? 'text-blue-500' : 'text-rose-500'
+                            }`}>
+                              {challenge.outcome === 'draw' ? 'Empate' :
+                               ((isChallenger && challenge.outcome === 'challenger_win') || (!isChallenger && challenge.outcome === 'challenged_win'))
+                               ? 'Vitória' : 'Derrota'}
+                            </p>
+                          </div>
+                        )}
+                         {!challenge.outcome && challenge.status === 'accepted' && isOwnProfile && !isChallenger && (
+                           <div className="col-span-2 flex gap-2 pt-2">
+                             <button 
+                               onClick={() => handleUpdateChallenge(challenge.id, 'completed', 'challenged_win', 'manual')}
+                               className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
+                             >
+                               Venci
+                             </button>
+                             <button 
+                               onClick={() => handleUpdateChallenge(challenge.id, 'completed', 'challenger_win', 'manual')}
+                               className="flex-1 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 shadow-lg shadow-rose-500/20"
+                             >
+                               Perdi
+                             </button>
+                           </div>
+                        )}
+                         {!challenge.outcome && challenge.status === 'pending' && isOwnProfile && !isChallenger && (
+                           <div className="col-span-2 flex gap-2 pt-2">
+                             <button 
+                               onClick={() => handleUpdateChallenge(challenge.id, 'accepted')}
+                               className="flex-1 py-2 bg-[var(--primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] shadow-lg shadow-[var(--primary)]/20"
+                             >
+                               Aceitar
+                             </button>
+                             <button 
+                               onClick={() => handleUpdateChallenge(challenge.id, 'declined')}
+                               className="flex-1 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 transition-all"
+                             >
+                               Recusar
+                             </button>
+                           </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div className="py-24 text-center">
+                    <div className="w-16 h-16 bg-[var(--surface)] border border-[var(--border-ui)] rounded-full flex items-center justify-center mx-auto text-[var(--text-muted)] mb-4">
+                      <Target size={32} />
+                    </div>
+                    <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest">Nenhum desafio no momento</p>
+                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-1">Status de desafios 1x1 aparecerão aqui</p>
+                  </div>
+                )}
+              </div>
             ) : activeTab === 'archive' && isOwnProfile ? (
               <div className="grid grid-cols-2 gap-4">
                 {archivedPosts.length > 0 ? archivedPosts.map((post) => (
@@ -3995,6 +4177,15 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           athleteId={profile.id}
           onChampionshipRegistered={fetchProfileData}
           initialData={editingChampionship}
+        />
+      )}
+
+      {isChallengeModalOpen && currentUser && profile && (
+        <ChallengeModal
+          isOpen={isChallengeModalOpen}
+          onClose={() => setIsChallengeModalOpen(false)}
+          challengerId={currentUser.id}
+          challengedProfile={isOwnProfile ? undefined : profile}
         />
       )}
     </div>
