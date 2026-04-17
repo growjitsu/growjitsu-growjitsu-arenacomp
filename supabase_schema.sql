@@ -144,3 +144,38 @@ BEGIN
   WHERE id = ad_id_param;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 14. Tabela de Desafios (Challenges)
+CREATE TABLE IF NOT EXISTS public.challenges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  challenger_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
+  challenged_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
+  event_id UUID REFERENCES public.arena_ads(id) ON DELETE SET NULL,
+  event_name TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed', 'cancelled')),
+  outcome TEXT CHECK (outcome IN ('challenger_win', 'challenged_win', 'draw', 'none')),
+  resolution_type TEXT CHECK (resolution_type IN ('manual', 'non_attendance')),
+  accepted_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  winner_id UUID REFERENCES public.usuarios(id) ON DELETE SET NULL
+);
+
+-- Enable RLS para Desafios
+ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
+
+-- Políticas para 'challenges'
+CREATE POLICY "Desafios são visíveis por todos" ON public.challenges
+  FOR SELECT USING (true);
+
+CREATE POLICY "Usuários podem criar seus próprios desafios" ON public.challenges
+  FOR INSERT WITH CHECK (auth.uid() = challenger_id);
+
+CREATE POLICY "Participantes podem atualizar seus próprios desafios" ON public.challenges
+  FOR UPDATE USING (auth.uid() = challenger_id OR auth.uid() = challenged_id);
+
+-- Índices para Desafios
+CREATE INDEX IF NOT EXISTS challenges_challenger_id_idx ON public.challenges(challenger_id);
+CREATE INDEX IF NOT EXISTS challenges_challenged_id_idx ON public.challenges(challenged_id);
+CREATE INDEX IF NOT EXISTS challenges_status_idx ON public.challenges(status);

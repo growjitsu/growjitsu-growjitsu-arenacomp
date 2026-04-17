@@ -78,6 +78,12 @@ export const AthleteResume: React.FC = () => {
       if (!response.ok) throw new Error('Falha ao gerar PDF');
       
       const blob = await response.blob();
+      console.log(`[PDF] Blob received. Size: ${blob.size} bytes`);
+
+      if (blob.size === 0) {
+        throw new Error('O arquivo PDF gerado está vazio.');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

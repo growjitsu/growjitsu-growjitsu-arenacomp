@@ -694,21 +694,31 @@ async function startServer() {
 
       const page = await browser.newPage();
       
+      // Force screen media type to match what user sees
+      await page.emulateMediaType('screen');
+
+      // Use a custom user agent to avoid being blocked by internal protections
+      await page.setUserAgent('ArenaCompPDFGenerator/1.0');
+      
       // Construct the local URL. 
-      const host = req.get('host') || '0.0.0.0:3000';
-      const protocol = req.get('x-forwarded-proto') || 'http';
-      const url = `${protocol}://${host}/curriculo/${userId}`;
+      // Using localhost:3000 is safer for internal navigation within the container
+      const url = `http://localhost:3000/curriculo/${userId}`;
       
       console.log(`[API-RESUME] Navigating to: ${url}`);
       
-      // We set a high timeout because Supabase might take a bit to respond
-      await page.goto(url, {
-        waitUntil: 'networkidle2', 
-        timeout: 45000
+      // Increase timeout and wait for network to be idle
+      const response = await page.goto(url, {
+        waitUntil: ['networkidle0', 'domcontentloaded'], 
+        timeout: 60000
       });
 
-      // Wait a bit more for any animations to finish
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!response || !response.ok()) {
+        const status = response ? response.status() : 'No response';
+        throw new Error(`Failed to load page: ${status}`);
+      }
+
+      // Wait for content to render (Profile data)
+      await page.waitForSelector('#resume-content', { timeout: 30000 });
 
       // Inject PDF-specific styles to ensure a clean layout
       await page.addStyleTag({
@@ -733,16 +743,26 @@ async function startServer() {
         format: 'A4',
         printBackground: true,
         margin: {
-          top: '10mm',
-          right: '10mm',
-          bottom: '10mm',
-          left: '10mm'
-        }
+          top: '0mm',
+          right: '0mm',
+          bottom: '0mm',
+          left: '0mm'
+        },
+        scale: 0.8, // Slightly scale down to fit content better on A4
       });
 
+      console.log(`[API-RESUME] PDF generated successfully. Size: ${pdf.length} bytes`);
+
+      if (pdf.length === 0) {
+        throw new Error('Generated PDF is empty');
+      }
+
       res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', pdf.length);
       res.setHeader('Content-Disposition', `attachment; filename=Curriculo_ArenaComp_${userId}.pdf`);
-      res.send(pdf);
+      
+      // Explicitly send as binary
+      res.end(pdf, 'binary');
 
     } catch (error: any) {
       console.error('[API-RESUME] Error generating PDF:', error);
