@@ -69,7 +69,8 @@ export const AdminChallenges: React.FC = () => {
   const fetchEvents = async () => {
     const { data } = await supabase
       .from('eventos')
-      .select('id, nome')
+      .select('id, nome, status')
+      .in('status', ['aberto', 'em_andamento'])
       .order('nome');
     if (data) setEvents(data);
   };
@@ -489,9 +490,9 @@ export const AdminChallenges: React.FC = () => {
                   </div>
 
                   {/* Event Selection */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 pl-4">Evento</label>
-                    <div className="flex gap-2">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 pl-4">Selecionar Evento Ativo</label>
                       <select 
                         value={createData.event_id}
                         onChange={(e) => {
@@ -499,25 +500,47 @@ export const AdminChallenges: React.FC = () => {
                           setCreateData({
                             ...createData, 
                             event_id: e.target.value,
-                            event_name: event ? event.nome : createData.event_name
+                            event_name: event ? event.nome : ''
                           });
                         }}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-primary/50 outline-none transition-all"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-primary/50 outline-none transition-all"
                       >
-                        <option value="">Evento Pré-definido (Opcional)</option>
+                        <option value="">-- Escolha um evento anunciado --</option>
                         {events.map(e => (
                           <option key={e.id} value={e.id}>{e.nome}</option>
                         ))}
                       </select>
                     </div>
-                    <input 
-                      type="text"
-                      placeholder="Nome do Evento Manual"
-                      value={createData.event_name}
-                      onChange={(e) => setCreateData({...createData, event_name: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-primary/50 outline-none transition-all"
-                      required
-                    />
+
+                    {!createData.event_id && (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 pl-4">Ou digite o nome do evento</label>
+                        <input 
+                          type="text"
+                          placeholder="Ex: Treino Interno, Copa Local..."
+                          value={createData.event_name}
+                          onChange={(e) => setCreateData({...createData, event_name: e.target.value})}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-primary/50 outline-none transition-all"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {createData.event_id && (
+                      <div className="bg-primary/10 border border-primary/20 p-4 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <span className="text-[8px] font-black uppercase text-primary block">Evento Vinculado</span>
+                          <p className="text-xs text-white font-bold">{createData.event_name}</p>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setCreateData({...createData, event_id: '', event_name: ''})}
+                          className="text-primary hover:text-white transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

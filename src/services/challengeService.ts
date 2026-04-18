@@ -522,18 +522,18 @@ export const challengeService = {
       throw new Error('Já existe um desafio ativo entre estes atletas para este evento.');
     }
 
-    const { data, error } = await supabase
+    const { data: createdData, error } = await supabase
       .from('challenges')
       .insert({
         ...payload,
         status: 'pending'
       })
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
+    if (!createdData || createdData.length === 0) throw new Error('Falha ao criar o desafio no banco de dados.');
 
-    const challenge = data as ArenaChallenge;
+    const challenge = createdData[0] as ArenaChallenge;
 
     // Trigger notification and post just like normal flow
     try {
@@ -564,19 +564,19 @@ export const challengeService = {
     if (fetchError || !challenge) throw new Error('Desafio não encontrado');
 
     const oldStatus = challenge.status;
-    const { data, error } = await supabase
+    const { data: updatedData, error: updateError } = await supabase
       .from('challenges')
       .update({
         ...updates,
         updated_at: new Date().toISOString()
       })
       .eq('id', challengeId)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
+    if (updateError) throw updateError;
+    if (!updatedData || updatedData.length === 0) throw new Error('Falha ao atualizar o desafio ou permissão negada.');
 
-    const updatedChallenge = data as ArenaChallenge;
+    const updatedChallenge = updatedData[0] as ArenaChallenge;
 
     // If status changed, handle notifications/posts
     if (updates.status && updates.status !== oldStatus) {
@@ -611,6 +611,11 @@ export const challengeService = {
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', challengeId);
 
-    if (error) throw error;
+    if (error) {
+      if (error.message.includes('deleted_at') || error.code === '42703') {
+        throw new Error('A coluna "deleted_at" não foi encontrada. Por favor, execute o script SQL de migração no console do Supabase para habilitar esta funcionalidade.');
+      }
+      throw error;
+    }
   }
 };
