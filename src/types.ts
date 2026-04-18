@@ -93,9 +93,13 @@ export interface ArenaFight {
   created_at: string;
 }
 
-export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'completed';
-export type ChallengeOutcome = 'challenger_win' | 'challenged_win' | 'draw';
-export type ChallengeResolution = 'fight' | 'non_attendance' | 'manual';
+export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'finished';
+export type ChallengeType = 'category' | 'category_absolute';
+
+export interface ChallengeResult {
+  category: '1st' | '2nd' | '3rd' | 'none';
+  absolute?: '1st' | '2nd' | '3rd' | 'none';
+}
 
 export interface ArenaChallenge {
   id: string;
@@ -104,12 +108,16 @@ export interface ArenaChallenge {
   event_id?: string;
   event_name?: string;
   status: ChallengeStatus;
-  outcome?: ChallengeOutcome;
-  resolution_type?: ChallengeResolution;
+  challenge_type: ChallengeType;
+  challenger_result?: ChallengeResult;
+  challenged_result?: ChallengeResult;
+  challenger_points?: number;
+  challenged_points?: number;
+  winner_id?: string;
   created_at: string;
   updated_at: string;
   accepted_at?: string;
-  completed_at?: string;
+  completed_at?: string; // Keep for compatibility if needed, but finished_at might be better. Status 'finished' is the trigger.
   challenger?: ArenaProfile;
   challenged?: ArenaProfile;
 }

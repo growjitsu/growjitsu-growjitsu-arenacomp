@@ -186,6 +186,7 @@ export const searchAthletes = async (query: string) => {
       .select('*, teams(name)')
       .eq('perfil_publico', true)
       .neq('role', 'admin')
+      .ilike('role', 'athlete') // Ensure we only get athletes
       .order('arena_score', { ascending: false })
       .limit(5);
     
@@ -202,6 +203,7 @@ export const searchAthletes = async (query: string) => {
     .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%`)
     .eq('perfil_publico', true)
     .neq('role', 'admin')
+    .ilike('role', 'athlete') // Ensure we only get athletes
     .order('arena_score', { ascending: false })
     .limit(5);
     

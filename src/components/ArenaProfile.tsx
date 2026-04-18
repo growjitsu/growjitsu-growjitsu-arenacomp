@@ -20,6 +20,7 @@ import { PostModal } from './PostModal';
 import { RegisterFightModal } from './RegisterFightModal';
 import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { ChallengeModal } from './ChallengeModal';
+import { ChallengeSection } from './ChallengeSection';
 import { challengeService } from '../services/challengeService';
 import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
@@ -1654,9 +1655,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
     }
   };
 
-  const handleUpdateChallenge = async (challengeId: string, status: 'accepted' | 'declined' | 'completed', outcome?: 'challenger_win' | 'challenged_win' | 'draw', resolution_type?: 'fight' | 'non_attendance' | 'manual') => {
+  const handleUpdateChallenge = async (challengeId: string, status: 'accepted' | 'declined' | 'finished', outcome?: 'challenger_win' | 'challenged_win' | 'draw', resolution_type?: 'fight' | 'non_attendance' | 'manual') => {
     try {
-      if (status === 'completed' && outcome && resolution_type) {
+      if (status === 'finished' && outcome && resolution_type) {
         await challengeService.resolveChallenge(challengeId, outcome, resolution_type);
       } else {
         await challengeService.updateChallengeStatus(challengeId, status);
@@ -2235,9 +2236,9 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
             {/* Action Buttons */}
             {!isEditing && (
-              <div className="pb-2 flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+              <div className="pb-2 w-full md:w-auto">
                 {!isOwnProfile ? (
-                  <>
+                  <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
                     <button
                       onClick={handleFollow}
                       className={`px-6 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
@@ -2281,47 +2282,45 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     >
                       <Share2 size={18} />
                     </button>
-                  </>
+                  </div>
                 ) : (
                   profile.role !== 'admin' && (
-                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
+                    <div className="grid grid-cols-2 gap-2 w-full md:grid-cols-2 lg:grid-cols-2">
+                       {/* Row 1 */}
+                      {profile.role === 'athlete' && (
+                        <button
+                          onClick={() => setIsChallengeModalOpen(true)}
+                          className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
+                        >
+                          <Target size={14} className="text-[var(--primary)]" />
+                          <span>Desafiar Atleta</span>
+                        </button>
+                      )}
+
+                      <Link
+                        to={`/curriculo/${profile.id}`}
+                        className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
+                      >
+                        <FileText size={14} className="text-[var(--primary)]" />
+                        <span>Meu Currículo</span>
+                      </Link>
+
+                      {/* Row 2 */}
                       {profile.role === 'athlete' && (
                         <>
                           <button
-                            onClick={() => setIsChallengeModalOpen(true)}
-                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
-                          >
-                            <Target size={14} className="text-[var(--primary)]" />
-                            <span className="hidden lg:inline">Desafiar Atleta</span>
-                            <span className="lg:hidden">Desafiar</span>
-                          </button>
-
-                          <Link
-                            to={`/curriculo/${profile.id}`}
-                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
-                          >
-                            <FileText size={14} className="text-[var(--primary)]" />
-                            <span className="hidden lg:inline">Meu Currículo</span>
-                            <span className="lg:hidden">Currículo</span>
-                          </Link>
-                        </>
-                      )}
-
-                      {profile.tipo === 'atleta' && (
-                        <>
-                          <button
-                            onClick={() => setIsRegisterFightModalOpen(true)}
-                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
-                          >
-                            <Plus size={14} className="text-[var(--primary)]" />
-                            <span>Registrar Luta</span>
-                          </button>
-                          <button
                             onClick={() => setIsRegisterChampionshipModalOpen(true)}
-                            className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+                            className="px-4 py-3 bg-[var(--primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center justify-center space-x-2"
                           >
                             <Trophy size={14} />
                             <span>Registrar Campeonato</span>
+                          </button>
+                          <button
+                            onClick={() => setIsRegisterFightModalOpen(true)}
+                            className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2"
+                          >
+                            <Plus size={14} className="text-[var(--primary)]" />
+                            <span>Registrar Luta</span>
                           </button>
                         </>
                       )}
@@ -3005,6 +3004,15 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               {activeTab === 'posts' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
             <button
+              onClick={() => setActiveTab('challenges')}
+              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
+                activeTab === 'challenges' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              Desafios
+              {activeTab === 'challenges' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
+            </button>
+            <button
               onClick={() => setActiveTab('intelligence')}
               className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap flex items-center space-x-2 ${
                 activeTab === 'intelligence' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -3065,7 +3073,13 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
           {/* Tab Content */}
           <div className="space-y-6">
-            {activeTab === 'intelligence' ? (
+            {activeTab === 'challenges' ? (
+              <ChallengeSection 
+                profileId={profile.id} 
+                challenges={challenges} 
+                onStatusUpdate={handleUpdateChallenge}
+              />
+            ) : activeTab === 'intelligence' ? (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                 {/* AI Analysis Header */}
                 <div className="bg-gradient-to-br from-[var(--primary)] to-indigo-600 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-[var(--primary)]/20">
@@ -3613,115 +3627,6 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   </div>
                 )) : (
                   <div className="py-12 text-center text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest">Nenhuma luta registrada</div>
-                )}
-              </div>
-            ) : activeTab === 'challenges' ? (
-              <div className="space-y-4">
-                {challenges.length > 0 ? challenges.map((challenge) => {
-                  const isChallenger = challenge.challenger_id === profile?.id;
-                  const opponent = isChallenger ? challenge.challenged : challenge.challenger;
-                  const opponentId = isChallenger ? challenge.challenged_id : challenge.challenger_id;
-                  
-                  return (
-                    <div key={challenge.id} className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] p-6 space-y-4 group hover:border-[var(--primary)]/30 transition-all">
-                      <div className="flex items-center justify-between">
-                         <div className="flex items-center space-x-4">
-                           <div className="relative">
-                             <img 
-                               src={opponent?.profile_photo || opponent?.avatar_url || 'https://via.placeholder.com/150'} 
-                               alt="" 
-                               className="w-12 h-12 rounded-full object-cover border-2 border-[var(--border-ui)] group-hover:border-[var(--primary)]/50 transition-all"
-                               referrerPolicy="no-referrer"
-                             />
-                             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-[var(--surface)] border border-[var(--border-ui)] rounded-full flex items-center justify-center">
-                               <Target size={12} className="text-[var(--primary)]" />
-                             </div>
-                           </div>
-                           <div>
-                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                               {isChallenger ? 'Você desafiou' : 'Desafiou você'}
-                             </p>
-                             <Link to={`/profile/${opponentId}`} className="text-sm font-black text-[var(--text-main)] hover:text-[var(--primary)] uppercase italic">
-                               {opponent?.full_name || 'Atleta'}
-                             </Link>
-                           </div>
-                         </div>
-                         <div className="text-right">
-                            <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                              challenge.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
-                              challenge.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-500' :
-                              challenge.status === 'completed' ? 'bg-blue-500/10 text-blue-500' :
-                              'bg-rose-500/10 text-rose-500'
-                            }`}>
-                              {challenge.status === 'pending' ? 'Pendente' :
-                               challenge.status === 'accepted' ? 'Aceito' :
-                               challenge.status === 'completed' ? 'Concluído' :
-                               challenge.status === 'declined' ? 'Recusado' : 'Cancelado'}
-                            </span>
-                         </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4 py-4 border-y border-[var(--border-ui)]">
-                        <div>
-                          <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Evento Previsto</p>
-                          <p className="text-xs font-bold text-[var(--text-main)] uppercase">{challenge.event_name || 'NÃO DEFINIDO'}</p>
-                        </div>
-                        {challenge.outcome && (
-                          <div>
-                            <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-widest">Resultado</p>
-                            <p className={`text-xs font-black uppercase ${
-                              (isChallenger && challenge.outcome === 'challenger_win') || (!isChallenger && challenge.outcome === 'challenged_win')
-                                ? 'text-emerald-500' : challenge.outcome === 'draw' ? 'text-blue-500' : 'text-rose-500'
-                            }`}>
-                              {challenge.outcome === 'draw' ? 'Empate' :
-                               ((isChallenger && challenge.outcome === 'challenger_win') || (!isChallenger && challenge.outcome === 'challenged_win'))
-                               ? 'Vitória' : 'Derrota'}
-                            </p>
-                          </div>
-                        )}
-                         {!challenge.outcome && challenge.status === 'accepted' && isOwnProfile && !isChallenger && (
-                           <div className="col-span-2 flex gap-2 pt-2">
-                             <button 
-                               onClick={() => handleUpdateChallenge(challenge.id, 'completed', 'challenged_win', 'manual')}
-                               className="flex-1 py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 shadow-lg shadow-emerald-500/20"
-                             >
-                               Venci
-                             </button>
-                             <button 
-                               onClick={() => handleUpdateChallenge(challenge.id, 'completed', 'challenger_win', 'manual')}
-                               className="flex-1 py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 shadow-lg shadow-rose-500/20"
-                             >
-                               Perdi
-                             </button>
-                           </div>
-                        )}
-                         {!challenge.outcome && challenge.status === 'pending' && isOwnProfile && !isChallenger && (
-                           <div className="col-span-2 flex gap-2 pt-2">
-                             <button 
-                               onClick={() => handleUpdateChallenge(challenge.id, 'accepted')}
-                               className="flex-1 py-2 bg-[var(--primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] shadow-lg shadow-[var(--primary)]/20"
-                             >
-                               Aceitar
-                             </button>
-                             <button 
-                               onClick={() => handleUpdateChallenge(challenge.id, 'declined')}
-                               className="flex-1 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500/10 hover:text-rose-500 transition-all"
-                             >
-                               Recusar
-                             </button>
-                           </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }) : (
-                  <div className="py-24 text-center">
-                    <div className="w-16 h-16 bg-[var(--surface)] border border-[var(--border-ui)] rounded-full flex items-center justify-center mx-auto text-[var(--text-muted)] mb-4">
-                      <Target size={32} />
-                    </div>
-                    <p className="text-sm font-bold text-[var(--text-main)] uppercase tracking-widest">Nenhum desafio no momento</p>
-                    <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-1">Status de desafios 1x1 aparecerão aqui</p>
-                  </div>
                 )}
               </div>
             ) : activeTab === 'archive' && isOwnProfile ? (

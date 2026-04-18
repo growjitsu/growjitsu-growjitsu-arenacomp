@@ -1,30 +1,45 @@
 import { supabase } from './supabase';
-import { ArenaChallenge, ChallengeStatus, ChallengeOutcome, ChallengeResolution } from '../types';
+import { ArenaChallenge, ChallengeStatus, ChallengeType, ChallengeResult } from '../types';
 import { calculateAndUpdateStats } from './arenaService';
 
 export const challengeService = {
-  async createChallenge(challengerId: string, challengedId: string, eventId?: string, eventName?: string) {
+  async createChallenge(
+    challengerId: string, 
+    challengedId: string, 
+    eventId: string, 
+    eventName: string,
+    challengeType: ChallengeType = 'category'
+  ) {
     console.log(`[SERVICE] Creating challenge: ${challengerId} -> ${challengedId}`);
     
+    // BACKEND VALIDATION: Check mandatory fields
+    if (!eventId || !eventName) {
+      throw new Error('A seleção de um evento é obrigatória para criar um desafio.');
+    }
+
     // BACKEND VALIDATION: Check both athletes in the profiles table
     const { data: profiles, error: checkError } = await supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, username')
       .in('id', [challengerId, challengedId]);
 
     if (checkError) {
       console.error('[SERVICE] Profile check failed:', checkError);
-      throw checkError;
+      throw new Error(`Erro ao verificar atletas: ${checkError.message}`);
     }
+
+    console.log('[SERVICE] Profiles found for integrity check:', profiles);
 
     const challengerExists = profiles?.some(p => p.id === challengerId);
     const challengedExists = profiles?.some(p => p.id === challengedId);
 
     if (!challengedExists) {
-      throw new Error(`Integridade: O atleta desafiado (ID: ${challengedId}) não existe na tabela de perfis.`);
+      console.error(`[SERVICE] Challenged ID ${challengedId} not found in profiles.`);
+      throw new Error(`O atleta selecionado não foi encontrado no sistema (ID inválido ou inacessível).`);
     }
     if (!challengerExists) {
-      throw new Error(`Integridade: Você (ID: ${challengerId}) não possui um registro na tabela de perfis.`);
+      console.error(`[SERVICE] Challenger ID ${challengerId} not found in profiles.`);
+      throw new Error(`Seu perfil de atleta não foi encontrado ou está inacessível.`);
     }
 
     const { data, error } = await supabase
@@ -34,6 +49,7 @@ export const challengeService = {
         challenged_id: challengedId,
         event_id: eventId,
         event_name: eventName,
+        challenge_type: challengeType,
         status: 'pending'
       })
       .select()
@@ -49,7 +65,7 @@ export const challengeService = {
       user_id: challengedId,
       actor_id: challengerId,
       type: 'challenge_received',
-      content: 'Você recebeu um novo desafio 1x1!'
+      content: `Você recebeu um novo desafio para o evento ${eventName}!`
     });
 
     return data as ArenaChallenge;
@@ -59,10 +75,27 @@ export const challengeService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Not authenticated');
 
+    // Fetch challenge to check permissions
+    const { data: challenge, error: fetchError } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .single();
+
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
+
+    const isChallenger = user.id === challenge.challenger_id;
+    const isChallenged = user.id === challenge.challenged_id;
+
+    if (!isChallenger && !isChallenged) throw new Error('Não autorizado');
+
+    // Rule: after accepted, cannot delete (handled in UI, but safe to keep in mind)
+    // Rule: after finished, cannot edit or delete
+
     const updateData: any = { status, updated_at: new Date().toISOString() };
     if (status === 'accepted') {
       updateData.accepted_at = new Date().toISOString();
-    } else if (status === 'completed') {
+    } else if (status === 'finished') {
       updateData.completed_at = new Date().toISOString();
     }
 
@@ -75,9 +108,8 @@ export const challengeService = {
 
     if (error) throw error;
 
-    // Notify the other party
-    const challenge = data as ArenaChallenge;
-    const notifiedUserId = user.id === challenge.challenger_id ? challenge.challenged_id : challenge.challenger_id;
+    const updatedChallenge = data as ArenaChallenge;
+    const notifiedUserId = isChallenger ? updatedChallenge.challenged_id : updatedChallenge.challenger_id;
     
     let notificationType = 'challenge_updated';
     let content = `Status do desafio atualizado para: ${status}`;
@@ -85,11 +117,11 @@ export const challengeService = {
     if (status === 'accepted') {
       notificationType = 'challenge_accepted';
       content = 'Seu desafio foi aceito! Prepare-se para a arena.';
-      
-      // CREATE "Challenge Accepted" POST
-      await this.createChallengeAcceptedPost(challenge);
+      await this.createChallengeAcceptedPost(updatedChallenge);
     } else if (status === 'declined') {
       content = 'Seu desafio foi recusado.';
+    } else if (status === 'cancelled') {
+      content = 'O desafio foi cancelado.';
     }
 
     await supabase.from('notifications').insert({
@@ -99,34 +131,60 @@ export const challengeService = {
       content
     });
 
-    return challenge;
+    return updatedChallenge;
   },
 
-  async createChallengeAcceptedPost(challenge: ArenaChallenge) {
-    // Fetch profile names
-    const { data: challenger } = await supabase.from('profiles').select('full_name, username').eq('id', challenge.challenger_id).single();
-    const { data: challenged } = await supabase.from('profiles').select('full_name, username').eq('id', challenge.challenged_id).single();
+  async deleteChallenge(challengeId: string) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
 
-    if (!challenger || !challenged) return;
+    const { data: challenge, error: fetchError } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .single();
 
-    const content = `🔥 DESAFIO ACEITO! @${challenger.username} vs @${challenged.username}${challenge.event_name ? ` no evento ${challenge.event_name}` : ''}. Quem sairá vitorioso? 👊🏆`;
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
 
-    await supabase.from('posts').insert({
-      author_id: challenge.challenger_id,
-      type: 'image', // Or a new type if preferred
-      content,
-      // media_url: ... potential challenge card?
-    });
+    if (user.id !== challenge.challenger_id) {
+      throw new Error('Apenas o criador pode excluir o desafio.');
+    }
+
+    if (challenge.status === 'accepted') {
+      throw new Error('Desafios aceitos não podem ser excluídos.');
+    }
+
+    if (challenge.status === 'finished') {
+      throw new Error('Desafios finalizados não podem ser excluídos.');
+    }
+
+    const { error } = await supabase.from('challenges').delete().eq('id', challengeId);
+    if (error) throw error;
   },
 
-  async resolveChallenge(challengeId: string, outcome: ChallengeOutcome, resolutionType: ChallengeResolution) {
+  async submitResult(challengeId: string, result: ChallengeResult) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data: challenge, error: fetchError } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .single();
+
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
+
+    const isChallenger = user.id === challenge.challenger_id;
+    const isChallenged = user.id === challenge.challenged_id;
+
+    if (!isChallenger && !isChallenged) throw new Error('Não autorizado');
+
+    const resultField = isChallenger ? 'challenger_result' : 'challenged_result';
+
     const { data, error } = await supabase
       .from('challenges')
-      .update({
-        status: 'completed',
-        outcome,
-        resolution_type: resolutionType,
-        completed_at: new Date().toISOString(),
+      .update({ 
+        [resultField]: result,
         updated_at: new Date().toISOString()
       })
       .eq('id', challengeId)
@@ -135,43 +193,126 @@ export const challengeService = {
 
     if (error) throw error;
 
-    const challenge = data as ArenaChallenge;
+    const updatedChallenge = data as ArenaChallenge;
 
-    // Create a result post
-    await this.createChallengeResultPost(challenge);
+    // Check if both have submitted
+    if (updatedChallenge.challenger_result && updatedChallenge.challenged_result) {
+      await this.finalizeChallenge(updatedChallenge);
+    }
 
-    // Update athlete stats (wins/losses/arena_score)
-    // We'll need a way to incorporate this into arenaService.calculateAndUpdateStats or similar
-    // For now, let's just trigger stats update for both
+    return updatedChallenge;
+  },
+
+  calculatePoints(result: ChallengeResult): number {
+    const pointsMap = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
+    let total = pointsMap[result.category];
+    if (result.absolute) {
+      total += pointsMap[result.absolute];
+    }
+    return total;
+  },
+
+  async finalizeChallenge(challenge: ArenaChallenge) {
+    const challengerPoints = this.calculatePoints(challenge.challenger_result!);
+    const challengedPoints = this.calculatePoints(challenge.challenged_result!);
+
+    let winnerId = null;
+    if (challengerPoints > challengedPoints) {
+      winnerId = challenge.challenger_id;
+    } else if (challengedPoints > challengerPoints) {
+      winnerId = challenge.challenged_id;
+    }
+
+    const { data, error } = await supabase
+      .from('challenges')
+      .update({
+        status: 'finished',
+        challenger_points: challengerPoints,
+        challenged_points: challengedPoints,
+        winner_id: winnerId,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', challenge.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const finalizedChallenge = data as ArenaChallenge;
+
+    // Post automatic result
+    await this.createChallengeResultPost(finalizedChallenge);
+
+    // Update stats
     await this.updateAthleteStats(challenge.challenger_id);
     await this.updateAthleteStats(challenge.challenged_id);
 
-    return challenge;
+    // Notify both
+    const notifyBoth = [challenge.challenger_id, challenge.challenged_id];
+    for (const uid of notifyBoth) {
+      await supabase.from('notifications').insert({
+        user_id: uid,
+        type: 'challenge_finished',
+        content: `O desafio no evento ${challenge.event_name} foi finalizado!`
+      });
+    }
   },
 
-  async createChallengeResultPost(challenge: ArenaChallenge) {
-    const { data: challenger } = await supabase.from('profiles').select('full_name, username').eq('id', challenge.challenger_id).single();
-    const { data: challenged } = await supabase.from('profiles').select('full_name, username').eq('id', challenge.challenged_id).single();
+  async createChallengeAcceptedPost(challenge: ArenaChallenge) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, profile_photo, avatar_url')
+      .in('id', [challenge.challenger_id, challenge.challenged_id]);
+
+    const challenger = profiles?.find(p => p.id === challenge.challenger_id);
+    const challenged = profiles?.find(p => p.id === challenge.challenged_id);
 
     if (!challenger || !challenged) return;
 
-    let resultText = '';
-    if (challenge.outcome === 'challenger_win') {
-      resultText = `🏆 @${challenger.username} venceu o desafio contra @${challenged.username}!`;
-    } else if (challenge.outcome === 'challenged_win') {
-      resultText = `🏆 @${challenged.username} venceu o desafio contra @${challenger.username}!`;
-    } else {
-      resultText = `🤝 O desafio entre @${challenger.username} e @${challenged.username} terminou em empate!`;
-    }
-
-    if (challenge.resolution_type === 'non_attendance') {
-      resultText += ' (Vitória por W.O. - Não comparecimento)';
-    }
+    const content = `🔥 DESAFIO ACEITO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. Quem sairá vitorioso? 👊🏆`;
 
     await supabase.from('posts').insert({
-      author_id: challenge.outcome === 'challenger_win' ? challenge.challenger_id : (challenge.outcome === 'challenged_win' ? challenge.challenged_id : challenge.challenger_id),
+      author_id: challenge.challenger_id,
       type: 'image',
-      content: resultText + ` #1v1 #ArenaComp #DesafioResolvido`
+      content,
+      media_urls: [
+        challenger.profile_photo || challenger.avatar_url || '',
+        challenged.profile_photo || challenged.avatar_url || ''
+      ].filter(Boolean)
+    });
+  },
+
+  async createChallengeResultPost(challenge: ArenaChallenge) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, profile_photo, avatar_url')
+      .in('id', [challenge.challenger_id, challenge.challenged_id]);
+
+    const challenger = profiles?.find(p => p.id === challenge.challenger_id);
+    const challenged = profiles?.find(p => p.id === challenge.challenged_id);
+
+    if (!challenger || !challenged) return;
+
+    let titleText = '';
+    if (challenge.winner_id === challenge.challenger_id) {
+      titleText = `🏆 ${challenger.full_name} (@${challenger.username}) venceu ${challenged.full_name} (@${challenged.username}) no desafio!`;
+    } else if (challenge.winner_id === challenge.challenged_id) {
+      titleText = `🏆 ${challenged.full_name} (@${challenged.username}) venceu ${challenger.full_name} (@${challenger.username}) no desafio!`;
+    } else {
+      titleText = `🤝 O desafio entre @${challenger.username} e @${challenged.username} terminou em empate!`;
+    }
+
+    const content = `${titleText}\n\n📊 Resultados:\n- ${challenger.username}: ${challenge.challenger_points} pts\n- ${challenged.username}: ${challenge.challenged_points} pts\n\n#1v1 #ArenaComp #DesafioFinalizado`;
+
+    await supabase.from('posts').insert({
+      author_id: challenge.winner_id || challenge.challenger_id,
+      type: 'image',
+      content,
+      media_urls: [
+        challenger.profile_photo || challenger.avatar_url || '',
+        challenged.profile_photo || challenged.avatar_url || ''
+      ].filter(Boolean)
     });
   },
 
@@ -183,43 +324,47 @@ export const challengeService = {
     }
   },
 
-  async checkChallengesForNonAttendance(eventId: string, eventName: string) {
-    // 1. Get all accepted challenges for this event
-    const { data: challenges, error } = await supabase
+  async resolveChallenge(challengeId: string, outcome: 'challenger_win' | 'challenged_win' | 'draw', resolutionType: 'fight' | 'non_attendance' | 'manual') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const winnerId = outcome === 'challenger_win' ? 'challenger_id' : outcome === 'challenged_win' ? 'challenged_id' : null;
+
+    const { data: challenge, error: fetchError } = await supabase
       .from('challenges')
       .select('*')
-      .eq('status', 'accepted')
-      .or(`event_id.eq.${eventId},event_name.ilike.%${eventName}%`);
+      .eq('id', challengeId)
+      .single();
 
-    if (error || !challenges) return;
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
 
-    for (const challenge of challenges) {
-      // 2. Check registration/results for both athletes
-      const { data: challengerResult } = await supabase
-        .from('championship_results')
-        .select('id')
-        .eq('athlete_id', challenge.challenger_id)
-        .eq('campeonato_nome', eventName)
-        .maybeSingle();
+    const updateData: any = {
+      status: 'finished',
+      winner_id: winnerId ? challenge[winnerId] : null,
+      updated_at: new Date().toISOString(),
+      completed_at: new Date().toISOString()
+    };
 
-      const { data: challengedResult } = await supabase
-        .from('championship_results')
-        .select('id')
-        .eq('athlete_id', challenge.challenged_id)
-        .eq('campeonato_nome', eventName)
-        .maybeSingle();
+    const { data, error } = await supabase
+      .from('challenges')
+      .update(updateData)
+      .eq('id', challengeId)
+      .select()
+      .single();
 
-      // 3. Logic for W.O.
-      if (challengerResult && !challengedResult) {
-        // Challenger attended, Challenged did not
-        await this.resolveChallenge(challenge.id, 'challenger_win', 'non_attendance');
-      } else if (!challengerResult && challengedResult) {
-        // Challenged attended, Challenger did not
-        await this.resolveChallenge(challenge.id, 'challenged_win', 'non_attendance');
-      } else if (!challengerResult && !challengedResult) {
-        // Both did not attend
-        await this.resolveChallenge(challenge.id, 'draw', 'non_attendance');
-      }
-    }
+    if (error) throw error;
+    
+    const finalizedChallenge = data as ArenaChallenge;
+    await this.updateAthleteStats(finalizedChallenge.challenger_id);
+    await this.updateAthleteStats(finalizedChallenge.challenged_id);
+    
+    return finalizedChallenge;
+  },
+
+  async checkChallengesForNonAttendance(eventId: string, eventName: string) {
+     // This would check if there are accepted challenges for this event 
+     // and if one athlete registered but the other didn't (WO logic)
+     // Implementation depends on timing, usually done after event date
+     console.log(`[SERVICE] Checking challenges for event: ${eventName} (${eventId})`);
   }
 };

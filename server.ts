@@ -816,7 +816,7 @@ async function startServer() {
         </head>
         <body>
           <div class="header">
-            <img src="${profile.profile_photo || profile.avatar_url || 'https://via.placeholder.com/150'}" class="avatar" alt="">
+            <img src="${profile.profile_photo || profile.avatar_url || 'https://via.placeholder.com/150'}" class="avatar" alt="" referrerpolicy="no-referrer">
             <div class="title-info">
               <h1>${profile.full_name}</h1>
               <div class="subtitle">${profile.modality || 'Jiu-Jitsu'} • ${profile.graduation || 'N/A'}</div>
@@ -883,16 +883,21 @@ async function startServer() {
       const browser = await puppeteer.launch({
         args: chromium.args,
         executablePath,
-        headless: true,
+        headless: true, // Standard headless mode
       });
 
       const page = await browser.newPage();
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      
+      // Add no-referrer policy meta tag to the HTML
+      const enhancedHtmlContent = htmlContent.replace('<head>', '<head><meta name="referrer" content="no-referrer">');
+      
+      await page.setContent(enhancedHtmlContent, { waitUntil: 'networkidle2' });
       
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: { top: '0', right: '0', bottom: '0', left: '0' }
+        margin: { top: '0', right: '0', bottom: '0', left: '0' },
+        timeout: 60000 // 60 seconds timeout
       });
 
       await browser.close();

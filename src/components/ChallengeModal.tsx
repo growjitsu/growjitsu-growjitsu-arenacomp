@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Target, Calendar, Trophy, Send, Search, User, ChevronDown } from 'lucide-react';
 import { challengeService } from '../services/challengeService';
 import { getActivePromotions, searchAthletes } from '../services/arenaService';
-import { ArenaProfile, ArenaAd } from '../types';
+import { ArenaProfile, ArenaAd, ChallengeType } from '../types';
 
 interface ChallengeModalProps {
   isOpen: boolean;
@@ -17,6 +17,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
   const [eventName, setEventName] = useState('');
   const [selectedEventId, setSelectedEventId] = useState<string | undefined>(undefined);
   const [message, setMessage] = useState('');
+  const [challengeType, setChallengeType] = useState<ChallengeType>('category');
   
   // Athlete Search State
   const [selectedProfile, setSelectedProfile] = useState<ArenaProfile | undefined>(initialProfile);
@@ -106,20 +107,27 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       return;
     }
 
+    if (!eventName.trim()) {
+      alert('A seleção de um evento é obrigatória para lançar um desafio.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       console.log('[CHALLENGE] Sending challenge application:', {
         challenger: challengerId,
         challenged: selectedProfile.id,
-        event: selectedEventId || eventName
+        event: selectedEventId || eventName,
+        type: challengeType
       });
 
       await challengeService.createChallenge(
         challengerId,
-        selectedProfile.id, // Ensure we send the .id (UUID)
-        selectedEventId,
-        eventName.toUpperCase()
+        selectedProfile.id,
+        selectedEventId!, // Now mandatory
+        eventName.toUpperCase(),
+        challengeType
       );
       alert('Desafio enviado com sucesso!');
       onClose();
@@ -241,6 +249,38 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
               )}
 
               <div className="space-y-4">
+                {/* Challenge Type Selection */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center space-x-2">
+                    <Target size={12} />
+                    <span>Tipo de Desafio</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setChallengeType('category')}
+                      className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center space-y-1 ${
+                        challengeType === 'category'
+                          ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                          : 'border-[var(--border-ui)] bg-[var(--bg)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      <span className="text-[10px] font-black uppercase italic">Apenas Categoria</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChallengeType('category_absolute')}
+                      className={`py-3 rounded-2xl border-2 transition-all flex flex-col items-center justify-center space-y-1 ${
+                        challengeType === 'category_absolute'
+                          ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]'
+                          : 'border-[var(--border-ui)] bg-[var(--bg)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      <span className="text-[10px] font-black uppercase italic">Categoria + Absoluto</span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Event Selection */}
                 <div className="space-y-2 relative" ref={eventDropdownRef}>
                   <label className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center space-x-2">
