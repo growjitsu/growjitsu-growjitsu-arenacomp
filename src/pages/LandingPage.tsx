@@ -118,8 +118,6 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
           .select('*')
           .neq('role', 'admin')
           .neq('role', 'developer')
-          .eq('perfil_publico', true)
-          .gt('arena_score', 0)
           .limit(100);
         
         if (error) throw error;
