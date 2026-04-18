@@ -6,7 +6,7 @@ import {
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy, VenusAndMars,
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
-  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink, Download, Printer
+  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
@@ -2297,33 +2297,13 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                         </button>
                       )}
 
-                      <div className="flex flex-col space-y-2">
-                        <Link
-                          to={`/curriculo/${profile.id}`}
-                          className="w-full px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
-                        >
-                          <FileText size={14} className="text-[var(--primary)]" />
-                          <span>Ver Currículo</span>
-                        </Link>
-                        
-                        <div className="flex space-x-2">
-                           <a
-                              href={`${window.location.origin}/api/resume/pdf/${profile.id}`}
-                              download
-                              className="flex-1 px-4 py-2 bg-rose-500/10 text-rose-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-rose-500/20 transition-all flex items-center justify-center space-x-1"
-                            >
-                              <Download size={12} />
-                              <span>PDF</span>
-                            </a>
-                            <button
-                              onClick={() => window.print()}
-                              className="flex-1 px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center justify-center space-x-1"
-                            >
-                              <Printer size={12} />
-                              <span>PRINT</span>
-                            </button>
-                        </div>
-                      </div>
+                      <Link
+                        to={`/curriculo/${profile.id}`}
+                        className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
+                      >
+                        <FileText size={14} className="text-[var(--primary)]" />
+                        <span>Ver Currículo</span>
+                      </Link>
 
                       {/* Row 2 */}
                       {profile.role === 'athlete' && (

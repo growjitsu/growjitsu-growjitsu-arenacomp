@@ -5,7 +5,7 @@ import {
   Award, Trophy, Target, MapPin, Calendar, 
   Dumbbell, GraduationCap, Star, Share2, 
   FileText, Download, ArrowLeft, ExternalLink,
-  Medal, History, TrendingUp, User
+  Medal, History, TrendingUp, User, Printer
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, ArenaChampionshipResult, ArenaFight, Team, ArenaResult } from '../types';
@@ -147,6 +147,13 @@ export const AthleteResume: React.FC = () => {
             >
               <Share2 size={16} />
               <span className="hidden sm:inline">Compartilhar</span>
+            </button>
+            <button 
+              onClick={() => window.print()}
+              className="p-2 px-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/10 hover:text-emerald-500 transition-all flex items-center space-x-2"
+            >
+              <Printer size={16} />
+              <span className="hidden sm:inline">Imprimir</span>
             </button>
             <button 
               onClick={handleGeneratePdf}
