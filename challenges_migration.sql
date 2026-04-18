@@ -5,8 +5,8 @@
 -- Create Challenges Table
 CREATE TABLE IF NOT EXISTS public.challenges (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  challenger_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
-  challenged_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
+  challenger_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  challenged_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   event_id UUID REFERENCES public.arena_ads(id) ON DELETE SET NULL,
   event_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed', 'cancelled')),
@@ -18,19 +18,19 @@ CREATE TABLE IF NOT EXISTS public.challenges (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
   -- Add Winner ID field
-  winner_id UUID REFERENCES public.usuarios(id) ON DELETE SET NULL
+  winner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 
--- Ensure Foreign Keys point to usuarios for maximum reliability
+-- Ensure Foreign Keys point to profiles for maximum reliability
 ALTER TABLE public.challenges 
   DROP CONSTRAINT IF EXISTS challenges_challenger_id_fkey,
   DROP CONSTRAINT IF EXISTS challenges_challenged_id_fkey,
   DROP CONSTRAINT IF EXISTS challenges_winner_id_fkey;
 
 ALTER TABLE public.challenges
-  ADD CONSTRAINT challenges_challenger_id_fkey FOREIGN KEY (challenger_id) REFERENCES public.usuarios(id) ON DELETE CASCADE,
-  ADD CONSTRAINT challenges_challenged_id_fkey FOREIGN KEY (challenged_id) REFERENCES public.usuarios(id) ON DELETE CASCADE,
-  ADD CONSTRAINT challenges_winner_id_fkey FOREIGN KEY (winner_id) REFERENCES public.usuarios(id) ON DELETE SET NULL;
+  ADD CONSTRAINT challenges_challenger_id_fkey FOREIGN KEY (challenger_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  ADD CONSTRAINT challenges_challenged_id_fkey FOREIGN KEY (challenged_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
+  ADD CONSTRAINT challenges_winner_id_fkey FOREIGN KEY (winner_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
 -- Enable RLS
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;

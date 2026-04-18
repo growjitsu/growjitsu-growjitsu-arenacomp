@@ -668,122 +668,249 @@ async function startServer() {
     }
   });
 
-  // --- NEW: ATHLETE RESUME PDF GENERATION ---
+  // --- NEW: ATHLETE RESUME PDF GENERATION (SERVER-SIDE RENDERED) ---
   app.get("/api/resume/pdf/:userId", async (req, res) => {
     const { userId } = req.params;
-    console.log(`[API-RESUME] Generating PDF for user: ${userId}`);
+    console.log(`[API-RESUME] Starting PDF generation for user: ${userId}`);
     
-    let browser: any = null;
     try {
-      const executablePath = await chromium.executablePath();
-      if (!executablePath) {
-        throw new Error('Chromium background binary not found. Please ensure dependencies are installed.');
+      // 1. Fetch Complete Athlete Data
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (profileError || !profile) {
+        throw new Error(`Atleta não encontrado: ${profileError?.message || 'ID inválido'}`);
       }
 
-      browser = await puppeteer.launch({
-        args: [
-          ...chromium.args,
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--single-process',
-        ],
+      const { data: championships } = await supabaseAdmin
+        .from('championship_results')
+        .select('*')
+        .eq('athlete_id', userId)
+        .order('data_evento', { ascending: false });
+
+      const { data: fights } = await supabaseAdmin
+        .from('fights')
+        .select('*')
+        .eq('athlete_id', userId)
+        .order('data_luta', { ascending: false });
+
+      // 2. Build Professional HTML Template
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="pt-br">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Currículo Atleta - ArenaComp</title>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+          <style>
+            :root {
+              --primary: #0047FF;
+              --text-main: #0f172a;
+              --text-muted: #64748b;
+              --border: #e2e8f0;
+              --surface: #f8fafc;
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: 'Inter', sans-serif; 
+              color: var(--text-main); 
+              line-height: 1.5;
+              padding: 20mm;
+              background: white;
+            }
+            .header { 
+              display: flex; 
+              align-items: center; 
+              gap: 24px; 
+              margin-bottom: 32px;
+              padding-bottom: 24px;
+              border-bottom: 1px solid var(--border);
+            }
+            .avatar {
+              width: 100px;
+              height: 100px;
+              border-radius: 20px;
+              object-fit: cover;
+              border: 3px solid var(--primary);
+            }
+            .title-info h1 { 
+              font-size: 24px; 
+              font-weight: 900; 
+              text-transform: uppercase; 
+              letter-spacing: -1px;
+              margin-bottom: 4px;
+            }
+            .subtitle {
+              color: var(--primary);
+              font-weight: 700;
+              font-size: 14px;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            .section { margin-bottom: 32px; }
+            .section-title {
+              font-size: 11px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 2px;
+              color: var(--text-muted);
+              margin-bottom: 16px;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .stats-grid {
+              display: grid;
+              grid-template-cols: repeat(4, 1fr);
+              gap: 16px;
+              margin-bottom: 32px;
+            }
+            .stat-card {
+              background: var(--surface);
+              padding: 16px;
+              border-radius: 16px;
+              text-align: center;
+              border: 1px solid var(--border);
+            }
+            .stat-value { font-weight: 900; font-size: 18px; color: var(--primary); }
+            .stat-label { font-size: 9px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+            
+            .item { 
+              padding: 12px; 
+              border-radius: 12px; 
+              border: 1px solid var(--border);
+              margin-bottom: 8px;
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+            }
+            .item-main { font-weight: 700; font-size: 13px; text-transform: uppercase; }
+            .item-sub { color: var(--text-muted); font-size: 11px; font-weight: 500; }
+            .badge {
+              padding: 4px 8px;
+              border-radius: 6px;
+              font-size: 10px;
+              font-weight: 900;
+              text-transform: uppercase;
+              background: var(--primary);
+              color: white;
+            }
+            .footer {
+              margin-top: 48px;
+              text-align: center;
+              font-size: 10px;
+              color: var(--text-muted);
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+            }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <img src="${profile.profile_photo || profile.avatar_url || 'https://via.placeholder.com/150'}" class="avatar" alt="">
+            <div class="title-info">
+              <h1>${profile.full_name}</h1>
+              <div class="subtitle">${profile.modality || 'Jiu-Jitsu'} • ${profile.graduation || 'N/A'}</div>
+              <div class="item-sub" style="margin-top: 4px;">${profile.team || 'Sem Equipe'} • ${profile.city || 'Cidade'}, ${profile.state || 'Estado'}</div>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value">${profile.arena_score || 0}</div>
+              <div class="stat-label">Arena Score</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${profile.wins || 0}</div>
+              <div class="stat-label">Vitórias</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${profile.total_fights || 0}</div>
+              <div class="stat-label">Total Lutas</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value">${profile.medals || 0}</div>
+              <div class="stat-label">Medalhas</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">🏆 Conquistas Recentes</div>
+            ${championships && championships.length > 0 ? 
+              championships.slice(0, 5).map(c => `
+                <div class="item">
+                  <div>
+                    <div class="item-main">${c.championship_name}</div>
+                    <div class="item-sub">${c.modalidade} • ${c.categoria_idade} • ${new Date(c.data_evento).toLocaleDateString('pt-BR')}</div>
+                  </div>
+                  <div class="badge">${c.resultado}</div>
+                </div>
+              `).join('') : '<p class="item-sub">Nenhum resultado registrado.</p>'}
+          </div>
+
+          <div class="section">
+            <div class="section-title">👊 Histórico de Lutas</div>
+            ${fights && fights.length > 0 ? 
+              fights.slice(0, 5).map(f => `
+                <div class="item">
+                  <div>
+                    <div class="item-main">vs ${f.opponent_name}</div>
+                    <div class="item-sub">${f.evento} • ${new Date(f.data_luta).toLocaleDateString('pt-BR')}</div>
+                  </div>
+                  <div class="badge" style="background: ${f.resultado === 'win' ? '#22c55e' : '#ef4444'}">${f.resultado === 'win' ? 'Vitória' : 'Derrota'}</div>
+                </div>
+              `).join('') : '<p class="item-sub">Nenhuma luta registrada.</p>'}
+          </div>
+
+          <div class="footer">
+            Gerado automaticamente por ArenaComp • arenalabs.com
+          </div>
+        </body>
+        </html>
+      `;
+
+      // 3. Launch Puppeteer and Render
+      const executablePath = await chromium.executablePath();
+      const browser = await puppeteer.launch({
+        args: chromium.args,
         executablePath,
         headless: true,
       });
 
       const page = await browser.newPage();
+      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
       
-      // Force screen media type to match what user sees
-      await page.emulateMediaType('screen');
-
-      // Use a custom user agent to avoid being blocked by internal protections
-      await page.setUserAgent('ArenaCompPDFGenerator/1.0');
-      
-      // Construct the local URL. 
-      // Using localhost:3000 is safer for internal navigation within the container
-      const url = `http://localhost:3000/curriculo/${userId}?pdf=true`;
-      
-      console.log(`[API-RESUME] Navigating to: ${url}`);
-      
-      // Increase timeout and wait for network to be idle
-      const response = await page.goto(url, {
-        waitUntil: ['networkidle0'], 
-        timeout: 60000
-      });
-
-      if (!response || !response.ok()) {
-        const status = response ? response.status() : 'No response';
-        throw new Error(`Failed to load page: ${status}`);
-      }
-
-      // Wait for content to render (Profile data)
-      await page.waitForSelector('#resume-content', { timeout: 30000 });
-      // Extra wait to ensure all components and images are rendered
-      await new Promise(r => setTimeout(r, 2000));
-
-      // Inject PDF-specific styles to ensure absolute peak professional layout
-      await page.addStyleTag({
-        content: `
-          body { 
-            background-color: white !important; 
-            color: #0f172a !important;
-          }
-          .bg-\\[var\\(--bg\\)\\] { background-color: white !important; }
-          .bg-\\[var\\(--surface\\)\\] { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
-          .sticky { display: none !important; }
-          #resume-content { 
-            padding: 20mm !important; 
-            margin: 0 !important; 
-            max-width: none !important;
-            box-shadow: none !important;
-            border: none !important;
-          }
-          button { display: none !important; }
-          a { text-decoration: none !important; }
-          .shadow-2xl, .shadow-xl, .shadow-lg { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-        `
-      });
-
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
-        margin: {
-          top: '10mm',
-          right: '10mm',
-          bottom: '10mm',
-          left: '10mm'
-        },
-        scale: 0.9,
-        preferCSSPageSize: true
+        margin: { top: '0', right: '0', bottom: '0', left: '0' }
       });
 
-      console.log(`[API-RESUME] PDF generated successfully. Size: ${pdf.length} bytes`);
+      await browser.close();
 
-      if (pdf.length === 0) {
-        throw new Error('Generated PDF is empty');
-      }
+      console.log(`[API-RESUME] PDF generated successfully for ${profile.full_name}. Size: ${pdf.length} bytes`);
 
-      // Ensure response headers are set correctly for PDF delivery
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Length': pdf.length,
-        'Content-Disposition': `attachment; filename="Curriculo_ArenaComp_${userId}.pdf"`,
+        'Content-Disposition': `attachment; filename="Curriculo_${profile.full_name.replace(/\s+/g, '_')}.pdf"`,
       });
       
-      // Use res.send() with the Buffer for more reliable delivery in Express
       res.send(pdf);
 
     } catch (error: any) {
       console.error('[API-RESUME] Error generating PDF:', error);
-      // If we already set headers to PDF, we might need to reset or just end
       if (!res.headersSent) {
-        res.status(500).json({ success: false, error: error.message });
-      }
-    } finally {
-      if (browser) {
-        await browser.close();
+        res.status(500).json({ success: false, error: 'Falha crítica ao gerar PDF real: ' + error.message });
       }
     }
   });

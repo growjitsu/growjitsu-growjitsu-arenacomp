@@ -92,8 +92,17 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedProfile) {
-      alert('Por favor, selecione um atleta para desafiar.');
+    
+    // VALIDATION BEFORE INSERT
+    if (!selectedProfile?.id) {
+      alert('Por favor, selecione um atleta válido para desafiar.');
+      return;
+    }
+
+    // Ensure it's a UUID (basic check)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(selectedProfile.id)) {
+      alert('Erro: ID do atleta inválido (Não é um UUID válido).');
       return;
     }
 
@@ -102,7 +111,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
     try {
       await challengeService.createChallenge(
         challengerId,
-        selectedProfile.id,
+        selectedProfile.id, // Ensure we send the .id (UUID)
         selectedEventId,
         eventName.toUpperCase()
       );
@@ -110,7 +119,12 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       onClose();
     } catch (err: any) {
       console.error('Error creating challenge:', err);
-      alert('Erro ao enviar desafio: ' + err.message);
+      // Detailed error for FK violations
+      if (err.message?.includes('foreign key constraint')) {
+        alert('Erro ao enviar desafio: O atleta selecionado não foi encontrado no sistema (Erro de integridade).');
+      } else {
+        alert('Erro ao enviar desafio: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }

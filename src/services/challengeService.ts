@@ -4,6 +4,17 @@ import { calculateAndUpdateStats } from './arenaService';
 
 export const challengeService = {
   async createChallenge(challengerId: string, challengedId: string, eventId?: string, eventName?: string) {
+    // BACKEND VALIDATION: Ensure the challenged athlete exists in profiles
+    const { data: profileCheck, error: checkError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', challengedId)
+      .single();
+
+    if (checkError || !profileCheck) {
+      throw new Error(`Atleta desafiado (ID: ${challengedId}) não encontrado no sistema.`);
+    }
+
     const { data, error } = await supabase
       .from('challenges')
       .insert({
