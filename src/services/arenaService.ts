@@ -126,6 +126,8 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
     .select('*', { count: 'exact', head: true })
     .neq('role', 'admin')
     .neq('role', 'developer')
+    .eq('perfil_publico', true)
+    .gt('arena_score', 0)
     .gt('arena_score', athlete.arena_score);
 
   // National Ranking
@@ -136,6 +138,8 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .select('*', { count: 'exact', head: true })
       .neq('role', 'admin')
       .neq('role', 'developer')
+      .eq('perfil_publico', true)
+      .gt('arena_score', 0)
       .gt('arena_score', athlete.arena_score);
 
     if (athlete.country_id) {
@@ -156,6 +160,8 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .select('*', { count: 'exact', head: true })
       .neq('role', 'admin')
       .neq('role', 'developer')
+      .eq('perfil_publico', true)
+      .gt('arena_score', 0)
       .gt('arena_score', athlete.arena_score);
 
     if (athlete.city_id) {
@@ -168,10 +174,12 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
     cityHigher = count || 0;
   }
 
+  const isVisible = athlete.perfil_publico && athlete.arena_score > 0;
+
   return {
-    world: (worldHigher || 0) + 1,
-    national: athlete.country ? nationalHigher + 1 : 0,
-    city: athlete.city ? cityHigher + 1 : 0
+    world: isVisible ? (worldHigher || 0) + 1 : 0,
+    national: (isVisible && athlete.country) ? nationalHigher + 1 : 0,
+    city: (isVisible && athlete.city) ? cityHigher + 1 : 0
   };
 };
 

@@ -314,16 +314,21 @@ export const challengeService = {
 
     if (!challenger || !challenged) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
     const content = `🔥 DESAFIO LANÇADO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. A ArenaComp está fervendo! Que vença o melhor. 🥊👊`;
 
     const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
 
-    await supabase.from('posts').insert({
-      author_id: challenge.challenger_id,
+    const { error } = await supabase.from('posts').insert({
+      author_id: user?.id || challenge.challenger_id,
       type: 'image',
       content,
       media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
     });
+    
+    if (error) {
+      console.error('[SERVICE] Error creating launched post:', error);
+    }
   },
 
   async createChallengeDeclinedPost(challenge: ArenaChallenge) {
@@ -337,14 +342,19 @@ export const challengeService = {
 
     if (!challenger || !challenged) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
     const content = `❄️ DESAFIO RECUSADO: @${challenged.username} optou por não aceitar o desafio de @${challenger.username} no evento ${challenge.event_name} desta vez. A arena continua em busca de novos combates! #1v1 #ArenaComp`;
 
-    await supabase.from('posts').insert({
-      author_id: challenge.challenged_id,
+    const { error } = await supabase.from('posts').insert({
+      author_id: user?.id || challenge.challenged_id,
       type: 'text',
       content,
       media_url: challenged.profile_photo || challenged.avatar_url || ''
     });
+
+    if (error) {
+      console.error('[SERVICE] Error creating declined post:', error);
+    }
   },
 
   async createChallengeAcceptedPost(challenge: ArenaChallenge) {
@@ -358,16 +368,21 @@ export const challengeService = {
 
     if (!challenger || !challenged) return;
 
+    const { data: { user } } = await supabase.auth.getUser();
     const content = `🔥 DESAFIO ACEITO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. Quem sairá vitorioso? 👊🏆 #1v1 #ArenaComp #MatchConfirmado`;
 
     const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
 
-    await supabase.from('posts').insert({
-      author_id: challenge.challenger_id,
+    const { error } = await supabase.from('posts').insert({
+      author_id: user?.id || challenge.challenger_id,
       type: 'image',
       content,
       media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
     });
+
+    if (error) {
+      console.error('[SERVICE] Error creating accepted post:', error);
+    }
   },
 
   async createChallengeResultPost(challenge: ArenaChallenge) {
@@ -394,12 +409,17 @@ export const challengeService = {
 
     const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
 
-    await supabase.from('posts').insert({
-      author_id: challenge.winner_id || challenge.challenger_id,
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase.from('posts').insert({
+      author_id: user?.id || challenge.winner_id || challenge.challenger_id,
       type: 'image',
       content,
       media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
     });
+
+    if (error) {
+      console.error('[SERVICE] Error creating result post:', error);
+    }
   },
 
   async updateAthleteStats(athleteId: string) {
