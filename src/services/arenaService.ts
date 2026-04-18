@@ -124,27 +124,47 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
   const { count: worldHigher } = await supabase
     .from('profiles')
     .select('*', { count: 'exact', head: true })
+    .neq('role', 'admin')
+    .neq('role', 'developer')
     .gt('arena_score', athlete.arena_score);
 
   // National Ranking
   let nationalHigher = 0;
-  if (athlete.country) {
-    const { count } = await supabase
+  if (athlete.country_id || athlete.country) {
+    const nationalQuery = supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('country', athlete.country)
+      .neq('role', 'admin')
+      .neq('role', 'developer')
       .gt('arena_score', athlete.arena_score);
+
+    if (athlete.country_id) {
+      nationalQuery.eq('country_id', athlete.country_id);
+    } else {
+      nationalQuery.eq('country', athlete.country);
+    }
+
+    const { count } = await nationalQuery;
     nationalHigher = count || 0;
   }
 
   // City Ranking
   let cityHigher = 0;
-  if (athlete.city) {
-    const { count } = await supabase
+  if (athlete.city_id || athlete.city) {
+    const cityQuery = supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('city', athlete.city)
+      .neq('role', 'admin')
+      .neq('role', 'developer')
       .gt('arena_score', athlete.arena_score);
+
+    if (athlete.city_id) {
+      cityQuery.eq('city_id', athlete.city_id);
+    } else {
+      cityQuery.eq('city', athlete.city);
+    }
+
+    const { count } = await cityQuery;
     cityHigher = count || 0;
   }
 
@@ -179,37 +199,32 @@ export const getTeams = async () => {
 };
 
 export const searchAthletes = async (query: string) => {
-  // If no query, return top 5 active athletes by score
-  if (!query || query.trim().length === 0) {
-    const { data, error } = await supabase
+  try {
+    let baseQuery = supabase
       .from('profiles')
       .select('*, teams(name)')
       .eq('perfil_publico', true)
-      .neq('role', 'admin')
-      .ilike('role', 'athlete') // Ensure we only get athletes
+      .neq('role', 'admin');
+
+    // Only add search filter if query is not empty
+    if (query && query.trim().length > 0) {
+      baseQuery = baseQuery.or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%,username.ilike.%${query}%`);
+    }
+
+    const { data, error } = await baseQuery
       .order('arena_score', { ascending: false })
       .limit(5);
     
-    if (error) throw error;
-    return data as ArenaProfile[];
-  }
-  
-  if (query.length < 2) return [];
-  
-  // Search by name or team in a single query
-  const { data: athletes, error: errorSearch } = await supabase
-    .from('profiles')
-    .select('*, teams(name)')
-    .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%`)
-    .eq('perfil_publico', true)
-    .neq('role', 'admin')
-    .ilike('role', 'athlete') // Ensure we only get athletes
-    .order('arena_score', { ascending: false })
-    .limit(5);
+    if (error) {
+      console.error('[ARENACORE] Error in searchAthletes:', error);
+      throw error;
+    }
     
-  if (errorSearch) throw errorSearch;
-
-  return (athletes || []) as ArenaProfile[];
+    return (data || []) as ArenaProfile[];
+  } catch (err) {
+    console.error('[ARENACORE] Search failed:', err);
+    return [];
+  }
 };
 
 export const getActivePromotions = async () => {
