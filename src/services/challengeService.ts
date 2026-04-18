@@ -69,21 +69,9 @@ export const challengeService = {
 
     if (error) {
       console.error('[SERVICE] Challenge insert failed:', error);
-      // If it's still an FK error on event_id, try without it
-      if (error.message.includes('event_id')) {
-        const { data: secondTry, error: secondError } = await supabase
-          .from('challenges')
-          .insert({
-            challenger_id: challengerId,
-            challenged_id: challengedId,
-            event_name: eventName,
-            status: 'pending'
-          })
-          .select()
-          .single();
-        
-        if (secondError) throw secondError;
-        return secondTry as ArenaChallenge;
+      // Detailed error for FK violations
+      if (error.code === '23503') {
+        throw new Error(`Erro de Integridade: O atleta selecionado não pôde ser vinculado ao desafio. Verifique se ambos os perfis estão completos.`);
       }
       throw error;
     }
@@ -92,11 +80,18 @@ export const challengeService = {
     await supabase.from('notifications').insert({
       user_id: challengedId,
       actor_id: challengerId,
-      type: 'challenge',
+      type: 'challenge', // Notification type requested
       title: 'Você foi desafiado!',
       description: `${challengerProfile.full_name} te desafiou para um confronto 1x1 em ${eventName}!`,
-      content: `Novo desafio recebido para o evento ${eventName}`
+      content: `${challengerProfile.full_name} te desafiou para um confronto 1x1 em ${eventName}!`
     });
+
+    // Create automatic post for engagement
+    try {
+      await this.createChallengeLaunchedPost(data as ArenaChallenge);
+    } catch (postErr) {
+      console.error('[SERVICE] Post generation failed after challenge creation:', postErr);
+    }
 
     return data as ArenaChallenge;
   },
@@ -151,8 +146,10 @@ export const challengeService = {
       description = 'Prepare os protetores! Seu desafio foi aceito e o confronto está confirmado.';
       await this.createChallengeAcceptedPost(updatedChallenge);
     } else if (status === 'declined') {
+      notificationType = 'challenge_declined';
       title = 'Desafio Recusado';
       description = 'O oponente não aceitou o confronto desta vez.';
+      await this.createChallengeDeclinedPost(updatedChallenge);
     } else if (status === 'cancelled') {
       title = 'Desafio Cancelado';
       description = 'Este desafio foi removido do sistema.';
@@ -298,6 +295,50 @@ export const challengeService = {
     }
   },
 
+  async createChallengeLaunchedPost(challenge: ArenaChallenge) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, profile_photo, avatar_url')
+      .in('id', [challenge.challenger_id, challenge.challenged_id]);
+
+    const challenger = profiles?.find(p => p.id === challenge.challenger_id);
+    const challenged = profiles?.find(p => p.id === challenge.challenged_id);
+
+    if (!challenger || !challenged) return;
+
+    const content = `🔥 DESAFIO LANÇADO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. A ArenaComp está fervendo! Que vença o melhor. 🥊👊`;
+
+    const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
+
+    await supabase.from('posts').insert({
+      author_id: challenge.challenger_id,
+      type: 'image',
+      content,
+      media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
+    });
+  },
+
+  async createChallengeDeclinedPost(challenge: ArenaChallenge) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, profile_photo, avatar_url')
+      .in('id', [challenge.challenger_id, challenge.challenged_id]);
+
+    const challenger = profiles?.find(p => p.id === challenge.challenger_id);
+    const challenged = profiles?.find(p => p.id === challenge.challenged_id);
+
+    if (!challenger || !challenged) return;
+
+    const content = `❄️ DESAFIO RECUSADO: @${challenged.username} optou por não aceitar o desafio de @${challenger.username} no evento ${challenge.event_name} desta vez. A arena continua em busca de novos combates! #1v1 #ArenaComp`;
+
+    await supabase.from('posts').insert({
+      author_id: challenge.challenged_id,
+      type: 'text',
+      content,
+      media_url: challenged.profile_photo || challenged.avatar_url || ''
+    });
+  },
+
   async createChallengeAcceptedPost(challenge: ArenaChallenge) {
     const { data: profiles } = await supabase
       .from('profiles')
@@ -309,16 +350,15 @@ export const challengeService = {
 
     if (!challenger || !challenged) return;
 
-    const content = `🔥 DESAFIO ACEITO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. Quem sairá vitorioso? 👊🏆`;
+    const content = `🔥 DESAFIO ACEITO! @${challenger.username} vs @${challenged.username} no evento ${challenge.event_name}. Quem sairá vitorioso? 👊🏆 #1v1 #ArenaComp #MatchConfirmado`;
+
+    const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
 
     await supabase.from('posts').insert({
       author_id: challenge.challenger_id,
       type: 'image',
       content,
-      media_urls: [
-        challenger.profile_photo || challenger.avatar_url || '',
-        challenged.profile_photo || challenged.avatar_url || ''
-      ].filter(Boolean)
+      media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
     });
   },
 
@@ -344,14 +384,13 @@ export const challengeService = {
 
     const content = `${titleText}\n\n📊 Resultados:\n- ${challenger.username}: ${challenge.challenger_points} pts\n- ${challenged.username}: ${challenge.challenged_points} pts\n\n#1v1 #ArenaComp #DesafioFinalizado`;
 
+    const photos = [challenger.profile_photo || challenger.avatar_url, challenged.profile_photo || challenged.avatar_url].filter(Boolean);
+
     await supabase.from('posts').insert({
       author_id: challenge.winner_id || challenge.challenger_id,
       type: 'image',
       content,
-      media_urls: [
-        challenger.profile_photo || challenger.avatar_url || '',
-        challenged.profile_photo || challenged.avatar_url || ''
-      ].filter(Boolean)
+      media_url: photos.length > 1 ? JSON.stringify(photos) : (photos[0] || '')
     });
   },
 

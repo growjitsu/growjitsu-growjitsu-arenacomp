@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 
 interface Notification {
   id: string;
-  type: 'follow' | 'like' | 'comment' | 'post' | 'challenge_received' | 'challenge_accepted' | 'challenge_updated' | 'challenge';
+  type: 'follow' | 'like' | 'comment' | 'post' | 'challenge_received' | 'challenge_accepted' | 'challenge_declined' | 'challenge_updated' | 'challenge';
   read: boolean;
   title?: string;
   description?: string;
@@ -84,6 +84,8 @@ export const ArenaNotifications: React.FC = () => {
         return 'lançou um DESAFIO 1x1 para você!';
       case 'challenge_accepted':
         return 'ACEITOU seu desafio! Prepare-se para a luta.';
+      case 'challenge_declined':
+        return 'recusou seu desafio 1x1.';
       case 'challenge_updated':
         return 'atualizou o status de um desafio.';
       default:
@@ -103,7 +105,9 @@ export const ArenaNotifications: React.FC = () => {
         return <PlusCircle size={14} className="text-[var(--primary)]" />;
       case 'challenge_received':
       case 'challenge_accepted':
+      case 'challenge_declined':
       case 'challenge_updated':
+      case 'challenge':
         return <Target size={14} className="text-[var(--primary)]" />;
       default:
         return <Bell size={14} />;

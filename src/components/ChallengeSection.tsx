@@ -14,7 +14,7 @@ interface ChallengeSectionProps {
 export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOwnProfile }) => {
   const [challenges, setChallenges] = useState<ArenaChallenge[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'finished'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'declined' | 'finished'>('all');
 
   const loadChallenges = async () => {
     setLoading(true);
@@ -63,7 +63,7 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
         
         {/* Responsive Tabs */}
         <div className="flex bg-[var(--bg-card)] p-1 rounded-xl border border-[var(--border-ui)] overflow-x-auto no-scrollbar">
-          {(['all', 'pending', 'accepted', 'finished'] as const).map((t) => (
+          {(['all', 'pending', 'accepted', 'declined', 'finished'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setFilter(t)}
@@ -75,7 +75,8 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
             >
               {t === 'all' ? 'Todos' : 
                t === 'pending' ? 'Pendentes' : 
-               t === 'accepted' ? 'Aceitos' : 'Finalizados'}
+               t === 'accepted' ? 'Aceitos' : 
+               t === 'declined' ? 'Recusados' : 'Finalizados'}
             </button>
           ))}
         </div>
