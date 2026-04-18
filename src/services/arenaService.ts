@@ -179,14 +179,14 @@ export const getTeams = async () => {
 };
 
 export const searchAthletes = async (query: string) => {
-  // If no query, return top 30 active athletes by score
+  // If no query, return top 5 active athletes by score
   if (!query || query.trim().length === 0) {
     const { data, error } = await supabase
       .from('profiles')
       .select('*, teams(name)')
       .eq('perfil_publico', true)
       .order('arena_score', { ascending: false })
-      .limit(30);
+      .limit(5);
     
     if (error) throw error;
     return data as ArenaProfile[];
@@ -201,7 +201,7 @@ export const searchAthletes = async (query: string) => {
     .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%`)
     .eq('perfil_publico', true)
     .order('arena_score', { ascending: false })
-    .limit(30);
+    .limit(5);
     
   if (errorSearch) throw errorSearch;
 

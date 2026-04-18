@@ -765,12 +765,15 @@ async function startServer() {
         throw new Error('Generated PDF is empty');
       }
 
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Length', pdf.length);
-      res.setHeader('Content-Disposition', `attachment; filename=Curriculo_ArenaComp_${userId}.pdf`);
+      // Ensure response headers are set correctly for PDF delivery
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Length': pdf.length,
+        'Content-Disposition': `attachment; filename="Curriculo_ArenaComp_${userId}.pdf"`,
+      });
       
-      // Explicitly send as binary
-      res.end(pdf, 'binary');
+      // Use res.send() with the Buffer for more reliable delivery in Express
+      res.send(pdf);
 
     } catch (error: any) {
       console.error('[API-RESUME] Error generating PDF:', error);
