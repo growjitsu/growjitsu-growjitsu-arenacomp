@@ -125,7 +125,7 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       await challengeService.createChallenge(
         challengerId,
         selectedProfile.id,
-        selectedEventId!, // Now mandatory
+        selectedEventId || '', // Optional
         eventName.toUpperCase(),
         challengeType
       );
