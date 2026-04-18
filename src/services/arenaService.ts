@@ -120,15 +120,43 @@ export const recalculateAllRankings = async () => {
 export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 
+  // Helper to get count of athletes with better status
+  const getHigherCount = async (baseQuery: any, athlete: ArenaProfile) => {
+    // Count athletes with strictly higher score
+    const { count: higherScore } = await baseQuery
+      .gt('arena_score', athlete.arena_score);
+    
+    // Count athletes with same score but joined earlier (tie-breaker)
+    // Note: This matches deterministic sorting if we use .order('arena_score', desc).order('created_at', asc)
+    const { count: sameScoreEarlier } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .neq('role', 'admin')
+      .neq('role', 'developer')
+      .eq('perfil_publico', true)
+      .gt('arena_score', 0)
+      .eq('arena_score', athlete.arena_score)
+      .lt('created_at', athlete.created_at);
+
+    return (higherScore || 0) + (sameScoreEarlier || 0);
+  };
+
+  const isVisible = athlete.perfil_publico && athlete.arena_score > 0 && athlete.role !== 'admin' && athlete.role !== 'developer';
+
+  if (!isVisible) {
+    return { world: 0, national: 0, city: 0 };
+  }
+
   // World Ranking
-  const { count: worldHigher } = await supabase
+  const worldQuery = supabase
     .from('profiles')
     .select('*', { count: 'exact', head: true })
     .neq('role', 'admin')
     .neq('role', 'developer')
     .eq('perfil_publico', true)
-    .gt('arena_score', 0)
-    .gt('arena_score', athlete.arena_score);
+    .gt('arena_score', 0);
+  
+  const worldHigher = await getHigherCount(worldQuery, athlete);
 
   // National Ranking
   let nationalHigher = 0;
@@ -139,8 +167,7 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .neq('role', 'admin')
       .neq('role', 'developer')
       .eq('perfil_publico', true)
-      .gt('arena_score', 0)
-      .gt('arena_score', athlete.arena_score);
+      .gt('arena_score', 0);
 
     if (athlete.country_id) {
       nationalQuery.eq('country_id', athlete.country_id);
@@ -148,8 +175,7 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       nationalQuery.eq('country', athlete.country);
     }
 
-    const { count } = await nationalQuery;
-    nationalHigher = count || 0;
+    nationalHigher = await getHigherCount(nationalQuery, athlete);
   }
 
   // City Ranking
@@ -161,8 +187,7 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .neq('role', 'admin')
       .neq('role', 'developer')
       .eq('perfil_publico', true)
-      .gt('arena_score', 0)
-      .gt('arena_score', athlete.arena_score);
+      .gt('arena_score', 0);
 
     if (athlete.city_id) {
       cityQuery.eq('city_id', athlete.city_id);
@@ -170,16 +195,13 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       cityQuery.eq('city', athlete.city);
     }
 
-    const { count } = await cityQuery;
-    cityHigher = count || 0;
+    cityHigher = await getHigherCount(cityQuery, athlete);
   }
 
-  const isVisible = athlete.perfil_publico && athlete.arena_score > 0;
-
   return {
-    world: isVisible ? (worldHigher || 0) + 1 : 0,
-    national: (isVisible && athlete.country) ? nationalHigher + 1 : 0,
-    city: (isVisible && athlete.city) ? cityHigher + 1 : 0
+    world: worldHigher + 1,
+    national: (athlete.country) ? nationalHigher + 1 : 0,
+    city: (athlete.city) ? cityHigher + 1 : 0
   };
 };
 

@@ -1,5 +1,5 @@
 // ArenaComp Types
-export type UserRole = 'athlete' | 'coach' | 'gym' | 'admin';
+export type UserRole = 'athlete' | 'coach' | 'gym' | 'admin' | 'developer';
 export type EventLevel = 'local' | 'state' | 'national' | 'international';
 export type PostType = 'text' | 'image' | 'video' | 'result';
 

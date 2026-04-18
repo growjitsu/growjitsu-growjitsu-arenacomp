@@ -110,15 +110,25 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
     // Fetch Featured Profiles from Supabase
     const fetchFeatured = async () => {
       try {
+        const isMobile = window.innerWidth < 768;
+        const limit = isMobile ? 10 : 30;
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .neq('role', 'admin')
+          .neq('role', 'developer')
+          .eq('perfil_publico', true)
+          .gt('arena_score', 0)
           .limit(100);
         
         if (error) throw error;
-        // Shuffle for variety
-        const shuffled = (data || []).sort(() => 0.5 - Math.random());
+        
+        // Shuffle for variety and take the limit based on device
+        const shuffled = (data || [])
+          .sort(() => 0.5 - Math.random())
+          .slice(0, limit);
+          
         setFeaturedProfiles(shuffled);
       } catch (err) {
         console.error('Error fetching featured profiles:', err);

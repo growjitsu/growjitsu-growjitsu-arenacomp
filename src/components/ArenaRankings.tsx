@@ -209,9 +209,11 @@ export const ArenaRankings: React.FC = () => {
         .from('profiles')
         .select('*')
         .neq('role', 'admin') // Exclude admins
+        .neq('role', 'developer') // Exclude developers
         .eq('perfil_publico', true)
         .gt('arena_score', 0)
         .order('arena_score', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true })
         .limit(50);
 
       if (filter.modality !== 'Todas') {
