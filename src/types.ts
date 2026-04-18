@@ -118,6 +118,7 @@ export interface ArenaChallenge {
   updated_at: string;
   accepted_at?: string;
   completed_at?: string; // Keep for compatibility if needed, but finished_at might be better. Status 'finished' is the trigger.
+  deleted_at?: string; // For soft delete
   challenger?: ArenaProfile;
   challenged?: ArenaProfile;
 }

@@ -27,6 +27,7 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
           challenged:profiles!challenges_challenged_id_fkey(*)
         `)
         .or(`challenger_id.eq.${userId},challenged_id.eq.${userId}`)
+        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

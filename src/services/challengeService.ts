@@ -472,5 +472,145 @@ export const challengeService = {
      // and if one athlete registered but the other didn't (WO logic)
      // Implementation depends on timing, usually done after event date
      console.log(`[SERVICE] Checking challenges for event: ${eventName} (${eventId})`);
+  },
+
+  // --- ADMIN FUNCTIONS ---
+
+  async fetchAllChallengesForAdmin() {
+    const { data, error } = await supabase
+      .from('challenges')
+      .select(`
+        *,
+        challenger:profiles!challenges_challenger_id_fkey(*),
+        challenged:profiles!challenges_challenged_id_fkey(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data as ArenaChallenge[];
+  },
+
+  async adminCreateChallenge(payload: {
+    challenger_id: string;
+    challenged_id: string;
+    event_id?: string;
+    event_name: string;
+    challenge_type: ChallengeType;
+  }) {
+    // Reuse existing validation logic
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('id', [payload.challenger_id, payload.challenged_id]);
+
+    if (!profiles || profiles.length < 2) {
+      throw new Error('Um ou ambos os atletas não foram encontrados.');
+    }
+
+    // Check for active duplicate challenge
+    const { data: existing } = await supabase
+      .from('challenges')
+      .select('id')
+      .eq('challenger_id', payload.challenger_id)
+      .eq('challenged_id', payload.challenged_id)
+      .eq('event_name', payload.event_name)
+      .is('deleted_at', null)
+      .not('status', 'in', '("finished", "completed", "cancelled", "declined")')
+      .maybeSingle();
+
+    if (existing) {
+      throw new Error('Já existe um desafio ativo entre estes atletas para este evento.');
+    }
+
+    const { data, error } = await supabase
+      .from('challenges')
+      .insert({
+        ...payload,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const challenge = data as ArenaChallenge;
+
+    // Trigger notification and post just like normal flow
+    try {
+      await supabase.from('notifications').insert({
+        user_id: payload.challenged_id,
+        actor_id: payload.challenger_id,
+        type: 'challenge_received'
+      });
+      await this.createChallengeLaunchedPost(challenge);
+    } catch (e) {
+      console.error('[ADMIN] Error creating collateral data:', e);
+    }
+
+    return challenge;
+  },
+
+  async adminUpdateChallenge(challengeId: string, updates: {
+    event_name?: string;
+    challenge_type?: ChallengeType;
+    status?: ChallengeStatus;
+  }) {
+    const { data: challenge, error: fetchError } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .single();
+
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
+
+    const oldStatus = challenge.status;
+    const { data, error } = await supabase
+      .from('challenges')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', challengeId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    const updatedChallenge = data as ArenaChallenge;
+
+    // If status changed, handle notifications/posts
+    if (updates.status && updates.status !== oldStatus) {
+      try {
+        if (updates.status === 'accepted') {
+          await this.createChallengeAcceptedPost(updatedChallenge);
+        } else if (updates.status === 'declined') {
+          await this.createChallengeDeclinedPost(updatedChallenge);
+        } else if (updates.status === 'finished') {
+          // If admin finished it, they might need to fill results manually or we just set status
+          // Full finalization requires results, so we might need a separate admin finalize service
+          // For now, if just status update, we notify
+        }
+
+        await supabase.from('notifications').insert({
+          user_id: updatedChallenge.challenged_id,
+          actor_id: updatedChallenge.challenger_id, // Could be the admin ID too but following normal flow
+          type: 'challenge_updated',
+          content: `Seu desafio no evento ${updatedChallenge.event_name} foi atualizado para ${updates.status} por um administrador.`
+        });
+      } catch (e) {
+        console.error('[ADMIN] Error on collateral update:', e);
+      }
+    }
+
+    return updatedChallenge;
+  },
+
+  async adminSoftDeleteChallenge(challengeId: string) {
+    const { error } = await supabase
+      .from('challenges')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', challengeId);
+
+    if (error) throw error;
   }
 };

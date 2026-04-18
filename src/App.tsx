@@ -27,6 +27,7 @@ import { AdminPosts } from './components/Admin/AdminPosts';
 import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { AdminAds } from './components/Admin/AdminAds';
+import { AdminChallenges } from './components/Admin/AdminChallenges';
 import { LandingPage } from './pages/LandingPage';
 import { TermsPage } from './pages/Institutional/TermsPage';
 import { PrivacyPage } from './pages/Institutional/PrivacyPage';
@@ -456,6 +457,7 @@ function AppContent() {
                 <Route path="/athletes" element={<AdminAthletes />} />
                 <Route path="/teams" element={<AdminTeams />} />
                 <Route path="/posts" element={<AdminPosts />} />
+                <Route path="/challenges" element={<AdminChallenges />} />
                 <Route path="/ads" element={<AdminAds />} />
                 <Route path="/logs" element={<AdminLogs />} />
                 <Route path="/export" element={<AdminExport />} />
