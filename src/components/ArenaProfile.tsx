@@ -2284,7 +2284,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   </>
                 ) : (
                   profile.role !== 'admin' && (
-                    <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
+                    <div className="grid grid-cols-2 gap-2 w-full md:w-auto">
                       {profile.role === 'athlete' && (
                         <>
                           <button
@@ -2314,14 +2314,14 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
                           >
                             <Plus size={14} className="text-[var(--primary)]" />
-                            <span>Luta</span>
+                            <span>Registrar Luta</span>
                           </button>
                           <button
                             onClick={() => setIsRegisterChampionshipModalOpen(true)}
                             className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
                           >
                             <Trophy size={14} />
-                            <span>Evento</span>
+                            <span>Registrar Campeonato</span>
                           </button>
                         </>
                       )}
