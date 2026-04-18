@@ -160,17 +160,17 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
           <div className={`p-2 rounded-xl ${
             challenge.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
             challenge.status === 'accepted' ? 'bg-indigo-500/10 text-indigo-500' :
-            challenge.status === 'finished' ? 'bg-emerald-500/10 text-emerald-500' :
+            (challenge.status === 'finished' || challenge.status === 'completed') ? 'bg-emerald-500/10 text-emerald-500' :
             'bg-rose-500/10 text-rose-500'
           }`}>
             {challenge.status === 'pending' ? <Clock size={16} /> :
              challenge.status === 'accepted' ? <Target size={16} /> :
-             challenge.status === 'finished' ? <Trophy size={16} /> :
+             (challenge.status === 'finished' || challenge.status === 'completed') ? <Trophy size={16} /> :
              <XCircle size={16} />}
           </div>
           <div>
             <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] block mb-0.5">
-              {challenge.challenge_type === 'category' ? 'Categoria' : 'Categoria + Absoluto'}
+              {challenge.challenge_type === 'category_absolute' ? 'Categoria + Absoluto' : 'Categoria'}
             </span>
             <h4 className="text-[10px] font-black uppercase italic tracking-tighter text-[var(--text-main)] truncate max-w-[120px]">
               {challenge.event_name}

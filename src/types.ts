@@ -93,7 +93,7 @@ export interface ArenaFight {
   created_at: string;
 }
 
-export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'finished';
+export type ChallengeStatus = 'pending' | 'accepted' | 'declined' | 'cancelled' | 'finished' | 'completed';
 export type ChallengeType = 'category' | 'category_absolute';
 
 export interface ChallengeResult {
@@ -108,7 +108,7 @@ export interface ArenaChallenge {
   event_id?: string;
   event_name?: string;
   status: ChallengeStatus;
-  challenge_type: ChallengeType;
+  challenge_type?: ChallengeType;
   challenger_result?: ChallengeResult;
   challenged_result?: ChallengeResult;
   challenger_points?: number;

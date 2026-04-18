@@ -49,7 +49,6 @@ export const challengeService = {
         challenged_id: challengedId,
         event_id: eventId,
         event_name: eventName,
-        challenge_type: challengeType,
         status: 'pending'
       })
       .select()
@@ -95,7 +94,7 @@ export const challengeService = {
     const updateData: any = { status, updated_at: new Date().toISOString() };
     if (status === 'accepted') {
       updateData.accepted_at = new Date().toISOString();
-    } else if (status === 'finished') {
+    } else if (status === 'finished' || status === 'completed') {
       updateData.completed_at = new Date().toISOString();
     }
 
