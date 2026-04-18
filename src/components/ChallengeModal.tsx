@@ -109,6 +109,12 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
     setLoading(true);
 
     try {
+      console.log('[CHALLENGE] Sending challenge application:', {
+        challenger: challengerId,
+        challenged: selectedProfile.id,
+        event: selectedEventId || eventName
+      });
+
       await challengeService.createChallenge(
         challengerId,
         selectedProfile.id, // Ensure we send the .id (UUID)
@@ -118,12 +124,17 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       alert('Desafio enviado com sucesso!');
       onClose();
     } catch (err: any) {
-      console.error('Error creating challenge:', err);
+      console.error('CRITICAL: Error creating challenge:', err);
+      
       // Detailed error for FK violations
-      if (err.message?.includes('foreign key constraint')) {
-        alert('Erro ao enviar desafio: O atleta selecionado não foi encontrado no sistema (Erro de integridade).');
+      let errorMsg = err.message || 'Erro desconhecido';
+      if (err.details) errorMsg += ` - ${err.details}`;
+      if (err.hint) errorMsg += ` (${err.hint})`;
+
+      if (errorMsg.includes('foreign key constraint')) {
+        alert(`Erro de Integridade: O atleta selecionado (ID: ${selectedProfile.id}) não pode ser desafiado pois não foi encontrado na tabela de referência do banco de dados. \n\nDetalhes técnicos: ${errorMsg}`);
       } else {
-        alert('Erro ao enviar desafio: ' + err.message);
+        alert('Erro ao enviar desafio: ' + errorMsg);
       }
     } finally {
       setLoading(false);

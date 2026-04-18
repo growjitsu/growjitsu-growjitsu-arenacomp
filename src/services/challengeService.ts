@@ -4,15 +4,27 @@ import { calculateAndUpdateStats } from './arenaService';
 
 export const challengeService = {
   async createChallenge(challengerId: string, challengedId: string, eventId?: string, eventName?: string) {
-    // BACKEND VALIDATION: Ensure the challenged athlete exists in profiles
-    const { data: profileCheck, error: checkError } = await supabase
+    console.log(`[SERVICE] Creating challenge: ${challengerId} -> ${challengedId}`);
+    
+    // BACKEND VALIDATION: Check both athletes in the profiles table
+    const { data: profiles, error: checkError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('id', challengedId)
-      .single();
+      .select('id, full_name')
+      .in('id', [challengerId, challengedId]);
 
-    if (checkError || !profileCheck) {
-      throw new Error(`Atleta desafiado (ID: ${challengedId}) não encontrado no sistema.`);
+    if (checkError) {
+      console.error('[SERVICE] Profile check failed:', checkError);
+      throw checkError;
+    }
+
+    const challengerExists = profiles?.some(p => p.id === challengerId);
+    const challengedExists = profiles?.some(p => p.id === challengedId);
+
+    if (!challengedExists) {
+      throw new Error(`Integridade: O atleta desafiado (ID: ${challengedId}) não existe na tabela de perfis.`);
+    }
+    if (!challengerExists) {
+      throw new Error(`Integridade: Você (ID: ${challengerId}) não possui um registro na tabela de perfis.`);
     }
 
     const { data, error } = await supabase
@@ -27,7 +39,10 @@ export const challengeService = {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[SERVICE] Challenge insert failed:', error);
+      throw error;
+    }
     
     // Create notification for challenged athlete
     await supabase.from('notifications').insert({

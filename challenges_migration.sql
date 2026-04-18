@@ -22,15 +22,27 @@ CREATE TABLE IF NOT EXISTS public.challenges (
 );
 
 -- Ensure Foreign Keys point to profiles for maximum reliability
-ALTER TABLE public.challenges 
-  DROP CONSTRAINT IF EXISTS challenges_challenger_id_fkey,
-  DROP CONSTRAINT IF EXISTS challenges_challenged_id_fkey,
-  DROP CONSTRAINT IF EXISTS challenges_winner_id_fkey;
-
-ALTER TABLE public.challenges
-  ADD CONSTRAINT challenges_challenger_id_fkey FOREIGN KEY (challenger_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
-  ADD CONSTRAINT challenges_challenged_id_fkey FOREIGN KEY (challenged_id) REFERENCES public.profiles(id) ON DELETE CASCADE,
-  ADD CONSTRAINT challenges_winner_id_fkey FOREIGN KEY (winner_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+-- This block fixes the "challenged_id_fkey" error by explicitly re-pointing it to the profiles table
+DO $$ 
+BEGIN
+  -- Drop existing constraints if they exist (with common names)
+  ALTER TABLE public.challenges DROP CONSTRAINT IF EXISTS challenges_challenger_id_fkey;
+  ALTER TABLE public.challenges DROP CONSTRAINT IF EXISTS challenges_challenged_id_fkey;
+  ALTER TABLE public.challenges DROP CONSTRAINT IF EXISTS challenges_winner_id_fkey;
+  
+  -- Re-add constraints pointing to public.profiles
+  ALTER TABLE public.challenges
+    ADD CONSTRAINT challenges_challenger_id_fkey 
+    FOREIGN KEY (challenger_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+    
+  ALTER TABLE public.challenges
+    ADD CONSTRAINT challenges_challenged_id_fkey 
+    FOREIGN KEY (challenged_id) REFERENCES public.profiles(id) ON DELETE CASCADE;
+    
+  ALTER TABLE public.challenges
+    ADD CONSTRAINT challenges_winner_id_fkey 
+    FOREIGN KEY (winner_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+END $$;
 
 -- Enable RLS
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
