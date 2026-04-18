@@ -702,13 +702,13 @@ async function startServer() {
       
       // Construct the local URL. 
       // Using localhost:3000 is safer for internal navigation within the container
-      const url = `http://localhost:3000/curriculo/${userId}`;
+      const url = `http://localhost:3000/curriculo/${userId}?pdf=true`;
       
       console.log(`[API-RESUME] Navigating to: ${url}`);
       
       // Increase timeout and wait for network to be idle
       const response = await page.goto(url, {
-        waitUntil: ['networkidle0', 'domcontentloaded'], 
+        waitUntil: ['networkidle0'], 
         timeout: 60000
       });
 
@@ -719,23 +719,30 @@ async function startServer() {
 
       // Wait for content to render (Profile data)
       await page.waitForSelector('#resume-content', { timeout: 30000 });
+      // Extra wait to ensure all components and images are rendered
+      await new Promise(r => setTimeout(r, 2000));
 
-      // Inject PDF-specific styles to ensure a clean layout
+      // Inject PDF-specific styles to ensure absolute peak professional layout
       await page.addStyleTag({
         content: `
-          body { background-color: #f8fafc !important; }
+          body { 
+            background-color: white !important; 
+            color: #0f172a !important;
+          }
+          .bg-\\[var\\(--bg\\)\\] { background-color: white !important; }
+          .bg-\\[var\\(--surface\\)\\] { background-color: #f8fafc !important; border-color: #e2e8f0 !important; }
           .sticky { display: none !important; }
           #resume-content { 
-            padding: 40px !important; 
-            margin: 0 auto !important; 
-            max-width: 800px !important;
+            padding: 20mm !important; 
+            margin: 0 !important; 
+            max-width: none !important;
             box-shadow: none !important;
             border: none !important;
-            background-color: transparent !important;
           }
           button { display: none !important; }
-          .rounded-\\[3rem\\] { border-radius: 2rem !important; }
-          .rounded-\\[2\\.5rem\\] { border-radius: 1.5rem !important; }
+          a { text-decoration: none !important; }
+          .shadow-2xl, .shadow-xl, .shadow-lg { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         `
       });
 
@@ -743,12 +750,13 @@ async function startServer() {
         format: 'A4',
         printBackground: true,
         margin: {
-          top: '0mm',
-          right: '0mm',
-          bottom: '0mm',
-          left: '0mm'
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
         },
-        scale: 0.8, // Slightly scale down to fit content better on A4
+        scale: 0.9,
+        preferCSSPageSize: true
       });
 
       console.log(`[API-RESUME] PDF generated successfully. Size: ${pdf.length} bytes`);

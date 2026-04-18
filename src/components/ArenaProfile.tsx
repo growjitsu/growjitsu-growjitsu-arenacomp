@@ -2165,195 +2165,172 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           )}
         </div>
         
-        <div className="relative -mt-16 md:-mt-20 px-4 md:px-8 flex flex-col md:flex-row items-center md:items-end space-y-4 md:space-y-0 md:space-x-6 z-10">
-          <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-[var(--surface)] border-4 border-[var(--bg)] overflow-hidden shadow-2xl transition-colors duration-300 relative group shrink-0">
-            {profile.profile_photo || profile.avatar_url ? (
-              <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] bg-[var(--primary)]/10">
-                <User size={48} />
-              </div>
-            )}
-            {isEditing && (
-              <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
-                <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} disabled={uploading} />
-                <p className="text-[10px] font-black uppercase text-white">{uploading ? 'Enviando...' : 'Alterar Foto'}</p>
-              </label>
-            )}
-          </div>
-          <div className="pb-2 text-center md:text-left flex-1 w-full min-w-0">
-            {isEditing ? (
-              <div className="space-y-2 w-full max-w-xs mx-auto md:mx-0">
-                <input 
-                  value={editData.full_name} 
-                  onChange={e => setEditData({...editData, full_name: e.target.value})}
-                  className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-1 text-xl font-black text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
-                  placeholder="Nome Completo"
-                />
-                <input 
-                  value={editData.nickname} 
-                  onChange={e => setEditData({...editData, nickname: e.target.value})}
-                  className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-1 text-xs font-bold text-[var(--primary)] outline-none focus:border-[var(--primary)] block"
-                  placeholder="Apelido"
-                />
-              </div>
-            ) : (
-              <div className="space-y-1 w-full min-w-0">
-                <h1 className="text-2xl md:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis">
-                  {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">(@{profile.nickname.replace(/^@/, '')})</span>}
-                </h1>
-                <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
-                  <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest whitespace-nowrap truncate max-w-full">
-                    {profile.modality}
-                  </p>
-
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[9px] md:text-[10px] font-black uppercase tracking-widest">
-                    <span>{followerCount} Seguidores</span>
-                    {profile.team && (
-                      <>
-                        <span className="hidden md:inline">•</span>
-                        <span className="text-[var(--primary)] font-bold">Equipe: {profile.team}</span>
-                      </>
-                    )}
-                  </div>
+        <div className="relative -mt-16 md:-mt-20 px-4 md:px-8 z-10">
+          <div className="flex flex-col md:grid md:grid-cols-[auto_1fr_auto] gap-4 md:gap-6 items-center md:items-end">
+            {/* Avatar */}
+            <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl bg-[var(--surface)] border-4 border-[var(--bg)] overflow-hidden shadow-2xl transition-colors duration-300 relative group shrink-0">
+              {profile.profile_photo || profile.avatar_url ? (
+                <img src={profile.profile_photo || profile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)] bg-[var(--primary)]/10">
+                  <User size={48} />
                 </div>
-                {(profile.city || profile.state || profile.country) && (
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
-                    <MapPin size={10} />
-                    <span>
-                      {[profile.city, profile.state, profile.country].filter(Boolean).join(' • ')}
-                    </span>
+              )}
+              {isEditing && (
+                <label className="absolute inset-0 bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
+                  <input type="file" className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} disabled={uploading} />
+                  <p className="text-[10px] font-black uppercase text-white">{uploading ? 'Enviando...' : 'Alterar Foto'}</p>
+                </label>
+              )}
+            </div>
+
+            {/* Name and Info */}
+            <div className="pb-2 text-center md:text-left min-w-0 w-full">
+              {isEditing ? (
+                <div className="space-y-2 w-full max-w-xs mx-auto md:mx-0">
+                  <input 
+                    value={editData.full_name} 
+                    onChange={e => setEditData({...editData, full_name: e.target.value})}
+                    className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-1 text-xl font-black text-[var(--text-main)] outline-none focus:border-[var(--primary)]"
+                    placeholder="Nome Completo"
+                  />
+                  <input 
+                    value={editData.nickname} 
+                    onChange={e => setEditData({...editData, nickname: e.target.value})}
+                    className="w-full bg-[var(--bg)] border border-[var(--border-ui)] rounded-lg px-3 py-1 text-xs font-bold text-[var(--primary)] outline-none focus:border-[var(--primary)] block"
+                    placeholder="Apelido"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1 w-full min-w-0">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis">
+                    {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">(@{profile.nickname.replace(/^@/, '')})</span>}
+                  </h1>
+                  <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
+                    <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest whitespace-nowrap truncate max-w-full">
+                      {profile.modality}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[9px] md:text-[10px] font-black uppercase tracking-widest">
+                      <span>{followerCount} Seguidores</span>
+                      {profile.team && (
+                        <>
+                          <span className="hidden md:inline">•</span>
+                          <span className="text-[var(--primary)] font-bold">Equipe: {profile.team}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
+                  {(profile.city || profile.state || profile.country) && (
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">
+                      <MapPin size={10} />
+                      <span>
+                        {[profile.city, profile.state, profile.country].filter(Boolean).join(' • ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            {!isEditing && (
+              <div className="pb-2 flex flex-wrap items-center justify-center md:justify-end gap-2 w-full md:w-auto">
+                {!isOwnProfile ? (
+                  <>
+                    <button
+                      onClick={handleFollow}
+                      className={`px-6 py-2 rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest transition-all ${
+                        isFollowing 
+                          ? 'bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20' 
+                          : 'bg-[var(--primary)] text-white hover:bg-[var(--primary-highlight)] shadow-lg shadow-[var(--primary)]/20'
+                      }`}
+                    >
+                      {isFollowing ? 'Seguindo' : 'Seguir'}
+                    </button>
+
+                    {profile.role === 'athlete' && (
+                      <button
+                        onClick={() => setIsChallengeModalOpen(true)}
+                        className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
+                      >
+                        <Target size={14} className="text-[var(--primary)]" />
+                        <span>Desafiar</span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        if (profile) {
+                          handleOpenShare({
+                            title: 'PERFIL ARENA',
+                            athleteName: profile.full_name,
+                            achievement: 'Confira este perfil na ArenaComp!',
+                            modality: profile.modality || 'Jiu-Jitsu',
+                            date: new Date().toLocaleDateString(),
+                            profileUrl: `${window.location.origin}/share/profile/${profile.id}`,
+                            type: 'profile',
+                            realId: profile.id,
+                            mainImageUrl: profile.profile_photo || profile.avatar_url,
+                            image: profile.profile_photo || profile.avatar_url
+                          });
+                        }
+                      }}
+                      className="p-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center"
+                      title="Compartilhar"
+                    >
+                      <Share2 size={18} />
+                    </button>
+                  </>
+                ) : (
+                  profile.role !== 'admin' && (
+                    <div className="flex flex-wrap items-center justify-center md:justify-end gap-2">
+                      {profile.role === 'athlete' && (
+                        <>
+                          <button
+                            onClick={() => setIsChallengeModalOpen(true)}
+                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
+                          >
+                            <Target size={14} className="text-[var(--primary)]" />
+                            <span className="hidden lg:inline">Desafiar Atleta</span>
+                            <span className="lg:hidden">Desafiar</span>
+                          </button>
+
+                          <Link
+                            to={`/curriculo/${profile.id}`}
+                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
+                          >
+                            <FileText size={14} className="text-[var(--primary)]" />
+                            <span className="hidden lg:inline">Meu Currículo</span>
+                            <span className="lg:hidden">Currículo</span>
+                          </Link>
+                        </>
+                      )}
+
+                      {profile.tipo === 'atleta' && (
+                        <>
+                          <button
+                            onClick={() => setIsRegisterFightModalOpen(true)}
+                            className="px-4 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
+                          >
+                            <Plus size={14} className="text-[var(--primary)]" />
+                            <span>Luta</span>
+                          </button>
+                          <button
+                            onClick={() => setIsRegisterChampionshipModalOpen(true)}
+                            className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
+                          >
+                            <Trophy size={14} />
+                            <span>Evento</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
                 )}
               </div>
             )}
           </div>
-          
-          {!isOwnProfile && !isEditing && (
-            <div className="pb-4 flex flex-wrap items-center justify-center md:justify-start gap-2">
-              <button
-                onClick={handleFollow}
-                className={`px-8 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                  isFollowing 
-                    ? 'bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] hover:bg-rose-500/10 hover:text-rose-500 hover:border-rose-500/20' 
-                    : 'bg-[var(--primary)] text-white hover:bg-[var(--primary-highlight)] shadow-lg shadow-[var(--primary)]/20'
-                }`}
-              >
-                {isFollowing ? 'Seguindo' : 'Seguir'}
-              </button>
-
-              {profile.role === 'athlete' && (
-                <button
-                  onClick={() => setIsChallengeModalOpen(true)}
-                  className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
-                >
-                  <Target size={14} />
-                  <span>Desafiar</span>
-                </button>
-              )}
-
-              <button
-                onClick={() => {
-                  if (profile) {
-                    handleOpenShare({
-                      title: 'PERFIL ARENA',
-                      athleteName: profile.full_name,
-                      achievement: 'Confira este perfil na ArenaComp!',
-                      modality: profile.modality || 'Jiu-Jitsu',
-                      date: new Date().toLocaleDateString(),
-                      profileUrl: `${window.location.origin}/share/profile/${profile.id}`,
-                      type: 'profile',
-                      realId: profile.id,
-                      mainImageUrl: profile.profile_photo || profile.avatar_url,
-                      image: profile.profile_photo || profile.avatar_url
-                    });
-                  }
-                }}
-                className="p-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center"
-                title="Compartilhar Perfil"
-              >
-                <Share2 size={18} />
-              </button>
-            </div>
-          )}
-
-          {isOwnProfile && !isEditing && profile.role !== 'admin' && (
-            <div className="pb-4 flex flex-wrap gap-2">
-              {profile.role === 'athlete' && (
-                <>
-                  <button
-                    onClick={() => setIsChallengeModalOpen(true)}
-                    className="px-4 md:px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
-                  >
-                    <Target size={14} className="text-[var(--primary)]" />
-                    <span>Desafiar Atleta</span>
-                  </button>
-
-                  <Link
-                    to={`/curriculo/${profile.id}`}
-                    className="px-4 md:px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] md:text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2 shadow-sm"
-                  >
-                    <FileText size={14} className="text-[var(--primary)]" />
-                    <span>Meu Currículo</span>
-                  </Link>
-                </>
-              )}
-
-              {profile.tipo === 'nao_atleta' ? (
-                <button
-                  onClick={async () => {
-                    if (window.confirm('Deseja tornar-se um atleta? Você precisará completar seu perfil esportivo.')) {
-                      setSaving(true);
-                      try {
-                        const { error } = await supabase
-                          .from('profiles')
-                          .update({ tipo: 'atleta' })
-                          .eq('id', profile.id);
-                        if (error) throw error;
-                        await checkProfile();
-                        // This will trigger the wizard because isProfileValid will become false
-                      } catch (err) {
-                        console.error('Erro ao mudar para atleta:', err);
-                      } finally {
-                        setSaving(false);
-                      }
-                    }
-                  }}
-                  disabled={saving}
-                  className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
-                >
-                  <Trophy size={14} />
-                  <span>{saving ? 'Processando...' : 'Tornar-se Atleta'}</span>
-                </button>
-              ) : (
-                <>
-                  {isTeamRepresentative && (
-                    <button
-                      onClick={() => setIsTeamModalOpen(true)}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 flex items-center space-x-2"
-                    >
-                      <Shield size={14} />
-                      <span>Gerenciar Equipe</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setIsRegisterFightModalOpen(true)}
-                    className="px-6 py-2 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center space-x-2"
-                  >
-                    <Plus size={14} />
-                    <span>Registrar Luta</span>
-                  </button>
-                  <button
-                    onClick={() => setIsRegisterChampionshipModalOpen(true)}
-                    className="px-6 py-2 bg-[var(--primary)] text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all shadow-lg shadow-[var(--primary)]/20 flex items-center space-x-2"
-                  >
-                    <Trophy size={14} />
-                    <span>Registrar Campeonato</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

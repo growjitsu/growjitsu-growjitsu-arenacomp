@@ -22,8 +22,13 @@ export const AthleteResume: React.FC = () => {
   const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
   const [loading, setLoading] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isPdfMode, setIsPdfMode] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pdf') === 'true') {
+      setIsPdfMode(true);
+    }
     if (userId) {
       fetchData();
     }
@@ -129,35 +134,37 @@ export const AthleteResume: React.FC = () => {
     <div className="min-h-screen bg-[var(--bg)] pb-20">
       <Toaster position="top-center" theme="dark" />
       
-      {/* Top Header / Actions */}
-      <div className="sticky top-0 z-50 bg-[var(--bg)]/80 backdrop-blur-xl border-b border-[var(--border-ui)] px-6 py-4 flex items-center justify-between">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-xl transition-colors text-[var(--text-muted)]">
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex items-center space-x-2">
-          <button 
-            onClick={handleShareWhatsApp}
-            className="p-2 px-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-all flex items-center space-x-2"
-          >
-            <Share2 size={16} />
-            <span className="hidden sm:inline">Compartilhar</span>
+      {/* Top Header / Actions - Ocultar em modo PDF */}
+      {!isPdfMode && (
+        <div className="sticky top-0 z-50 bg-[var(--bg)]/80 backdrop-blur-xl border-b border-[var(--border-ui)] px-6 py-4 flex items-center justify-between">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/5 rounded-xl transition-colors text-[var(--text-muted)]">
+            <ArrowLeft size={20} />
           </button>
-          <button 
-            onClick={handleGeneratePdf}
-            disabled={isGeneratingPdf}
-            className="p-2 px-4 bg-[var(--primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all flex items-center space-x-2 shadow-lg shadow-[var(--primary)]/20 disabled:opacity-50"
-          >
-            {isGeneratingPdf ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Download size={16} />
-            )}
-            <span>{isGeneratingPdf ? 'Gerando...' : 'Gerar PDF'}</span>
-          </button>
+          <div className="flex items-center space-x-2">
+            <button 
+              onClick={handleShareWhatsApp}
+              className="p-2 px-4 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] transition-all flex items-center space-x-2"
+            >
+              <Share2 size={16} />
+              <span className="hidden sm:inline">Compartilhar</span>
+            </button>
+            <button 
+              onClick={handleGeneratePdf}
+              disabled={isGeneratingPdf}
+              className="p-2 px-4 bg-[var(--primary)] text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary-highlight)] transition-all flex items-center space-x-2 shadow-lg shadow-[var(--primary)]/20 disabled:opacity-50"
+            >
+              {isGeneratingPdf ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Download size={16} />
+              )}
+              <span>{isGeneratingPdf ? 'Gerando...' : 'Gerar PDF'}</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8" id="resume-content">
+      <div className={`max-w-4xl mx-auto p-4 md:p-8 space-y-8 ${isPdfMode ? 'pt-0' : ''}`} id="resume-content">
         {/* Profile Card */}
         <div className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[3rem] overflow-hidden shadow-2xl">
           <div className="h-32 bg-[var(--primary)]/10 relative">

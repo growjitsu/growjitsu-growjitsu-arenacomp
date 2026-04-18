@@ -148,8 +148,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 14. Tabela de Desafios (Challenges)
 CREATE TABLE IF NOT EXISTS public.challenges (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  challenger_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
-  challenged_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
+  challenger_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  challenged_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   event_id UUID REFERENCES public.arena_ads(id) ON DELETE SET NULL,
   event_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed', 'cancelled')),
@@ -159,13 +159,17 @@ CREATE TABLE IF NOT EXISTS public.challenges (
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  winner_id UUID REFERENCES public.usuarios(id) ON DELETE SET NULL
+  winner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 
 -- Enable RLS para Desafios
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para 'challenges'
+DROP POLICY IF EXISTS "Desafios são visíveis por todos" ON public.challenges;
+DROP POLICY IF EXISTS "Usuários podem criar seus próprios desafios" ON public.challenges;
+DROP POLICY IF EXISTS "Participantes podem atualizar seus próprios desafios" ON public.challenges;
+
 CREATE POLICY "Desafios são visíveis por todos" ON public.challenges
   FOR SELECT USING (true);
 

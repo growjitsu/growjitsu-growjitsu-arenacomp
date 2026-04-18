@@ -5,8 +5,8 @@
 -- Create Challenges Table
 CREATE TABLE IF NOT EXISTS public.challenges (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  challenger_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
-  challenged_id UUID REFERENCES public.usuarios(id) ON DELETE CASCADE NOT NULL,
+  challenger_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  challenged_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   event_id UUID REFERENCES public.arena_ads(id) ON DELETE SET NULL, -- Assuming arena_ads stores championship info
   event_name TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined', 'completed', 'cancelled')),
@@ -18,13 +18,17 @@ CREATE TABLE IF NOT EXISTS public.challenges (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
   -- Add Winner ID field if you prefer it over Outcome
-  winner_id UUID REFERENCES public.usuarios(id) ON DELETE SET NULL
+  winner_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL
 );
 
 -- Enable RLS
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
+DROP POLICY IF EXISTS "Challenges are visible to everyone" ON public.challenges;
+DROP POLICY IF EXISTS "Users can create their own challenges" ON public.challenges;
+DROP POLICY IF EXISTS "Participants can update their challenges" ON public.challenges;
+DROP POLICY IF EXISTS "Participants can delete their challenges" ON public.challenges;
 
 -- 1. Challenges are visible to everyone (for display in profiles)
 CREATE POLICY "Challenges are visible to everyone" ON public.challenges

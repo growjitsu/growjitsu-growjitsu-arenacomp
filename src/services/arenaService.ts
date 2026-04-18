@@ -179,33 +179,33 @@ export const getTeams = async () => {
 };
 
 export const searchAthletes = async (query: string) => {
-  if (!query || query.length < 2) return [];
-  
-  // Search by name
-  const { data: byName, error: errorName } = await supabase
-    .from('profiles')
-    .select('*, teams(name)')
-    .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%`)
-    .eq('perfil_publico', true)
-    .limit(10);
+  // If no query, return top 30 active athletes by score
+  if (!query || query.trim().length === 0) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*, teams(name)')
+      .eq('perfil_publico', true)
+      .order('arena_score', { ascending: false })
+      .limit(30);
     
-  if (errorName) throw errorName;
-
-  // Search by team name
-  const { data: byTeam, error: errorTeam } = await supabase
+    if (error) throw error;
+    return data as ArenaProfile[];
+  }
+  
+  if (query.length < 2) return [];
+  
+  // Search by name or team in a single query
+  const { data: athletes, error: errorSearch } = await supabase
     .from('profiles')
     .select('*, teams(name)')
+    .or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%`)
     .eq('perfil_publico', true)
-    .ilike('team', `%${query}%`)
-    .limit(10);
+    .order('arena_score', { ascending: false })
+    .limit(30);
+    
+  if (errorSearch) throw errorSearch;
 
-  if (errorTeam) throw errorTeam;
-
-  // Combine and unique
-  const combined = [...(byName || []), ...(byTeam || [])];
-  const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-  
-  return unique.slice(0, 15) as ArenaProfile[];
+  return (athletes || []) as ArenaProfile[];
 };
 
 export const getActivePromotions = async () => {

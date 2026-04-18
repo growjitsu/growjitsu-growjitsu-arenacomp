@@ -35,8 +35,14 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
       setSelectedProfile(initialProfile);
       setAthleteSearchQuery('');
       setAthleteSearchResults([]);
+      // Load initial 30 athletes if searching is needed
+      if (!initialProfile) {
+        handleAthleteSearch('', true);
+      }
     }
   }, [isOpen, initialProfile]);
+
+  const searchTimeout = useRef<NodeJS.Timeout>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -57,22 +63,30 @@ export const ChallengeModal: React.FC<ChallengeModalProps> = ({ isOpen, onClose,
     }
   };
 
-  const handleAthleteSearch = async (query: string) => {
+  const handleAthleteSearch = async (query: string, immediate = false) => {
     setAthleteSearchQuery(query);
-    if (query.length < 2) {
-      setAthleteSearchResults([]);
-      return;
+    
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
     }
 
-    setSearchingAthletes(true);
-    try {
-      const results = await searchAthletes(query);
-      // Filter out the challenger themselves
-      setAthleteSearchResults(results.filter(p => p.id !== challengerId));
-    } catch (err) {
-      console.error('Error searching athletes:', err);
-    } finally {
-      setSearchingAthletes(false);
+    const performSearch = async () => {
+      setSearchingAthletes(true);
+      try {
+        const results = await searchAthletes(query);
+        // Filter out the challenger themselves
+        setAthleteSearchResults(results.filter(p => p.id !== challengerId));
+      } catch (err) {
+        console.error('Error searching athletes:', err);
+      } finally {
+        setSearchingAthletes(false);
+      }
+    };
+
+    if (query.trim().length === 0 || immediate) {
+      performSearch();
+    } else {
+      searchTimeout.current = setTimeout(performSearch, 300);
     }
   };
 
