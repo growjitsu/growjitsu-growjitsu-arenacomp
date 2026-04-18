@@ -113,17 +113,22 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         const isMobile = window.innerWidth < 768;
         const limit = isMobile ? 10 : 30;
 
+        // Fetch a pool of candidates - using a simpler query to ensure results
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .neq('role', 'admin')
-          .neq('role', 'developer')
           .limit(100);
         
         if (error) throw error;
+
+        // Filter out admins and developers in JS for better compatibility
+        const validProfiles = (data || []).filter(p => 
+          p.role !== 'admin' && 
+          p.role !== 'developer'
+        );
         
         // Shuffle for variety and take the limit based on device
-        const shuffled = (data || [])
+        const shuffled = [...validProfiles]
           .sort(() => 0.5 - Math.random())
           .slice(0, limit);
           
@@ -354,48 +359,53 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-              {featuredProfiles.map((profile, index) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: (index % 10) * 0.05 }}
-                  key={profile.id}
-                  className="group relative w-full bg-white/5 border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden hover:border-blue-500/50 transition-all cursor-pointer"
-                  onClick={() => navigate(`/user/@${profile.username}`)}
-                >
-                  <div className="aspect-[4/5] relative overflow-hidden">
-                    {profile.profile_photo || profile.avatar_url ? (
-                      <img 
-                        src={profile.profile_photo || profile.avatar_url} 
-                        alt="" 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-900/20 to-black flex items-center justify-center">
-                        <User size={48} className="text-blue-600/20" />
+              {featuredProfiles.length > 0 ? (
+                featuredProfiles.map((profile, index) => (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: (index % 10) * 0.05 }}
+                    key={profile.id}
+                    className="group relative w-full bg-white/5 border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden hover:border-blue-500/50 transition-all cursor-pointer"
+                    onClick={() => navigate(`/user/@${profile.username}`)}
+                  >
+                    <div className="aspect-[4/5] relative overflow-hidden">
+                      {profile.profile_photo || profile.avatar_url ? (
+                        <img 
+                          src={profile.profile_photo || profile.avatar_url} 
+                          alt="" 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-blue-900/20 to-black flex items-center justify-center">
+                          <User size={48} className="text-blue-600/20" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
+                      
+                      <div className="absolute bottom-4 left-4 right-4">
+                        <h3 className="text-sm font-black uppercase italic truncate text-white">{profile.full_name || 'Atleta Arena'}</h3>
+                        <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest truncate">{profile.modality || 'Jiu-Jitsu'}</p>
                       </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
+                    </div>
                     
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <h3 className="text-sm font-black uppercase italic truncate text-white">{profile.full_name}</h3>
-                      <p className="text-[9px] font-bold text-blue-500 uppercase tracking-widest truncate">{profile.modality}</p>
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex items-center space-x-1">
+                        <Zap size={10} className="text-blue-500" />
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{Math.round(profile.arena_score || 0)}</span>
+                      </div>
+                      <button className="p-2 bg-white/5 rounded-xl text-gray-500 group-hover:text-blue-500 group-hover:bg-blue-500/10 transition-all">
+                        <Star size={14} />
+                      </button>
                     </div>
-                  </div>
-                  
-                  <div className="p-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-1">
-                      <Zap size={10} className="text-blue-500" />
-                      <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{Math.round(profile.arena_score)}</span>
-                    </div>
-                    <button className="p-2 bg-white/5 rounded-xl text-gray-500 group-hover:text-blue-500 group-hover:bg-blue-500/10 transition-all">
-                      <Star size={14} />
-                    </button>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-full py-12 text-center text-gray-500">
+                  <p className="text-sm uppercase tracking-widest font-bold">Nenhum perfil em destaque no momento</p>
+                </div>
+              )}
             </div>
 
             <div className="mt-16 text-center">
