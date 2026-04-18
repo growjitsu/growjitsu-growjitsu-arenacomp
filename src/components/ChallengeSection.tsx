@@ -158,27 +158,27 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
   return (
     <motion.div
       layout
-      className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] overflow-hidden flex flex-col shadow-sm hover:shadow-xl hover:border-[var(--primary)]/30 transition-all group"
+      className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] overflow-hidden flex flex-col shadow-sm hover:shadow-xl hover:border-[var(--primary)]/30 transition-all group md:min-h-[380px]"
     >
       {/* Header Info */}
-      <div className="p-5 flex items-start justify-between bg-[var(--surface-ui)]/30 border-b border-[var(--border-ui)]">
-        <div className="flex items-center space-x-3">
-          <div className={`p-2 rounded-xl ${
+      <div className="p-5 md:p-6 flex items-start justify-between bg-[var(--surface-ui)]/30 border-b border-[var(--border-ui)]">
+        <div className="flex items-center space-x-3 md:space-x-4">
+          <div className={`p-2 md:p-3 rounded-xl md:rounded-2xl transition-all ${
             challenge.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
             challenge.status === 'accepted' ? 'bg-indigo-500/10 text-indigo-500' :
             (challenge.status === 'finished' || challenge.status === 'completed') ? 'bg-emerald-500/10 text-emerald-500' :
             'bg-rose-500/10 text-rose-500'
           }`}>
-            {challenge.status === 'pending' ? <Clock size={16} /> :
-             challenge.status === 'accepted' ? <Target size={16} /> :
-             (challenge.status === 'finished' || challenge.status === 'completed') ? <Trophy size={16} /> :
-             <XCircle size={16} />}
+            {challenge.status === 'pending' ? <Clock size={16} className="md:w-5 md:h-5" /> :
+             challenge.status === 'accepted' ? <Target size={16} className="md:w-5 md:h-5" /> :
+             (challenge.status === 'finished' || challenge.status === 'completed') ? <Trophy size={16} className="md:w-5 md:h-5" /> :
+             <XCircle size={16} className="md:w-5 md:h-5" />}
           </div>
           <div>
-            <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] block mb-0.5">
+            <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] block mb-0.5 md:mb-1">
               {challenge.challenge_type === 'category_absolute' ? 'Categoria + Absoluto' : 'Categoria'}
             </span>
-            <h4 className="text-[10px] font-black uppercase italic tracking-tighter text-[var(--text-main)] truncate max-w-[120px]">
+            <h4 className="text-[10px] md:text-sm font-black uppercase italic tracking-tighter text-[var(--text-main)] truncate max-w-[120px] md:max-w-[200px]">
               {challenge.event_name}
             </h4>
           </div>
@@ -187,77 +187,81 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
         {/* Action icons for creator */}
         {challenge.status === 'pending' && isChallenger && isOwnProfile && (
           <div className="flex items-center space-x-1">
-            <button onClick={handleDelete} className="p-2 hover:bg-rose-500/10 text-rose-500 rounded-lg transition-colors">
-              <Trash2 size={14} />
+            <button onClick={handleDelete} className="p-2 md:p-3 hover:bg-rose-500/10 text-rose-500 rounded-lg md:rounded-xl transition-colors">
+              <Trash2 size={14} className="md:w-5 md:h-5" />
             </button>
           </div>
         )}
       </div>
 
       {/* Opponents Section */}
-      <div className="p-6 flex items-center justify-between relative overflow-hidden">
-        <div className="flex flex-col items-center space-y-2 relative z-10 w-1/2">
-           <div className="relative">
+      <div className="p-6 md:p-10 flex items-center justify-between relative overflow-hidden flex-1">
+        <div className="flex flex-col items-center space-y-3 md:space-y-4 relative z-10 w-1/2">
+           <div className="relative group/avatar">
              <img 
                src={challenge.challenger?.profile_photo || challenge.challenger?.avatar_url || 'https://via.placeholder.com/150'} 
                alt="" 
-               className={`w-14 h-14 rounded-2xl object-cover border-2 ${challenge.winner_id === challenge.challenger_id ? 'border-emerald-500' : 'border-[var(--border-ui)]'}`}
+               className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-3xl object-cover border-2 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenger_id ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
              />
              {challenge.winner_id === challenge.challenger_id && (
-               <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg">
-                 <Award size={10} />
+               <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1.5 md:p-2 rounded-full shadow-lg animate-bounce">
+                 <Award size={10} className="md:w-3 md:h-3" />
                </div>
              )}
            </div>
-           <span className="text-[8px] font-black uppercase text-center truncate w-full text-[var(--text-main)]">
-             {challenge.challenger?.username}
-           </span>
-           <span className="text-[9px] font-black text-[var(--primary)]">{challenge.challenger_points || 0} PTS</span>
+           <div className="text-center w-full">
+             <span className="text-[8px] md:text-[10px] font-black uppercase text-center truncate block w-full text-[var(--text-main)] max-sm:px-2">
+               {challenge.challenger?.username}
+             </span>
+             <span className="text-[9px] md:text-xs font-black text-[var(--primary)] mt-0.5 md:mt-1 block">{challenge.challenger_points || 0} PTS</span>
+           </div>
         </div>
 
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 opacity-10">
-          <Target size={80} strokeWidth={1} />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0">
+          <Target size={120} strokeWidth={0.5} className="text-[var(--text-muted)]/10 md:w-40 md:h-40" />
         </div>
-        <div className="text-[var(--text-muted)] font-black italic text-sm z-10 mt-[-20px]">VS</div>
+        <div className="text-[var(--text-muted)] font-black italic text-sm md:text-xl z-10 mt-[-28px] md:mt-[-40px]">VS</div>
 
-        <div className="flex flex-col items-center space-y-2 relative z-10 w-1/2">
-           <div className="relative">
+        <div className="flex flex-col items-center space-y-3 md:space-y-4 relative z-10 w-1/2">
+           <div className="relative group/avatar">
              <img 
                src={challenge.challenged?.profile_photo || challenge.challenged?.avatar_url || 'https://via.placeholder.com/150'} 
                alt="" 
-               className={`w-14 h-14 rounded-2xl object-cover border-2 ${challenge.winner_id === challenge.challenged_id ? 'border-emerald-500' : 'border-[var(--border-ui)]'}`}
+               className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-3xl object-cover border-2 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenged_id ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
              />
              {challenge.winner_id === challenge.challenged_id && (
-               <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1 rounded-full shadow-lg">
-                 <Award size={10} />
+               <div className="absolute -top-2 -right-2 bg-emerald-500 text-white p-1.5 md:p-2 rounded-full shadow-lg animate-bounce">
+                 <Award size={10} className="md:w-3 md:h-3" />
                </div>
              )}
            </div>
-           <span className="text-[8px] font-black uppercase text-center truncate w-full text-[var(--text-main)]">
-             {challenge.challenged?.username}
-           </span>
-           <span className="text-[9px] font-black text-[var(--primary)]">{challenge.challenged_points || 0} PTS</span>
+           <div className="text-center w-full">
+             <span className="text-[8px] md:text-[10px] font-black uppercase text-center truncate block w-full text-[var(--text-main)] max-sm:px-2">
+               {challenge.challenged?.username}
+             </span>
+             <span className="text-[9px] md:text-xs font-black text-[var(--primary)] mt-0.5 md:mt-1 block">{challenge.challenged_points || 0} PTS</span>
+           </div>
         </div>
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 bg-[var(--surface-ui)]/20 mt-auto border-t border-[var(--border-ui)]">
+      <div className="p-4 md:p-6 bg-[var(--surface-ui)]/20 mt-auto border-t border-[var(--border-ui)]">
         {challenge.status === 'pending' && isChallenged && isOwnProfile && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             <button 
               onClick={() => handleStatusUpdate('accepted')}
               disabled={loading}
-              className="py-2 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-[1.02] transition-all flex items-center justify-center space-x-1"
+              className="py-2.5 md:py-3.5 bg-emerald-500 text-white rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2"
             >
-              <CheckCircle2 size={12} />
+              <CheckCircle2 size={12} className="md:w-4 md:h-4" />
               <span>Aceitar</span>
             </button>
             <button 
               onClick={() => handleStatusUpdate('declined')}
               disabled={loading}
-              className="py-2 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase shadow-lg shadow-rose-500/20 hover:scale-[1.02] transition-all flex items-center justify-center space-x-1"
+              className="py-2.5 md:py-3.5 bg-rose-500 text-white rounded-xl md:rounded-2xl text-[10px] md:text-xs font-black uppercase shadow-lg shadow-rose-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-2"
             >
-              <XCircle size={12} />
+              <XCircle size={12} className="md:w-4 md:h-4" />
               <span>Recusar</span>
             </button>
           </div>
@@ -267,30 +271,30 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
           <button 
             onClick={() => setShowResultForm(true)}
             disabled={hasSubmitted}
-            className={`w-full py-3 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center space-x-2 transition-all ${
+            className={`w-full py-3 md:py-4 rounded-2xl md:rounded-3xl text-[10px] md:text-xs font-black uppercase flex items-center justify-center space-x-2 transition-all ${
               hasSubmitted 
-                ? 'bg-[var(--surface-ui)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border-ui)]' 
-                : 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 hover:scale-[1.02]'
+                ? 'bg-[var(--surface-ui)] text-[var(--text-muted)] cursor-not-allowed border border-[var(--border-ui)] opacity-70' 
+                : 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20 hover:scale-[1.02] active:scale-95'
             }`}
           >
             {hasSubmitted ? (
-               <><CheckCircle2 size={14} /> <span>Aguardando Oponente</span></>
+               <><CheckCircle2 size={14} className="md:w-5 md:h-5" /> <span>Aguardando Oponente</span></>
             ) : (
-               <><Trophy size={14} /> <span>Finalizar Desafio</span></>
+               <><Trophy size={14} className="md:w-5 md:h-5" /> <span>Finalizar Desafio</span></>
             )}
           </button>
         )}
 
         {challenge.status === 'finished' && (
-           <div className="text-center py-2">
-             <p className="text-[8px] font-black uppercase tracking-widest text-[var(--text-muted)]">Encerrado em</p>
-             <p className="text-[10px] font-bold text-[var(--text-main)]">{new Date(challenge.updated_at).toLocaleDateString()}</p>
+           <div className="text-center py-1 md:py-2">
+             <p className="text-[8px] md:text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-0.5">Encerrado em</p>
+             <p className="text-[10px] md:text-xs font-bold text-[var(--text-main)] italic">{new Date(challenge.updated_at).toLocaleDateString()}</p>
            </div>
         )}
 
         {challenge.status === 'declined' && (
-           <div className="text-center py-2">
-             <p className="text-[10px] font-bold text-rose-500 uppercase tracking-tighter italic">Desafio Recusado</p>
+           <div className="text-center py-1 md:py-2">
+             <p className="text-[10px] md:text-sm font-black text-rose-500 uppercase tracking-tighter italic">Desafio Recusado</p>
            </div>
         )}
       </div>
@@ -326,8 +330,11 @@ const ResultSubmissionForm: React.FC<{
   onClose: () => void;
   onSubmit: (result: ChallengeResult) => void;
 }> = ({ challenge, onClose, onSubmit }) => {
-  const [categoryResult, setCategoryResult] = useState<ChallengeResult['category']>('none');
-  const [absoluteResult, setAbsoluteResult] = useState<ChallengeResult['absolute']>('none');
+  const [step, setStep] = useState<'category' | 'absolute'>(
+    challenge.challenge_type === 'category' ? 'category' : 'category'
+  );
+  const [categoryResult, setCategoryResult] = useState<ChallengeResult['category'] | null>(null);
+  const [absoluteResult, setAbsoluteResult] = useState<ChallengeResult['absolute'] | null>(null);
 
   const placements = [
     { id: '1st', label: '1º Lugar', points: 100 },
@@ -336,80 +343,115 @@ const ResultSubmissionForm: React.FC<{
     { id: 'none', label: 'Participação', points: 5 },
   ] as const;
 
+  const isDual = challenge.challenge_type === 'category_absolute';
+
+  const handleNext = () => {
+    if (step === 'category') {
+      if (!categoryResult) {
+        toast.error('Por favor, selecione seu resultado na categoria.');
+        return;
+      }
+      if (isDual) {
+        setStep('absolute');
+      } else {
+        onSubmit({ category: categoryResult });
+      }
+    } else {
+      if (!absoluteResult) {
+        toast.error('Por favor, selecione seu resultado no absoluto.');
+        return;
+      }
+      onSubmit({ category: categoryResult!, absolute: absoluteResult });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="bg-[var(--surface)] w-full max-w-sm rounded-[2.5rem] border border-[var(--border-ui)] overflow-hidden flex flex-col"
+        className="bg-[var(--surface)] w-full max-w-sm rounded-[3rem] border border-[var(--border-ui)] overflow-hidden flex flex-col shadow-2xl"
       >
-        <div className="p-6 border-b border-[var(--border-ui)] flex items-center justify-between">
-           <h3 className="text-sm font-black uppercase italic tracking-tighter text-[var(--text-main)]">Informar Resultados</h3>
-           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-xl transition-colors">
-              <XCircle size={20} className="text-[var(--text-muted)]" />
+        <div className="p-6 md:p-8 border-b border-[var(--border-ui)] flex items-center justify-between bg-[var(--surface-ui)]/30">
+           <div>
+             <h3 className="text-sm md:text-base font-black uppercase italic tracking-tighter text-[var(--text-main)]">
+               {isDual ? `Resultado (${step === 'category' ? 'Etapa 1/2' : 'Etapa 2/2'})` : 'Informar Resultado'}
+             </h3>
+             <p className="text-[8px] md:text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5">
+               {step === 'category' ? 'Pódio da sua Categoria' : 'Pódio da sua Absoluto'}
+             </p>
+           </div>
+           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-2xl transition-colors">
+              <XCircle size={20} className="text-[var(--text-muted)] md:w-6 md:h-6" />
            </button>
         </div>
 
-        <div className="p-8 space-y-8 max-h-[70vh] overflow-y-auto">
-          {/* Category Result */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-               <Award size={14} className="text-[var(--primary)]" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Pódio Categoria</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {placements.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setCategoryResult(p.id)}
-                  className={`py-3 px-4 rounded-2xl border transition-all text-left flex flex-col ${
-                    categoryResult === p.id 
-                      ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]' 
-                      : 'border-[var(--border-ui)] bg-[var(--surface-ui)]/50 text-[var(--text-muted)]'
-                  }`}
-                >
-                  <span className="text-[10px] font-black uppercase">{p.label}</span>
-                  <span className="text-[8px] font-bold opacity-70">{p.points} PTS</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Absolute Result (If eligible) */}
-          {challenge.challenge_type === 'category_absolute' && (
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                 <Trophy size={14} className="text-[var(--primary)]" />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Pódio Absoluto</span>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {placements.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => setAbsoluteResult(p.id)}
-                    className={`py-3 px-4 rounded-2xl border transition-all text-left flex flex-col ${
-                      absoluteResult === p.id 
-                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)]' 
-                        : 'border-[var(--border-ui)] bg-[var(--surface-ui)]/50 text-[var(--text-muted)]'
-                    }`}
-                  >
-                    <span className="text-[10px] font-black uppercase">{p.label}</span>
-                    <span className="text-[8px] font-bold opacity-70">{p.points} PTS</span>
-                  </button>
-                ))}
-              </div>
+        <div className="p-8 md:p-10 space-y-8 max-h-[70vh] overflow-y-auto">
+          {/* Progress dots for dual results */}
+          {isDual && (
+            <div className="flex items-center justify-center space-x-3 mb-2">
+              <div className={`w-10 h-1.5 rounded-full transition-all duration-500 ${step === 'category' ? 'bg-[var(--primary)]' : 'bg-[var(--primary)]/30'}`} />
+              <div className={`w-10 h-1.5 rounded-full transition-all duration-500 ${step === 'absolute' ? 'bg-[var(--primary)]' : 'bg-zinc-800'}`} />
             </div>
           )}
+
+          <div className="space-y-6">
+            <div className="flex items-center space-x-3">
+               <div className="w-8 h-8 md:w-10 md:h-10 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center text-[var(--primary)]">
+                 {step === 'category' ? <Award size={18} /> : <Trophy size={18} />}
+               </div>
+               <div>
+                 <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-[var(--text-main)] block">
+                   {step === 'category' ? 'Categoria' : 'Absoluto'}
+                 </span>
+                 <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Qual foi seu pódio?</span>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {placements.map(p => {
+                const isSelected = step === 'category' ? categoryResult === p.id : absoluteResult === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => step === 'category' ? setCategoryResult(p.id) : setAbsoluteResult(p.id)}
+                    className={`py-4 px-4 rounded-[1.5rem] border-2 transition-all text-center flex flex-col items-center justify-center space-y-1 relative group ${
+                      isSelected 
+                        ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-lg shadow-[var(--primary)]/10' 
+                        : 'border-[var(--border-ui)] bg-[var(--surface-ui)]/50 text-[var(--text-muted)] hover:border-[var(--text-main)]/30'
+                    }`}
+                  >
+                    <span className="text-[10px] md:text-xs font-black uppercase tracking-tight">{p.label}</span>
+                    <span className="text-[8px] md:text-[9px] font-bold opacity-60 uppercase">{p.points} PTS</span>
+                    {isSelected && (
+                      <motion.div layoutId="selection" className="absolute -top-2 -right-2 bg-[var(--primary)] text-white p-1 rounded-full shadow-lg">
+                        <CheckCircle2 size={12} />
+                      </motion.div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        <div className="p-6 bg-[var(--surface-ui)]/30 border-t border-[var(--border-ui)]">
+        <div className="p-6 md:p-8 bg-[var(--surface-ui)]/30 border-t border-[var(--border-ui)]">
           <button
-            onClick={() => onSubmit({ category: categoryResult, absolute: absoluteResult })}
-            className="w-full py-4 bg-[var(--primary)] text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:scale-[1.02] transition-all flex items-center justify-center space-x-2 shadow-lg shadow-[var(--primary)]/20"
+            onClick={handleNext}
+            className="w-full py-4 md:py-5 bg-[var(--primary)] text-white rounded-2xl md:rounded-[2rem] font-black uppercase tracking-widest text-[10px] md:text-xs hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center space-x-3 shadow-xl shadow-[var(--primary)]/20"
           >
-            <Send size={16} />
-            <span>Confirmar e Enviar</span>
+            {step === 'category' && isDual ? (
+               <>
+                 <span>Próximo: Absoluto</span>
+                 <ChevronDown size={18} className="rotate-[-90deg]" />
+               </>
+            ) : (
+               <>
+                 <Send size={18} />
+                 <span>Confirmar e Enviar</span>
+               </>
+            )}
           </button>
         </div>
       </motion.div>

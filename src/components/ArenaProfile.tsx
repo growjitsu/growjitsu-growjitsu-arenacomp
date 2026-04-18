@@ -3049,15 +3049,6 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               Lutas
               {activeTab === 'fights' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
             </button>
-            <button
-              onClick={() => setActiveTab('challenges')}
-              className={`pb-4 text-xs font-black uppercase tracking-widest transition-colors relative whitespace-nowrap ${
-                activeTab === 'challenges' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
-              }`}
-            >
-              Desafios
-              {activeTab === 'challenges' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--primary)]" />}
-            </button>
             {isOwnProfile && (
               <button
                 onClick={() => setActiveTab('archive')}
