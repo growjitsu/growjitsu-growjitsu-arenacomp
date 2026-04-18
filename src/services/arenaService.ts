@@ -202,11 +202,12 @@ export const searchAthletes = async (query: string) => {
   try {
     let baseQuery = supabase
       .from('profiles')
-      .select('*, teams(name)')
+      .select('*')
       .eq('perfil_publico', true)
+      .neq('id', (await supabase.auth.getUser()).data.user?.id) // Prevent self-search
       .neq('role', 'admin');
 
-    // Only add search filter if query is not empty
+    // Filter by name, username or team if query provided
     if (query && query.trim().length > 0) {
       baseQuery = baseQuery.or(`full_name.ilike.%${query}%,nickname.ilike.%${query}%,team.ilike.%${query}%,username.ilike.%${query}%`);
     }

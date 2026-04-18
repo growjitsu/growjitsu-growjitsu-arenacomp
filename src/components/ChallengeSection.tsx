@@ -44,34 +44,38 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
 
   const filteredChallenges = challenges.filter(c => {
     if (filter === 'all') return true;
+    if (filter === 'finished') return c.status === 'finished' || c.status === 'completed';
     return c.status === filter;
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6 px-1 md:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center text-[var(--primary)]">
+          <div className="w-10 h-10 bg-[var(--primary)]/10 rounded-xl flex items-center justify-center text-[var(--primary)] shrink-0">
             <Target size={20} />
           </div>
           <div>
-            <h3 className="text-lg font-black uppercase italic tracking-tighter text-[var(--text-main)]">Desafios 1x1</h3>
-            <p className="text-[var(--text-muted)] text-[8px] font-bold uppercase tracking-widest">Gestão de confrontos diretos</p>
+            <h3 className="text-base md:text-lg font-black uppercase italic tracking-tighter text-[var(--text-main)]">Desafios 1x1</h3>
+            <p className="text-[var(--text-muted)] text-[7px] md:text-[8px] font-bold uppercase tracking-widest leading-none">Gestão de confrontos diretos</p>
           </div>
         </div>
-
-        <div className="flex items-center bg-[var(--surface-ui)]/50 rounded-xl p-1 border border-[var(--border-ui)]">
-          {(['all', 'pending', 'accepted', 'finished'] as const).map((f) => (
+        
+        {/* Responsive Tabs */}
+        <div className="flex bg-[var(--bg-card)] p-1 rounded-xl border border-[var(--border-ui)] overflow-x-auto no-scrollbar">
+          {(['all', 'pending', 'accepted', 'finished'] as const).map((t) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-tight transition-all ${
-                filter === f
-                  ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20'
+              key={t}
+              onClick={() => setFilter(t)}
+              className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                filter === t 
+                  ? 'bg-[var(--primary)] text-white shadow-lg' 
                   : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
               }`}
             >
-              {f === 'all' ? 'Todos' : f === 'pending' ? 'Pendentes' : f === 'accepted' ? 'Aceitos' : 'Histórico'}
+              {t === 'all' ? 'Todos' : 
+               t === 'pending' ? 'Pendentes' : 
+               t === 'accepted' ? 'Aceitos' : 'Finalizados'}
             </button>
           ))}
         </div>

@@ -6,10 +6,13 @@ import { Link } from 'react-router-dom';
 
 interface Notification {
   id: string;
-  type: 'follow' | 'like' | 'comment' | 'post' | 'challenge_received' | 'challenge_accepted' | 'challenge_updated';
+  type: 'follow' | 'like' | 'comment' | 'post' | 'challenge_received' | 'challenge_accepted' | 'challenge_updated' | 'challenge';
   read: boolean;
+  title?: string;
+  description?: string;
   created_at: string;
   actor: {
+    // ... same as before but I'll use simpler structure for the edit
     id: string;
     full_name: string;
     username: string;
@@ -144,13 +147,18 @@ export const ArenaNotifications: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-[var(--text-main)]">
-                    <Link to={`/profile/${notification.actor.id}`} className="font-black hover:text-[var(--primary)] transition-colors">
-                      {notification.actor.full_name}
-                    </Link>
-                    {' '}
-                    <span className="text-[var(--text-muted)]">{getNotificationContent(notification)}</span>
+                    {notification.title ? (
+                      <span className="font-black text-[var(--primary)] uppercase tracking-tight">{notification.title}</span>
+                    ) : (
+                      <Link to={`/profile/${notification.actor?.id}`} className="font-black hover:text-[var(--primary)] transition-colors">
+                        {notification.actor?.full_name}
+                      </Link>
+                    )}
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-1">
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    {notification.description || getNotificationContent(notification)}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mt-1.5">
                     {new Date(notification.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>

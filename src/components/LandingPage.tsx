@@ -28,6 +28,33 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
     setConfirmPassword('');
   }, [authMode]);
 
+  const [featuredProfiles, setFeaturedProfiles] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchFeatured = async () => {
+      try {
+        const isMobile = window.innerWidth < 768;
+        const limit = isMobile ? 10 : 30;
+        
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, profile_photo, avatar_url, arena_score, modality, team')
+          .eq('perfil_publico', true)
+          .neq('role', 'admin')
+          .order('id') // Placeholder for random if RPC not available, but I'll use random in JS for simplicity or better RPC if exists
+          .limit(limit);
+
+        if (data) {
+          // Client-side shuffle for real randomness on every load
+          setFeaturedProfiles(data.sort(() => Math.random() - 0.5));
+        }
+      } catch (err) {
+        console.error('Error fetching featured profiles:', err);
+      }
+    };
+    fetchFeatured();
+  }, []);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -249,6 +276,59 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Featured Athletes Section */}
+      <section className="py-20 bg-[var(--bg)] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-6 mb-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+              <span className="text-[var(--primary)] text-[10px] font-black uppercase tracking-widest mb-2 block">Destaques da Comunidade</span>
+              <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight text-[var(--text-main)] italic uppercase">Atletas na Arena</h2>
+            </div>
+            <p className="text-[var(--text-muted)] text-sm max-w-md font-medium">
+              Conecte-se com milhares de combatentes que já estão construindo sua carreira profissional na ArenaComp.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex space-x-6 overflow-x-auto pb-10 px-6 no-scrollbar snap-x">
+          {featuredProfiles.map((profile, i) => (
+            <motion.div
+              key={profile.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="flex-shrink-0 w-64 snap-center group"
+            >
+              <div className="card-surface p-6 bg-[var(--surface)] hover:border-[var(--primary)] transition-all duration-300 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--primary)]/5 blur-3xl rounded-full -mr-10 -mt-10" />
+                
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <div className="relative mb-4">
+                    <img 
+                      src={profile.profile_photo || profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff`} 
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-transparent group-hover:border-[var(--primary)] transition-all"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute -bottom-2 -right-2 bg-[var(--primary)] text-white text-[8px] font-black px-2 py-1 rounded-lg">
+                      {profile.arena_score || 0} PTS
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-sm font-black uppercase text-[var(--text-main)] truncate w-full mb-1">{profile.full_name}</h3>
+                  <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mb-4">{profile.team || 'Sem Equipe'}</p>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase rounded-full">
+                      {profile.modality || 'Jiu-Jitsu'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
         </div>
       </section>
 

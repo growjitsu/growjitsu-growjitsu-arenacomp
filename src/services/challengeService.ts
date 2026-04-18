@@ -28,18 +28,31 @@ export const challengeService = {
       throw new Error(`Erro ao verificar atletas: ${checkError.message}`);
     }
 
-    console.log('[SERVICE] Profiles found for integrity check:', profiles);
+    const challengerProfile = profiles?.find(p => p.id === challengerId);
+    const challengedProfile = profiles?.find(p => p.id === challengedId);
 
-    const challengerExists = profiles?.some(p => p.id === challengerId);
-    const challengedExists = profiles?.some(p => p.id === challengedId);
-
-    if (!challengedExists) {
+    if (!challengedProfile) {
       console.error(`[SERVICE] Challenged ID ${challengedId} not found in profiles.`);
-      throw new Error(`O atleta selecionado não foi encontrado no sistema (ID inválido ou inacessível).`);
+      throw new Error(`O atleta selecionado não foi encontrado no sistema.`);
     }
-    if (!challengerExists) {
+    if (!challengerProfile) {
       console.error(`[SERVICE] Challenger ID ${challengerId} not found in profiles.`);
       throw new Error(`Seu perfil de atleta não foi encontrado ou está inacessível.`);
+    }
+
+    // SAFE EVENT ID: Only send event_id if it's explicitly from the 'eventos' table
+    // We check if the ID exists in 'eventos' before inserting to avoid FK violation
+    let safeEventId: string | null = null;
+    if (eventId) {
+      const { data: eventCheck } = await supabase
+        .from('eventos')
+        .select('id')
+        .eq('id', eventId)
+        .maybeSingle();
+      
+      if (eventCheck) {
+        safeEventId = eventId;
+      }
     }
 
     const { data, error } = await supabase
@@ -47,7 +60,7 @@ export const challengeService = {
       .insert({
         challenger_id: challengerId,
         challenged_id: challengedId,
-        event_id: eventId,
+        event_id: safeEventId,
         event_name: eventName,
         status: 'pending'
       })
@@ -56,15 +69,33 @@ export const challengeService = {
 
     if (error) {
       console.error('[SERVICE] Challenge insert failed:', error);
+      // If it's still an FK error on event_id, try without it
+      if (error.message.includes('event_id')) {
+        const { data: secondTry, error: secondError } = await supabase
+          .from('challenges')
+          .insert({
+            challenger_id: challengerId,
+            challenged_id: challengedId,
+            event_name: eventName,
+            status: 'pending'
+          })
+          .select()
+          .single();
+        
+        if (secondError) throw secondError;
+        return secondTry as ArenaChallenge;
+      }
       throw error;
     }
     
-    // Create notification for challenged athlete
+    // Create detailed notification for challenged athlete
     await supabase.from('notifications').insert({
       user_id: challengedId,
       actor_id: challengerId,
-      type: 'challenge_received',
-      content: `Você recebeu um novo desafio para o evento ${eventName}!`
+      type: 'challenge',
+      title: 'Você foi desafiado!',
+      description: `${challengerProfile.full_name} te desafiou para um confronto 1x1 em ${eventName}!`,
+      content: `Novo desafio recebido para o evento ${eventName}`
     });
 
     return data as ArenaChallenge;
@@ -110,24 +141,33 @@ export const challengeService = {
     const updatedChallenge = data as ArenaChallenge;
     const notifiedUserId = isChallenger ? updatedChallenge.challenged_id : updatedChallenge.challenger_id;
     
+    let title = 'Desafio Atualizado';
+    let description = `O status do confronto foi alterado para: ${status}`;
     let notificationType = 'challenge_updated';
-    let content = `Status do desafio atualizado para: ${status}`;
 
     if (status === 'accepted') {
       notificationType = 'challenge_accepted';
-      content = 'Seu desafio foi aceito! Prepare-se para a arena.';
+      title = 'Desafio Aceito!';
+      description = 'Prepare os protetores! Seu desafio foi aceito e o confronto está confirmado.';
       await this.createChallengeAcceptedPost(updatedChallenge);
     } else if (status === 'declined') {
-      content = 'Seu desafio foi recusado.';
+      title = 'Desafio Recusado';
+      description = 'O oponente não aceitou o confronto desta vez.';
     } else if (status === 'cancelled') {
-      content = 'O desafio foi cancelado.';
+      title = 'Desafio Cancelado';
+      description = 'Este desafio foi removido do sistema.';
+    } else if (status === 'finished' || status === 'completed') {
+      title = 'Confronto Finalizado';
+      description = 'O resultado do desafio foi registrado na arena.';
     }
 
     await supabase.from('notifications').insert({
       user_id: notifiedUserId,
       actor_id: user.id,
       type: notificationType,
-      content
+      title,
+      description,
+      content: description
     });
 
     return updatedChallenge;
