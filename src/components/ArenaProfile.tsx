@@ -2287,6 +2287,16 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   profile.role !== 'admin' && (
                     <div className="grid grid-cols-2 gap-2 w-full md:grid-cols-2 lg:grid-cols-2">
                        {/* Row 1 */}
+                      {profile.role === 'athlete' && (
+                        <button
+                          onClick={() => setIsChallengeModalOpen(true)}
+                          className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
+                        >
+                          <Target size={14} className="text-[var(--primary)]" />
+                          <span>Desafiar Atleta</span>
+                        </button>
+                      )}
+
                       <Link
                         to={`/curriculo/${profile.id}`}
                         className="px-4 py-3 bg-[var(--surface)] border border-[var(--border-ui)] text-[var(--text-main)] rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[var(--primary)]/10 transition-all flex items-center justify-center space-x-2 shadow-sm"
