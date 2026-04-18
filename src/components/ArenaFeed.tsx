@@ -14,6 +14,81 @@ import { trackAdEvent } from '../services/adService';
 
 import { SidebarAds } from './SidebarAds';
 
+// Sub-component for multi-image posts with desktop navigation
+const MediaCarousel: React.FC<{ urls: string[] }> = ({ urls }) => {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(urls.length > 1);
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 0);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  };
+
+  const scroll = (e: React.MouseEvent, direction: 'left' | 'right') => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (scrollRef.current) {
+      const { clientWidth } = scrollRef.current;
+      const scrollAmount = direction === 'left' ? -clientWidth : clientWidth;
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    // Re-check after small delay for layout adjustments
+    const timer = setTimeout(checkScroll, 100);
+    return () => clearTimeout(timer);
+  }, [urls]);
+
+  return (
+    <div className="relative group/carousel w-full overflow-hidden">
+      <div 
+        ref={scrollRef}
+        onScroll={checkScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full"
+      >
+        {urls.map((url, i) => (
+          <div key={i} className="flex-shrink-0 w-full snap-center relative flex items-center justify-center bg-black/20">
+            <img 
+              src={url} 
+              alt="" 
+              className="w-full h-auto block max-h-[70vh] object-contain" 
+              referrerPolicy="no-referrer"
+              loading="lazy"
+            />
+            <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white">
+              {i + 1} / {urls.length}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Desktop Navigation Arrows - Improved visibility with hover transition */}
+      {urls.length > 1 && (
+        <>
+          <button 
+            onClick={(e) => scroll(e, 'left')}
+            className={`absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white transition-all opacity-0 group-hover/carousel:opacity-100 hidden lg:flex z-10 ${!canScrollLeft ? 'pointer-events-none grayscale opacity-20' : ''}`}
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <button 
+            onClick={(e) => scroll(e, 'right')}
+            className={`absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center text-white transition-all opacity-0 group-hover/carousel:opacity-100 hidden lg:flex z-10 ${!canScrollRight ? 'pointer-events-none grayscale opacity-20' : ''}`}
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
+      )}
+    </div>
+  );
+};
+
 export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ userProfile }) => {
   console.log('[ArenaFeed] Componente montado');
   const [posts, setPosts] = useState<ArenaPost[]>([]);
@@ -1177,24 +1252,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                   }
 
                                   if (urls.length > 1) {
-                                    return (
-                                      <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full">
-                                        {urls.map((url, i) => (
-                                          <div key={i} className="flex-shrink-0 w-full snap-center relative flex items-center justify-center bg-black/20">
-                                            <img 
-                                              src={url} 
-                                              alt="" 
-                                              className="w-full h-auto block max-h-[70vh] object-contain" 
-                                              referrerPolicy="no-referrer"
-                                              loading="lazy"
-                                            />
-                                            <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white">
-                                              {i + 1} / {urls.length}
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    );
+                                    return <MediaCarousel urls={urls} />;
                                   }
 
                                   const url = urls[0];
