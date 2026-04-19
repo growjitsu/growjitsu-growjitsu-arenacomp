@@ -90,7 +90,7 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
           ))}
         </div>
       ) : filteredChallenges.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
           {filteredChallenges.map((challenge) => (
             <ChallengeCard 
               key={challenge.id} 
