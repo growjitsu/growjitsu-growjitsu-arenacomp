@@ -158,10 +158,10 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
   return (
     <motion.div
       layout
-      className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2rem] overflow-hidden flex flex-col shadow-sm hover:shadow-xl hover:border-[var(--primary)]/30 transition-all group md:aspect-[4/5]"
+      className="bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2rem] overflow-hidden md:overflow-visible flex flex-col shadow-sm hover:shadow-xl hover:border-[var(--primary)]/30 transition-all group md:h-auto md:pb-3"
     >
       {/* Header Info */}
-      <div className="p-4 md:p-8 flex items-start justify-between md:flex-col md:items-center md:text-center md:justify-center bg-[var(--surface-ui)]/30 border-b border-[var(--border-ui)] relative md:space-y-4">
+      <div className="p-4 md:p-8 flex items-start justify-between md:flex-col md:items-center md:text-center md:justify-center bg-[var(--surface-ui)]/30 border-b border-[var(--border-ui)] relative md:space-y-4 md:rounded-t-[2rem]">
         <div className="flex items-center space-x-3 md:space-x-0 md:flex-col md:space-y-3">
           <div className={`p-2 md:p-4 rounded-xl md:rounded-[1.5rem] transition-all ${
             challenge.status === 'pending' ? 'bg-amber-500/10 text-amber-500' :
@@ -195,16 +195,16 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
       </div>
 
       {/* Opponents Section */}
-      <div className="p-6 md:p-10 flex items-center justify-between relative overflow-hidden flex-1">
+      <div className="p-6 md:p-10 flex items-center justify-between relative overflow-hidden flex-1 md:overflow-visible">
         <div className="flex flex-col items-center space-y-3 md:space-y-5 relative z-10 w-1/2">
            <div className="relative group/avatar">
              <img 
                src={challenge.challenger?.profile_photo || challenge.challenger?.avatar_url || 'https://via.placeholder.com/150'} 
                alt="" 
-               className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl md:rounded-[2rem] object-cover border-2 md:border-4 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenger_id ? 'border-emerald-500 shadow-xl shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
+               className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-full object-cover border-2 md:border-4 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenger_id ? 'border-emerald-500 shadow-xl shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
              />
              {challenge.winner_id === challenge.challenger_id && (
-               <div className="absolute -top-2 -right-2 md:-top-3 md:-right-3 bg-emerald-500 text-white p-1.5 md:p-2.5 rounded-full shadow-lg animate-bounce">
+               <div className="absolute -top-2 -right-2 md:-top-3 md:-right-3 bg-emerald-500 text-white p-1.5 md:p-2 rounded-full shadow-lg animate-bounce">
                  <Award size={10} className="md:w-4 md:h-4" />
                </div>
              )}
@@ -227,10 +227,10 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
              <img 
                src={challenge.challenged?.profile_photo || challenge.challenged?.avatar_url || 'https://via.placeholder.com/150'} 
                alt="" 
-               className={`w-14 h-14 md:w-24 md:h-24 rounded-2xl md:rounded-[2rem] object-cover border-2 md:border-4 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenged_id ? 'border-emerald-500 shadow-xl shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
+               className={`w-14 h-14 md:w-20 md:h-20 rounded-2xl md:rounded-full object-cover border-2 md:border-4 transition-transform group-hover/avatar:scale-105 ${challenge.winner_id === challenge.challenged_id ? 'border-emerald-500 shadow-xl shadow-emerald-500/20' : 'border-[var(--border-ui)]'}`}
              />
              {challenge.winner_id === challenge.challenged_id && (
-               <div className="absolute -top-2 -right-2 md:-top-3 md:-right-3 bg-emerald-500 text-white p-1.5 md:p-2.5 rounded-full shadow-lg animate-bounce">
+               <div className="absolute -top-2 -right-2 md:-top-3 md:-right-3 bg-emerald-500 text-white p-1.5 md:p-2 rounded-full shadow-lg animate-bounce">
                  <Award size={10} className="md:w-4 md:h-4" />
                </div>
              )}
@@ -245,7 +245,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
       </div>
 
       {/* Footer Actions */}
-      <div className="p-4 md:p-8 bg-[var(--surface-ui)]/20 mt-auto border-t border-[var(--border-ui)]">
+      <div className="p-4 md:p-8 bg-[var(--surface-ui)]/20 mt-auto border-t border-[var(--border-ui)] md:rounded-b-[2rem]">
         {challenge.status === 'pending' && isChallenged && isOwnProfile && (
           <div className="grid grid-cols-2 gap-3 md:gap-6">
             <button 
