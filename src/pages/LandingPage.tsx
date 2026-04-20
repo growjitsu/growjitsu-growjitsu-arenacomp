@@ -8,7 +8,7 @@ import { db } from '../firebase';
 import { trackAdEvent } from '../services/adService';
 import { PublicHeader } from '../components/PublicHeader';
 import { PublicFooter } from '../components/PublicFooter';
-import { ArenaProfile } from '../types';
+import { ArenaProfile, ArenaAd } from '../types';
 
 interface Banner {
   id: string;
@@ -33,6 +33,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
   const navigate = useNavigate();
   const [banners, setBanners] = useState<Banner[]>([]);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const [highlights, setHighlights] = useState<ArenaAd[]>([]);
   const [topAthletes, setTopAthletes] = useState<ArenaProfile[]>([]);
   const [featuredProfiles, setFeaturedProfiles] = useState<ArenaProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +89,16 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       setBanners(filteredBanners);
     });
 
+    // Fetch Arena Highlights (Ads with placement 'landing_highlights')
+    const qHighlights = query(collection(db, 'arena_ads'), where('active', '==', true), where('placement', '==', 'landing_highlights'), orderBy('order', 'asc'));
+    const unsubscribeHighlights = onSnapshot(qHighlights, (snapshot) => {
+      const adsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ArenaAd[];
+      setHighlights(adsData);
+    });
+
     // Fetch Rankings from Supabase
     const fetchRankings = async () => {
       try {
@@ -130,7 +141,10 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
     fetchRankings();
     fetchFeatured();
 
-    return () => unsubscribeBanners();
+    return () => {
+      unsubscribeBanners();
+      unsubscribeHighlights();
+    };
   }, []);
 
   // Reset currentBannerIndex if it's out of bounds when banners change
@@ -260,6 +274,80 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
             </>
           )}
         </section>
+
+        {/* 🔥 Destaques da Arena Section */}
+        {highlights.length > 0 && (
+          <section className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
+            
+            <div className="max-w-7xl mx-auto">
+              <div className="text-center space-y-4 mb-16">
+                <div className="flex items-center justify-center space-x-3">
+                  <TrendingUp size={16} className="text-amber-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-amber-500">Oportunidades</span>
+                </div>
+                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter">🔥 Destaques da <span className="text-blue-600">Arena</span></h2>
+                <p className="text-gray-500 max-w-2xl mx-auto text-sm font-medium uppercase tracking-widest">
+                  Campeonatos, produtos, serviços e equipamentos de elite.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                {highlights.map((ad, index) => (
+                  <motion.a
+                    key={ad.id}
+                    href={ad.link_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                    onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.1 }}
+                    className="group relative flex flex-col bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden hover:border-blue-500/50 transition-all hover:shadow-[0_20px_40px_-20px_rgba(37,99,235,0.2)]"
+                  >
+                    <div className="aspect-[4/5] relative overflow-hidden">
+                      {ad.media_url_landing_highlights || ad.media_url ? (
+                        <img 
+                          src={ad.media_url_landing_highlights || ad.media_url} 
+                          alt={ad.title}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-blue-900/10 flex items-center justify-center">
+                          <Trophy size={48} className="text-blue-600/20" />
+                        </div>
+                      )}
+                      
+                      {/* Badge / Category Overlays could go here */}
+                      <div className="absolute top-4 left-4 p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl">
+                        <Zap size={14} className="text-amber-500" />
+                      </div>
+                    </div>
+
+                    <div className="p-6 flex-1 flex flex-col">
+                      <h3 className="text-sm font-black uppercase italic tracking-tight text-white mb-2 group-hover:text-blue-500 transition-colors">
+                        {ad.title}
+                      </h3>
+                      <p className="text-[10px] text-gray-500 line-clamp-2 uppercase font-bold tracking-widest leading-relaxed mb-4">
+                        {ad.content}
+                      </p>
+                      
+                      <div className="mt-auto flex items-center justify-between">
+                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Saiba Mais</span>
+                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                          <ChevronRight size={14} />
+                        </div>
+                      </div>
+                    </div>
+                  </motion.a>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Arena Elite (Ranking) Section */}
         <section className="py-24 px-6 md:px-12 bg-gradient-to-b from-black to-[#0A1F44]/20">

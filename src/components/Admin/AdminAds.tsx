@@ -83,8 +83,9 @@ export const AdminAds: React.FC = () => {
     media_url_feed_between: '',
     media_url_sidebar: '',
     media_url_profile: '',
+    media_url_landing_highlights: '',
     link_url: '',
-    placement: 'feed_between' as ArenaAd['placement'],
+    placement: 'feed_between' as ArenaAd['placement'] | 'landing_highlights',
     active: true,
     order: 0,
     display_time: 15,
@@ -103,7 +104,8 @@ export const AdminAds: React.FC = () => {
     feed_top: null,
     feed_between: null,
     sidebar: null,
-    profile: null
+    profile: null,
+    landing_highlights: null
   });
 
   const [feedPreviews, setFeedPreviews] = useState<{ [key: string]: string }>({
@@ -111,7 +113,8 @@ export const AdminAds: React.FC = () => {
     feed_top: '',
     feed_between: '',
     sidebar: '',
-    profile: ''
+    profile: '',
+    landing_highlights: ''
   });
 
   useEffect(() => {
@@ -576,7 +579,8 @@ export const AdminAds: React.FC = () => {
       feed_top: null,
       feed_between: null,
       sidebar: null,
-      profile: null
+      profile: null,
+      landing_highlights: null
     });
     
     if (ad) {
@@ -586,7 +590,8 @@ export const AdminAds: React.FC = () => {
         feed_top: ad.media_url_feed_top || '',
         feed_between: ad.media_url_feed_between || '',
         sidebar: ad.media_url_sidebar || '',
-        profile: ad.media_url_profile || ''
+        profile: ad.media_url_profile || '',
+        landing_highlights: ad.media_url_landing_highlights || ''
       });
       setFeedFormData({
         title: ad.title,
@@ -596,6 +601,7 @@ export const AdminAds: React.FC = () => {
         media_url_feed_between: ad.media_url_feed_between || '',
         media_url_sidebar: ad.media_url_sidebar || '',
         media_url_profile: ad.media_url_profile || '',
+        media_url_landing_highlights: ad.media_url_landing_highlights || '',
         link_url: ad.link_url || '',
         placement: ad.placement,
         active: ad.active,
@@ -619,7 +625,8 @@ export const AdminAds: React.FC = () => {
         feed_top: '',
         feed_between: '',
         sidebar: '',
-        profile: ''
+        profile: '',
+        landing_highlights: ''
       });
       setFeedFormData({
         title: '',
@@ -629,6 +636,7 @@ export const AdminAds: React.FC = () => {
         media_url_feed_between: '',
         media_url_sidebar: '',
         media_url_profile: '',
+        media_url_landing_highlights: '',
         link_url: '',
         placement: 'feed_between',
         active: true,
@@ -713,6 +721,7 @@ export const AdminAds: React.FC = () => {
       let finalMediaUrlFeedBetween = feedFormData.media_url_feed_between;
       let finalMediaUrlSidebar = feedFormData.media_url_sidebar;
       let finalMediaUrlProfile = feedFormData.media_url_profile;
+      let finalMediaUrlLandingHighlights = feedFormData.media_url_landing_highlights;
 
       // Upload main media if exists
       if (feedFiles.main) {
@@ -732,6 +741,9 @@ export const AdminAds: React.FC = () => {
       if (feedFiles.profile) {
         finalMediaUrlProfile = await uploadImage(feedFiles.profile, 'feed_ads/profile');
       }
+      if (feedFiles.landing_highlights) {
+        finalMediaUrlLandingHighlights = await uploadImage(feedFiles.landing_highlights, 'feed_ads/landing_highlights');
+      }
 
       const dataToSave = {
         ...feedFormData,
@@ -741,6 +753,7 @@ export const AdminAds: React.FC = () => {
         media_url_feed_between: finalMediaUrlFeedBetween,
         media_url_sidebar: finalMediaUrlSidebar,
         media_url_profile: finalMediaUrlProfile,
+        media_url_landing_highlights: finalMediaUrlLandingHighlights,
         start_date: feedFormData.start_date ? new Date(feedFormData.start_date) : null,
         end_date: feedFormData.end_date ? new Date(feedFormData.end_date) : null,
         // Garantir que campos vazios de localização sejam salvos como null
@@ -1548,7 +1561,8 @@ export const AdminAds: React.FC = () => {
                         { id: 'feed_top', label: 'Topo do Feed', dim: '1200x300' },
                         { id: 'feed_between', label: 'Entre Posts', dim: '1200x630' },
                         { id: 'sidebar', label: 'Barra Lateral', dim: '600x800' },
-                        { id: 'profile', label: 'Perfil', dim: '1200x400' }
+                        { id: 'profile', label: 'Perfil', dim: '1200x400' },
+                        { id: 'landing_highlights', label: 'Destaques', dim: '800x1000' }
                       ].map((pos) => {
                         const isSelected = feedFormData.placement.toLowerCase().includes(pos.id.toLowerCase());
                         if (!isSelected) return null;

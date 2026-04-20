@@ -82,6 +82,7 @@ export const challengeService = {
         user_id: challengedId,
         actor_id: challengerId,
         type: 'challenge_received', // Use established type
+        challenge_id: data.id
         // Only including fields likely to exist in the underlying table
         // If title/description don't exist, this fails silently but doesn't break challenge creation
       });
@@ -166,7 +167,8 @@ export const challengeService = {
       await supabase.from('notifications').insert({
         user_id: notifiedUserId,
         actor_id: user.id,
-        type: notificationType
+        type: notificationType,
+        challenge_id: challengeId
         // title,
         // description,
         // content: description
@@ -298,6 +300,7 @@ export const challengeService = {
       await supabase.from('notifications').insert({
         user_id: uid,
         type: 'challenge_finished',
+        challenge_id: challenge.id,
         content: `O desafio no evento ${challenge.event_name} foi finalizado!`
       });
     }
@@ -540,7 +543,8 @@ export const challengeService = {
       await supabase.from('notifications').insert({
         user_id: payload.challenged_id,
         actor_id: payload.challenger_id,
-        type: 'challenge_received'
+        type: 'challenge_received',
+        challenge_id: challenge.id
       });
       await this.createChallengeLaunchedPost(challenge);
     } catch (e) {
@@ -595,6 +599,7 @@ export const challengeService = {
           user_id: updatedChallenge.challenged_id,
           actor_id: updatedChallenge.challenger_id, // Could be the admin ID too but following normal flow
           type: 'challenge_updated',
+          challenge_id: challengeId,
           content: `Seu desafio no evento ${updatedChallenge.event_name} foi atualizado para ${updates.status} por um administrador.`
         });
       } catch (e) {

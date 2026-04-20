@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Bell, User, Heart, MessageCircle, PlusCircle, ChevronRight, Target } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface Notification {
   id: string;
@@ -12,7 +12,6 @@ interface Notification {
   description?: string;
   created_at: string;
   actor: {
-    // ... same as before but I'll use simpler structure for the edit
     id: string;
     full_name: string;
     username: string;
@@ -20,9 +19,12 @@ interface Notification {
     avatar_url: string;
   };
   post_id?: string;
+  challenge_id?: string;
+  target_url?: string;
 }
 
 export const ArenaNotifications: React.FC = () => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -114,6 +116,38 @@ export const ArenaNotifications: React.FC = () => {
     }
   };
 
+  const handleNotificationClick = (notification: Notification) => {
+    // If there is an explicit target_url, use it
+    if (notification.target_url) {
+      navigate(notification.target_url);
+      return;
+    }
+
+    switch (notification.type) {
+      case 'like':
+      case 'comment':
+      case 'post':
+        if (notification.post_id) {
+          navigate(`/feed?post=${notification.post_id}`);
+        } else {
+          navigate('/feed');
+        }
+        break;
+      case 'challenge_received':
+      case 'challenge_accepted':
+      case 'challenge_declined':
+      case 'challenge_updated':
+      case 'challenge':
+        navigate('/rankings');
+        break;
+      case 'follow':
+        navigate(`/profile/${notification.actor?.id}`);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
       <div className="flex items-center justify-between">
@@ -132,11 +166,18 @@ export const ArenaNotifications: React.FC = () => {
               key={notification.id}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              className={`bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl flex items-center justify-between group hover:border-[var(--primary)]/30 transition-all ${!notification.read ? 'border-l-4 border-l-[var(--primary)]' : ''}`}
+              onClick={() => handleNotificationClick(notification)}
+              className={`bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl flex items-center justify-between group hover:border-[var(--primary)]/30 hover:bg-[var(--surface-highlight)]/10 cursor-pointer transition-all ${!notification.read ? 'border-l-4 border-l-[var(--primary)] shadow-[0_0_20px_rgba(37,99,235,0.05)]' : ''}`}
             >
               <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-full bg-[var(--bg)] overflow-hidden border border-[var(--border-ui)]">
+                <div 
+                  className="relative"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/profile/${notification.actor?.id}`);
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-full bg-[var(--bg)] overflow-hidden border border-[var(--border-ui)] group-hover:border-[var(--primary)]/40 transition-all">
                     {notification.actor?.profile_photo || notification.actor?.avatar_url ? (
                       <img src={notification.actor.profile_photo || notification.actor.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
@@ -150,15 +191,21 @@ export const ArenaNotifications: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm text-[var(--text-main)]">
+                  <div className="text-sm text-[var(--text-main)]">
                     {notification.title ? (
                       <span className="font-black text-[var(--primary)] uppercase tracking-tight">{notification.title}</span>
                     ) : (
-                      <Link to={`/profile/${notification.actor?.id}`} className="font-black hover:text-[var(--primary)] transition-colors">
+                      <span 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/profile/${notification.actor?.id}`);
+                        }}
+                        className="font-black hover:text-[var(--primary)] transition-colors cursor-pointer"
+                      >
                         {notification.actor?.full_name}
-                      </Link>
+                      </span>
                     )}
-                  </p>
+                  </div>
                   <p className="text-xs text-[var(--text-muted)] mt-0.5">
                     {notification.description || getNotificationContent(notification)}
                   </p>

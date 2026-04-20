@@ -150,6 +150,7 @@ export interface ArenaAd {
   media_url_feed_between?: string;
   media_url_sidebar?: string;
   media_url_profile?: string;
+  media_url_landing_highlights?: string;
   link_url?: string;
   placement: string;
   active: boolean;

@@ -13,6 +13,7 @@ import { generateCard, CardData } from '../services/arenaService';
 import { trackAdEvent } from '../services/adService';
 
 import { SidebarAds } from './SidebarAds';
+import { EliteArenaFeed } from './EliteArenaFeed';
 
 // Sub-component for multi-image posts with desktop navigation
 const MediaCarousel: React.FC<{ urls: string[] }> = ({ urls }) => {
@@ -1018,6 +1019,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                     </AnimatePresence>
                   );
                 })()}
+
+                {/* Elite Arena Protocol - Integrated in Feed */}
+                <EliteArenaFeed />
 
                 {/* Promoted Profiles Section */}
                 {promotedProfiles.length > 0 && (
