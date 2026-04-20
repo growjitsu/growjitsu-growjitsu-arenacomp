@@ -123,17 +123,36 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       }
     };
 
-    // Fetch Featured Profiles from Supabase
+    // Fetch Featured Profiles from Supabase (Optimized for Scalability)
     const fetchFeatured = async () => {
       try {
+        // 1. Get the total count of eligible profiles first (efficient)
+        const { count, error: countError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .neq('role', 'admin')
+          .eq('perfil_publico', true);
+
+        if (countError) throw countError;
+
+        const totalCount = count || 0;
+        const pageSize = 10;
+        
+        // 2. Pick a random offset to start the fetch
+        const maxOffset = Math.max(0, totalCount - pageSize);
+        const randomOffset = Math.floor(Math.random() * (maxOffset + 1));
+
+        // 3. Fetch only the required page of data
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .neq('role', 'admin')
-          .limit(100);
+          .eq('perfil_publico', true)
+          .range(randomOffset, randomOffset + pageSize - 1);
         
         if (error) throw error;
-        // Shuffle for variety
+        
+        // 4. Shuffle the 10 results locally for additional variety
         const shuffled = (data || []).sort(() => 0.5 - Math.random());
         setFeaturedProfiles(shuffled);
       } catch (err) {
