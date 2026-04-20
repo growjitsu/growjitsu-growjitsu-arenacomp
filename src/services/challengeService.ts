@@ -276,9 +276,9 @@ export const challengeService = {
   },
 
   calculatePoints(result: ChallengeResult): number {
-    const pointsMap = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
-    let total = pointsMap[result.category];
-    if (result.absolute) {
+    const pointsMap: Record<string, number> = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
+    let total = pointsMap[result.category] || 0;
+    if (result.absolute && pointsMap[result.absolute]) {
       total += pointsMap[result.absolute];
     }
     return total;

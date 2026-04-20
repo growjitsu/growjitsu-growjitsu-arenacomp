@@ -22,7 +22,7 @@ import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { ChallengeModal } from './ChallengeModal';
 import { ChallengeSection } from './ChallengeSection';
 import { challengeService } from '../services/challengeService';
-import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard } from '../services/arenaService';
+import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard, calculateAndUpdateStats } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
@@ -653,6 +653,22 @@ export const ArenaProfileView: React.FC<{
 
       setProfile(profileData);
       setEditData(profileData || {});
+
+      // If it's the own profile, ensure stats are up to date (syncs legacy data)
+      if (user?.id === targetId && targetId) {
+        calculateAndUpdateStats(targetId).then(() => {
+          // Silently update if the score changed
+          supabase.from('profiles')
+            .select('challenge_score')
+            .eq('id', targetId)
+            .single()
+            .then(({ data: updatedData }) => {
+              if (updatedData && updatedData.challenge_score !== profileData.challenge_score) {
+                setProfile(prev => prev ? { ...prev, challenge_score: updatedData.challenge_score } : null);
+              }
+            });
+        }).catch(e => console.error('Error syncing stats:', e));
+      }
       
       // Fetch User Modalities (with migration check)
       if (targetId) {
@@ -1254,6 +1270,7 @@ CREATE TABLE IF NOT EXISTS profiles (
     perfil_publico BOOLEAN DEFAULT TRUE,
     permitir_seguidores BOOLEAN DEFAULT TRUE,
     arena_score DECIMAL(12,2) DEFAULT 0,
+    challenge_score INTEGER DEFAULT 0,
     wins INTEGER DEFAULT 0,
     losses INTEGER DEFAULT 0,
     draws INTEGER DEFAULT 0,

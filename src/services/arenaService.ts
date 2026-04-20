@@ -30,12 +30,26 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   // Calculate Challenge Points Separately
   let challengeScore = 0;
+  const pointsMap: Record<string, number> = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
+
   challenges?.forEach(c => {
-    if (c.challenger_id === athleteId) {
-      challengeScore += (c.challenger_points || 0);
-    } else {
-      challengeScore += (c.challenged_points || 0);
+    // Explicitly check for both IDs and ensure points are numbers
+    let points = (c.challenger_id === athleteId) 
+      ? Number(c.challenger_points || 0)
+      : Number(c.challenged_points || 0);
+    
+    // REPAIR LOGIC: If points are 0 but status is finished/completed, try to recalculate from results
+    if (points === 0) {
+      const result = (c.challenger_id === athleteId) ? c.challenger_result : c.challenged_result;
+      if (result && result.category) {
+        points = pointsMap[result.category] || 0;
+        if (result.absolute && pointsMap[result.absolute]) {
+          points += pointsMap[result.absolute];
+        }
+      }
     }
+    
+    challengeScore += points;
   });
 
   // Calculate Fight Stats
