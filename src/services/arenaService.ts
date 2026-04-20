@@ -23,7 +23,7 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
   const { data: challenges, error: challengeError } = await supabase
     .from('challenges')
       .select('*')
-      .eq('status', 'completed')
+      .in('status', ['finished', 'completed'])
       .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
 
   if (challengeError) throw challengeError;

@@ -115,6 +115,7 @@ export interface ArenaChallenge {
   challenger_points?: number;
   challenged_points?: number;
   winner_id?: string;
+  outcome?: 'challenger_win' | 'challenged_win' | 'draw' | null;
   created_at: string;
   updated_at: string;
   accepted_at?: string;

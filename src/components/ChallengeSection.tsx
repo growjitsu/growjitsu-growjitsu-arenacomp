@@ -384,6 +384,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
         {showResultForm && (
           <ResultSubmissionForm 
             challenge={challenge} 
+            currentUserId={currentUserId}
             onClose={() => setShowResultForm(false)} 
             onSubmit={async (result) => {
                setLoading(true);
@@ -407,14 +408,18 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
 
 const ResultSubmissionForm: React.FC<{
   challenge: ArenaChallenge;
+  currentUserId: string;
   onClose: () => void;
   onSubmit: (result: ChallengeResult) => void;
-}> = ({ challenge, onClose, onSubmit }) => {
+}> = ({ challenge, currentUserId, onClose, onSubmit }) => {
   const [step, setStep] = useState<'category' | 'absolute'>(
     challenge.challenge_type === 'category' ? 'category' : 'category'
   );
   const [categoryResult, setCategoryResult] = useState<ChallengeResult['category'] | null>(null);
   const [absoluteResult, setAbsoluteResult] = useState<ChallengeResult['absolute'] | null>(null);
+
+  const isChallenger = currentUserId === challenge.challenger_id;
+  const opponentResult = isChallenger ? challenge.challenged_result : challenge.challenger_result;
 
   const placements = [
     { id: '1st', label: '1º Lugar', points: 100 },
@@ -492,18 +497,27 @@ const ResultSubmissionForm: React.FC<{
             <div className="grid grid-cols-2 gap-4">
               {placements.map(p => {
                 const isSelected = step === 'category' ? categoryResult === p.id : absoluteResult === p.id;
+                const isTaken = step === 'category' 
+                  ? (opponentResult?.category !== 'none' && opponentResult?.category === p.id)
+                  : (opponentResult?.absolute && opponentResult?.absolute !== 'none' && opponentResult?.absolute === p.id);
+
                 return (
                   <button
                     key={p.id}
+                    disabled={isTaken}
                     onClick={() => step === 'category' ? setCategoryResult(p.id) : setAbsoluteResult(p.id)}
                     className={`py-4 px-4 rounded-[1.5rem] border-2 transition-all text-center flex flex-col items-center justify-center space-y-1 relative group ${
                       isSelected 
                         ? 'border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-lg shadow-[var(--primary)]/10' 
+                        : isTaken
+                        ? 'border-zinc-800 bg-zinc-900/50 text-zinc-700 opacity-50 cursor-not-allowed'
                         : 'border-[var(--border-ui)] bg-[var(--surface-ui)]/50 text-[var(--text-muted)] hover:border-[var(--text-main)]/30'
                     }`}
                   >
                     <span className="text-[10px] md:text-xs font-black uppercase tracking-tight">{p.label}</span>
-                    <span className="text-[8px] md:text-[9px] font-bold opacity-60 uppercase">{p.points} PTS</span>
+                    <span className="text-[8px] md:text-[9px] font-bold opacity-60 uppercase">
+                      {isTaken ? 'Indisponível' : `${p.points} PTS`}
+                    </span>
                     {isSelected && (
                       <motion.div layoutId="selection" className="absolute -top-2 -right-2 bg-[var(--primary)] text-white p-1 rounded-full shadow-lg">
                         <CheckCircle2 size={12} />

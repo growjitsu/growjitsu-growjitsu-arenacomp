@@ -225,6 +225,17 @@ export const challengeService = {
 
     if (!isChallenger && !isChallenged) throw new Error('Não autorizado');
 
+    // BLOCKED DUPLICATE PLACEMENT: Check if opponent already submitted same placement
+    const opponentResult = isChallenger ? challenge.challenged_result : challenge.challenger_result;
+    if (opponentResult) {
+      if (result.category !== 'none' && opponentResult.category === result.category) {
+        throw new Error(`A posição "${result.category === '1st' ? '1º Lugar' : result.category === '2nd' ? '2º Lugar' : '3º Lugar'}" já foi informada pelo seu oponente.`);
+      }
+      if (result.absolute && result.absolute !== 'none' && opponentResult.absolute === result.absolute) {
+        throw new Error(`A posição "${result.absolute === '1st' ? '1º Lugar' : result.absolute === '2nd' ? '2º Lugar' : '3º Lugar'}" no absoluto já foi informada pelo seu oponente.`);
+      }
+    }
+
     const resultField = isChallenger ? 'challenger_result' : 'challenged_result';
 
     const { data, error } = await supabase
@@ -263,19 +274,26 @@ export const challengeService = {
     const challengedPoints = this.calculatePoints(challenge.challenged_result!);
 
     let winnerId = null;
+    let outcome = null;
+    
     if (challengerPoints > challengedPoints) {
       winnerId = challenge.challenger_id;
+      outcome = 'challenger_win';
     } else if (challengedPoints > challengerPoints) {
       winnerId = challenge.challenged_id;
+      outcome = 'challenged_win';
+    } else {
+      outcome = 'draw';
     }
 
     const { data, error } = await supabase
       .from('challenges')
       .update({
-        status: 'finished',
+        status: 'completed', // CRITICAL: Must be 'completed' for arenaService filter
         challenger_points: challengerPoints,
         challenged_points: challengedPoints,
         winner_id: winnerId,
+        outcome: outcome, // Set for win/loss stats
         completed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -290,7 +308,7 @@ export const challengeService = {
     // Post automatic result
     await this.createChallengeResultPost(finalizedChallenge);
 
-    // Update stats
+    // Update stats - ensure they are updated for challenge_score
     await this.updateAthleteStats(challenge.challenger_id);
     await this.updateAthleteStats(challenge.challenged_id);
 
@@ -301,7 +319,7 @@ export const challengeService = {
         user_id: uid,
         type: 'challenge_finished',
         challenge_id: challenge.id,
-        content: `O desafio no evento ${challenge.event_name} foi finalizado!`
+        content: `O desafio no evento ${challenge.event_name} foi finalizado! Confira sua pontuação.`
       });
     }
   },
