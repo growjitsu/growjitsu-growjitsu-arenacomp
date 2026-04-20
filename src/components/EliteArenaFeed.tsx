@@ -31,6 +31,14 @@ export const EliteArenaFeed: React.FC = () => {
       
       if (data && data.length > 0) {
         setTopAthletes(data);
+      } else {
+        const response = await fetch('/api/eliteArena');
+        if (response.ok) {
+          const apiData = await response.json();
+          setTopAthletes(apiData || []);
+        } else {
+          setTopAthletes([]);
+        }
       }
     } catch (error) {
       console.error('[EliteArenaFeed] Erro ao buscar atletas de elite:', error);

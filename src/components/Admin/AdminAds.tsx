@@ -1446,13 +1446,14 @@ export const AdminAds: React.FC = () => {
                       { id: 'feed_top', label: 'Topo do Feed' },
                       { id: 'feed_between', label: 'Entre Posts' },
                       { id: 'sidebar', label: 'Barra Lateral' },
-                      { id: 'profile', label: 'Perfil' }
+                      { id: 'profile', label: 'Perfil' },
+                      { id: 'landing_highlights', label: 'Destaques Landing Page' }
                     ].map((pos) => {
                       const isAll = pos.id === 'all';
                       const isSelected = isAll 
-                        ? feedFormData.placement === 'feed_top,feed_between,sidebar,profile'
+                        ? feedFormData.placement === 'feed_top,feed_between,sidebar,profile,landing_highlights'
                         : feedFormData.placement.includes(pos.id);
-                      const isDisabled = !isAll && feedFormData.placement === 'feed_top,feed_between,sidebar,profile';
+                      const isDisabled = !isAll && feedFormData.placement === 'feed_top,feed_between,sidebar,profile,landing_highlights';
 
                       return (
                         <button
@@ -1463,7 +1464,7 @@ export const AdminAds: React.FC = () => {
                             if (isAll) {
                               setFeedFormData({
                                 ...feedFormData,
-                                placement: isSelected ? 'feed_between' : 'feed_top,feed_between,sidebar,profile'
+                                placement: isSelected ? 'feed_between' : 'feed_top,feed_between,sidebar,profile,landing_highlights'
                               });
                             } else {
                               const currentPlacements = feedFormData.placement.split(',').filter(p => p);
