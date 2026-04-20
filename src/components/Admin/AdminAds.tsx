@@ -29,7 +29,7 @@ interface Banner {
 }
 
 export const AdminAds: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'landing' | 'feed' | 'analytics'>('landing');
+  const [activeTab, setActiveTab] = useState<'landing' | 'destaques' | 'feed' | 'analytics'>('landing');
   const [banners, setBanners] = useState<Banner[]>([]);
   const [feedAds, setFeedAds] = useState<ArenaAd[]>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +86,7 @@ export const AdminAds: React.FC = () => {
     media_url_landing_highlights: '',
     link_url: '',
     placement: 'feed_between' as ArenaAd['placement'] | 'landing_highlights',
+    type: 'feed' as 'feed' | 'destaques' | 'landing',
     active: true,
     order: 0,
     display_time: 15,
@@ -604,6 +605,7 @@ export const AdminAds: React.FC = () => {
         media_url_landing_highlights: ad.media_url_landing_highlights || '',
         link_url: ad.link_url || '',
         placement: ad.placement,
+        type: ad.type || 'feed',
         active: ad.active,
         order: ad.order || 0,
         display_time: ad.display_time || 15,
@@ -638,7 +640,8 @@ export const AdminAds: React.FC = () => {
         media_url_profile: '',
         media_url_landing_highlights: '',
         link_url: '',
-        placement: 'feed_between',
+        placement: activeTab === 'destaques' ? 'landing_highlights' : 'feed_between',
+        type: activeTab === 'destaques' ? 'destaques' : 'feed' as any,
         active: true,
         order: feedAds.length,
         display_time: 15,
@@ -775,10 +778,10 @@ export const AdminAds: React.FC = () => {
         await addDoc(collection(db, 'admin_logs'), {
           admin_id: auth.currentUser.uid,
           admin_email: auth.currentUser.email,
-          action: 'editar_anuncio_feed',
-          target_type: 'feed_ad',
+          action: activeTab === 'destaques' ? 'editar_destaque_arena' : 'editar_anuncio_feed',
+          target_type: activeTab === 'destaques' ? 'destaque_arena' : 'feed_ad',
           target_id: editingFeedAd.id,
-          details: { title: dataToSave.title, placement: dataToSave.placement },
+          details: { title: dataToSave.title, placement: dataToSave.placement, type: dataToSave.type },
           created_at: serverTimestamp()
         });
 
@@ -795,10 +798,10 @@ export const AdminAds: React.FC = () => {
         await addDoc(collection(db, 'admin_logs'), {
           admin_id: auth.currentUser.uid,
           admin_email: auth.currentUser.email,
-          action: 'criar_anuncio_feed',
-          target_type: 'feed_ad',
+          action: activeTab === 'destaques' ? 'criar_destaque_arena' : 'criar_anuncio_feed',
+          target_type: activeTab === 'destaques' ? 'destaque_arena' : 'feed_ad',
           target_id: docRef.id,
-          details: { title: dataToSave.title, placement: dataToSave.placement },
+          details: { title: dataToSave.title, placement: dataToSave.placement, type: dataToSave.type },
           created_at: serverTimestamp()
         });
 
@@ -886,6 +889,13 @@ export const AdminAds: React.FC = () => {
             >
               <Layout size={14} />
               <span>Landing</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('destaques')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === 'destaques' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-white'}`}
+            >
+              <TrendingUp size={14} />
+              <span>Destaques da Arena</span>
             </button>
             <button 
               onClick={() => setActiveTab('feed')}
@@ -1025,9 +1035,78 @@ export const AdminAds: React.FC = () => {
         </div>
       )}
 
+      {activeTab === 'destaques' && (
+        <div className="space-y-6">
+          {feedAds.filter(ad => ad.type === 'destaques').length === 0 ? (
+            <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
+              <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
+                <TrendingUp size={32} />
+              </div>
+              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum destaque configurado</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {feedAds.filter(ad => ad.type === 'destaques').map((ad) => (
+                <div 
+                  key={ad.id}
+                  className={`bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 transition-all ${!ad.active ? 'opacity-50 grayscale' : ''}`}
+                >
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-center space-x-3">
+                      <h3 className="font-black uppercase italic text-lg text-white">{ad.title}</h3>
+                      <span className="px-3 py-1 bg-amber-500/10 text-amber-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-amber-500/20">
+                        🌟 DESTAQUE ARENA
+                      </span>
+                      {!ad.active && (
+                        <span className="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-rose-500/20">
+                          Inativo
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-400 line-clamp-2">{ad.content}</p>
+                    <div className="flex items-center space-x-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      <div className="flex items-center space-x-1">
+                        <LinkIcon size={12} />
+                        <span className="truncate max-w-[200px]">{ad.link_url || 'Sem link'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    <button 
+                      onClick={() => handleToggleAdStatus(ad)}
+                      className={`p-4 border rounded-2xl transition-all flex items-center space-x-2 ${
+                        ad.active 
+                          ? 'bg-amber-600/10 text-amber-500 border-amber-600/20 hover:bg-amber-600 hover:text-white' 
+                          : 'bg-emerald-600/10 text-emerald-500 border-emerald-600/20 hover:bg-emerald-600 hover:text-white'
+                      }`}
+                      title={ad.active ? 'Desativar Destaque' : 'Ativar Destaque'}
+                    >
+                      <Zap size={18} className={ad.active ? 'fill-current' : ''} />
+                    </button>
+                    <button 
+                      onClick={() => handleOpenFeedModal(ad)}
+                      className="p-4 bg-blue-600/10 text-blue-500 border border-blue-600/20 rounded-2xl hover:bg-blue-600 hover:text-white transition-all"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteFeedAd(ad.id)}
+                      className="p-4 bg-rose-600/10 text-rose-500 border border-rose-600/20 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'feed' && (
         <div className="space-y-6">
-          {feedAds.length === 0 ? (
+          {feedAds.filter(ad => !ad.type || ad.type === 'feed').length === 0 ? (
             <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
                 <Zap size={32} />
@@ -1139,7 +1218,12 @@ export const AdminAds: React.FC = () => {
               >
                 <option value="all">Todos os Anúncios</option>
                 <optgroup label="Feed Ads">
-                  {feedAds.map(ad => (
+                  {feedAds.filter(ad => !ad.type || ad.type === 'feed').map(ad => (
+                    <option key={ad.id} value={ad.id}>{ad.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Destaques da Arena">
+                  {feedAds.filter(ad => ad.type === 'destaques').map(ad => (
                     <option key={ad.id} value={ad.id}>{ad.title}</option>
                   ))}
                 </optgroup>
@@ -1281,9 +1365,11 @@ export const AdminAds: React.FC = () => {
               <div className="p-6 md:p-8 border-b border-white/10 flex justify-between items-center shrink-0">
                 <div className="space-y-1">
                   <h3 className="text-xl font-black uppercase italic tracking-tight">
-                    {editingFeedAd ? 'Editar Anúncio' : 'Novo Anúncio de Feed'}
+                    {editingFeedAd ? 'Editar Anúncio' : activeTab === 'destaques' ? 'Novo Destaque da Arena' : 'Novo Anúncio de Feed'}
                   </h3>
-                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Configure os detalhes do anúncio no feed</p>
+                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">
+                    {activeTab === 'destaques' ? 'Configure os detalhes do destaque na landing page' : 'Configure os detalhes do anúncio no feed'}
+                  </p>
                 </div>
                 <button onClick={() => setIsFeedModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl transition-all">
                   <X size={20} />

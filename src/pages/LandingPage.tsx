@@ -89,8 +89,13 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       setBanners(filteredBanners);
     });
 
-    // Fetch Arena Highlights (Ads with placement 'landing_highlights')
-    const qHighlights = query(collection(db, 'arena_ads'), where('active', '==', true), where('placement', '==', 'landing_highlights'), orderBy('order', 'asc'));
+    // Fetch Arena Highlights (Ads with type 'destaques')
+    const qHighlights = query(
+      collection(db, 'arena_ads'), 
+      where('active', '==', true), 
+      where('type', '==', 'destaques'), 
+      orderBy('order', 'asc')
+    );
     const unsubscribeHighlights = onSnapshot(qHighlights, (snapshot) => {
       const adsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -371,11 +376,11 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                     rel="noopener noreferrer"
                     onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
                     onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: index * 0.1 }}
-                    className="group relative flex flex-col bg-white/5 border border-white/10 rounded-[2.5rem] overflow-hidden hover:border-blue-500/50 transition-all hover:shadow-[0_20px_40px_-20px_rgba(37,99,235,0.2)]"
+                    className="group relative flex flex-col bg-white/5 border border-white/10 rounded-2xl md:rounded-[32px] overflow-hidden hover:border-blue-500/50 transition-all hover:shadow-[0_20px_40px_-20px_rgba(37,99,235,0.2)]"
                   >
                     <div className="aspect-[4/5] relative overflow-hidden">
                       {ad.media_url_landing_highlights || ad.media_url ? (
@@ -391,25 +396,26 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                         </div>
                       )}
                       
-                      {/* Badge / Category Overlays could go here */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-80" />
+                      
+                      <div className="absolute bottom-6 left-6 right-6">
+                        <h3 className="text-sm font-black uppercase italic truncate text-white group-hover:text-blue-500 transition-colors">
+                          {ad.title}
+                        </h3>
+                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest truncate line-clamp-1">
+                          {ad.content}
+                        </p>
+                      </div>
+
                       <div className="absolute top-4 left-4 p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl">
                         <Zap size={14} className="text-amber-500" />
                       </div>
                     </div>
 
-                    <div className="p-6 flex-1 flex flex-col">
-                      <h3 className="text-sm font-black uppercase italic tracking-tight text-white mb-2 group-hover:text-blue-500 transition-colors">
-                        {ad.title}
-                      </h3>
-                      <p className="text-[10px] text-gray-500 line-clamp-2 uppercase font-bold tracking-widest leading-relaxed mb-4">
-                        {ad.content}
-                      </p>
-                      
-                      <div className="mt-auto flex items-center justify-between">
-                        <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Saiba Mais</span>
-                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                          <ChevronRight size={14} />
-                        </div>
+                    <div className="p-4 flex items-center justify-between">
+                      <span className="text-[9px] font-black text-blue-500 uppercase tracking-widest">Ver Detalhes</span>
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
+                        <ChevronRight size={14} />
                       </div>
                     </div>
                   </motion.a>

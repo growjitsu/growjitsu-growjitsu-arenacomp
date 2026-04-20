@@ -153,6 +153,7 @@ export interface ArenaAd {
   media_url_landing_highlights?: string;
   link_url?: string;
   placement: string;
+  type?: 'landing' | 'feed' | 'destaques';
   active: boolean;
   order: number;
   total_impressions: number;
