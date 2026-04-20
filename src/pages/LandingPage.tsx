@@ -275,6 +275,76 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
           )}
         </section>
 
+        {/* Arena Elite (Ranking) Section */}
+        <section className="py-24 px-6 md:px-12 bg-gradient-to-b from-black to-[#0A1F44]/20">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Arena Elite</span>
+                </div>
+                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter">ARENA ELITE - <span className="text-blue-600">RANKING GLOBAL</span></h2>
+              </div>
+              <button 
+                onClick={() => navigate('/rankings')}
+                className="flex items-center space-x-3 px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all group"
+              >
+                <span>Ver Ranking Completo</span>
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+              {topAthletes.map((athlete, index) => (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  key={athlete.id}
+                  className="bg-white/5 border border-white/10 rounded-3xl p-4 md:p-6 flex items-center gap-6 group hover:bg-white/10 transition-all cursor-pointer"
+                  onClick={() => navigate(`/user/@${athlete.username}`)}
+                >
+                  <div className="w-12 text-center">
+                    <span className={`text-2xl font-black italic ${index === 0 ? 'text-[#FFD700]' : index === 1 ? 'text-zinc-400' : index === 2 ? 'text-amber-700' : 'text-gray-600'}`}>
+                      #{index + 1}
+                    </span>
+                  </div>
+                  
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-black border border-white/10 overflow-hidden flex-shrink-0">
+                    {athlete.profile_photo || athlete.avatar_url ? (
+                      <img src={athlete.profile_photo || athlete.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl font-black text-blue-600">
+                        {athlete.full_name?.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg md:text-2xl font-black uppercase italic truncate">{athlete.full_name}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{athlete.modality}</span>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{athlete.team || 'Independente'}</span>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{athlete.city}, {athlete.state}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Arena Score</p>
+                    <p className="text-2xl md:text-4xl font-black italic text-blue-600">{Math.round(athlete.arena_score)}</p>
+                  </div>
+
+                  <div className="p-3 bg-white/5 rounded-xl text-gray-500 group-hover:text-white transition-colors">
+                    <ChevronRight size={20} />
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* 🔥 Destaques da Arena Section */}
         {highlights.length > 0 && (
           <section className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
@@ -348,76 +418,6 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
             </div>
           </section>
         )}
-
-        {/* Arena Elite (Ranking) Section */}
-        <section className="py-24 px-6 md:px-12 bg-gradient-to-b from-black to-[#0A1F44]/20">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-              <div className="space-y-2">
-                <div className="flex items-center space-x-3">
-                  <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500">Arena Elite</span>
-                </div>
-                <h2 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter">Ranking <span className="text-blue-600">Global</span></h2>
-              </div>
-              <button 
-                onClick={() => navigate('/rankings')}
-                className="flex items-center space-x-3 px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all group"
-              >
-                <span>Ver Ranking Completo</span>
-                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {topAthletes.map((athlete, index) => (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  key={athlete.id}
-                  className="bg-white/5 border border-white/10 rounded-3xl p-4 md:p-6 flex items-center gap-6 group hover:bg-white/10 transition-all cursor-pointer"
-                  onClick={() => navigate(`/user/@${athlete.username}`)}
-                >
-                  <div className="w-12 text-center">
-                    <span className={`text-2xl font-black italic ${index === 0 ? 'text-[#FFD700]' : index === 1 ? 'text-zinc-400' : index === 2 ? 'text-amber-700' : 'text-gray-600'}`}>
-                      #{index + 1}
-                    </span>
-                  </div>
-                  
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-black border border-white/10 overflow-hidden flex-shrink-0">
-                    {athlete.profile_photo || athlete.avatar_url ? (
-                      <img src={athlete.profile_photo || athlete.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl font-black text-blue-600">
-                        {athlete.full_name?.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg md:text-2xl font-black uppercase italic truncate">{athlete.full_name}</h3>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                      <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">{athlete.modality}</span>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{athlete.team || 'Independente'}</span>
-                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{athlete.city}, {athlete.state}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Arena Score</p>
-                    <p className="text-2xl md:text-4xl font-black italic text-blue-600">{Math.round(athlete.arena_score)}</p>
-                  </div>
-
-                  <div className="p-3 bg-white/5 rounded-xl text-gray-500 group-hover:text-white transition-colors">
-                    <ChevronRight size={20} />
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Featured Profiles Section */}
         <section className="py-24 px-6 md:px-12 bg-black">

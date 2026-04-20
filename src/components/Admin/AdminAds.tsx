@@ -1044,8 +1044,12 @@ export const AdminAds: React.FC = () => {
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center space-x-3">
                       <h3 className="font-black uppercase italic text-lg text-white">{ad.title}</h3>
-                      <span className="px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-blue-500/20">
-                        {ad.placement}
+                      <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border ${
+                        ad.placement.includes('landing_highlights') 
+                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
+                          : 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+                      }`}>
+                        {ad.placement.includes('landing_highlights') ? '🌟 DESTAQUE ARENA' : ad.placement}
                       </span>
                       {!ad.active && (
                         <span className="px-3 py-1 bg-rose-500/10 text-rose-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-rose-500/20">
@@ -1447,7 +1451,7 @@ export const AdminAds: React.FC = () => {
                       { id: 'feed_between', label: 'Entre Posts' },
                       { id: 'sidebar', label: 'Barra Lateral' },
                       { id: 'profile', label: 'Perfil' },
-                      { id: 'landing_highlights', label: 'Destaques Landing Page' }
+                      { id: 'landing_highlights', label: 'Destaques da Arena' }
                     ].map((pos) => {
                       const isAll = pos.id === 'all';
                       const isSelected = isAll 
@@ -1563,7 +1567,7 @@ export const AdminAds: React.FC = () => {
                         { id: 'feed_between', label: 'Entre Posts', dim: '1200x630' },
                         { id: 'sidebar', label: 'Barra Lateral', dim: '600x800' },
                         { id: 'profile', label: 'Perfil', dim: '1200x400' },
-                        { id: 'landing_highlights', label: 'Destaques', dim: '800x1000' }
+                        { id: 'landing_highlights', label: 'Destaques da Arena', dim: '800x1000' }
                       ].map((pos) => {
                         const isSelected = feedFormData.placement.toLowerCase().includes(pos.id.toLowerCase());
                         if (!isSelected) return null;
