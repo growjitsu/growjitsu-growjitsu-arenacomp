@@ -428,6 +428,7 @@ export const AdminAds: React.FC = () => {
       console.log('Preparando dados para o Firestore...');
       const dataToSave = {
         ...formData,
+        type: 'landing',
         image_url: finalImageUrl,
         mobile_image_url: finalMobileImageUrl,
         start_date: formData.start_date ? new Date(formData.start_date) : null,
@@ -532,12 +533,14 @@ export const AdminAds: React.FC = () => {
   };
 
   const reorder = async (banner: Banner, direction: 'up' | 'down') => {
-    const currentIndex = banners.findIndex(b => b.id === banner.id);
+    // Filtrar apenas o que está sendo exibido para garantir ordem correta
+    const currentList = banners.filter(b => !b.type || b.type === 'landing');
+    const currentIndex = currentList.findIndex(b => b.id === banner.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= banners.length) return;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
 
-    const targetBanner = banners[targetIndex];
+    const targetBanner = currentList[targetIndex];
 
     try {
       await updateDoc(doc(db, 'featured_banners', banner.id), { order: targetBanner.order });
@@ -661,14 +664,20 @@ export const AdminAds: React.FC = () => {
   };
 
   const reorderFeedAd = async (ad: ArenaAd, direction: 'up' | 'down') => {
-    const currentIndex = feedAds.findIndex(a => a.id === ad.id);
+    // Filtrar a lista atual para garantir que o vizinho seja do mesmo tipo
+    const currentList = feedAds.filter(a => 
+      activeTab === 'destaques' ? a.type === 'destaques' : (!a.type || a.type === 'feed')
+    );
+    
+    const currentIndex = currentList.findIndex(a => a.id === ad.id);
     const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex < 0 || targetIndex >= feedAds.length) return;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
 
-    const targetAd = feedAds[targetIndex];
+    const targetAd = currentList[targetIndex];
 
     try {
+      // Usar os valores de order atuais para a troca
       await updateDoc(doc(db, 'arena_ads', ad.id), { order: targetAd.order || 0 });
       await updateDoc(doc(db, 'arena_ads', targetAd.id), { order: ad.order || 0 });
     } catch (error: any) {
@@ -945,7 +954,7 @@ export const AdminAds: React.FC = () => {
             <div className="flex justify-center py-20">
               <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
             </div>
-          ) : banners.length === 0 ? (
+          ) : banners.filter(b => !b.type || b.type === 'landing').length === 0 ? (
             <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center space-y-4">
               <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto text-gray-500">
                 <ImageIcon size={32} />
@@ -954,7 +963,7 @@ export const AdminAds: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {banners.map((banner, index) => (
+              {banners.filter(b => !b.type || b.type === 'landing').map((banner, index) => (
                 <div 
                   key={banner.id}
                   className={`bg-white/5 border border-white/10 rounded-3xl p-4 flex flex-col md:flex-row items-center gap-6 transition-all ${!banner.is_active ? 'opacity-50 grayscale' : ''}`}
@@ -1073,6 +1082,22 @@ export const AdminAds: React.FC = () => {
                   </div>
 
                   <div className="flex items-center space-x-3">
+                    <div className="flex flex-col space-y-1 mr-2">
+                      <button 
+                        onClick={() => reorderFeedAd(ad, 'up')}
+                        disabled={feedAds.filter(a => a.type === 'destaques').indexOf(ad) === 0}
+                        className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button 
+                        onClick={() => reorderFeedAd(ad, 'down')}
+                        disabled={feedAds.filter(a => a.type === 'destaques').indexOf(ad) === feedAds.filter(a => a.type === 'destaques').length - 1}
+                        className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
                     <button 
                       onClick={() => handleToggleAdStatus(ad)}
                       className={`p-4 border rounded-2xl transition-all flex items-center space-x-2 ${
@@ -1115,7 +1140,7 @@ export const AdminAds: React.FC = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {feedAds.map((ad) => (
+              {feedAds.filter(ad => !ad.type || ad.type === 'feed').map((ad, index) => (
                 <div 
                   key={ad.id}
                   className={`bg-white/5 border border-white/10 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 transition-all ${!ad.active ? 'opacity-50 grayscale' : ''}`}
@@ -1149,14 +1174,14 @@ export const AdminAds: React.FC = () => {
                     <div className="flex flex-col space-y-1 mr-2">
                       <button 
                         onClick={() => reorderFeedAd(ad, 'up')}
-                        disabled={feedAds.indexOf(ad) === 0}
+                        disabled={feedAds.filter(a => !a.type || a.type === 'feed').indexOf(ad) === 0}
                         className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
                       >
                         <ChevronUp size={14} />
                       </button>
                       <button 
                         onClick={() => reorderFeedAd(ad, 'down')}
-                        disabled={feedAds.indexOf(ad) === feedAds.length - 1}
+                        disabled={feedAds.filter(a => !a.type || a.type === 'feed').indexOf(ad) === feedAds.filter(a => !a.type || a.type === 'feed').length - 1}
                         className="p-1.5 bg-white/5 border border-white/10 rounded-lg text-gray-500 hover:text-blue-500 disabled:opacity-30 transition-all"
                       >
                         <ChevronDown size={14} />
