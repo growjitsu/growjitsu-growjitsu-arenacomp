@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Mail, Lock, User, Trophy, ArrowRight, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { db } from '../firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -13,7 +13,11 @@ interface ArenaAuthProps {
 export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [isTeamLeader, setIsTeamLeader] = useState(false);
@@ -190,6 +194,25 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     setError(null);
     try {
       console.log("[LOG] Submit iniciado");
+      
+      if (!isLogin) {
+        if (email.toLowerCase() !== confirmEmail.toLowerCase()) {
+          setError('Os e-mails não coincidem');
+          setLoading(false);
+          return;
+        }
+        if (password !== confirmPassword) {
+          setError('As senhas não coincidem');
+          setLoading(false);
+          return;
+        }
+        if (password.length < 6) {
+          setError('A senha deve ter pelo menos 6 caracteres');
+          setLoading(false);
+          return;
+        }
+      }
+
       console.log("[LOG] isLogin:", isLogin);
       console.log("[LOG] isTeamLeader:", isTeamLeader);
       console.log("[LOG] selectedTeamId:", selectedTeamId);
@@ -647,27 +670,80 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                   </div>
               </>
             )}
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl py-3 pl-12 pr-4 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
-                required
-              />
+            <div className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl py-3 pl-12 pr-4 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
+                  required
+                />
+              </div>
+
+              {!isLogin && (
+                <div className="relative">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+                  <input
+                    type="email"
+                    placeholder="Confirmar e-mail"
+                    value={confirmEmail}
+                    onChange={(e) => setConfirmEmail(e.target.value)}
+                    className={`w-full bg-[var(--bg)]/50 border ${confirmEmail && email.toLowerCase() !== confirmEmail.toLowerCase() ? 'border-rose-500' : 'border-[var(--border-ui)]'} rounded-2xl py-3 pl-12 pr-4 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all`}
+                    required
+                  />
+                  {confirmEmail && email.toLowerCase() !== confirmEmail.toLowerCase() && (
+                    <p className="text-[10px] text-rose-500 mt-1 ml-4 font-bold uppercase tracking-widest">Os e-mails não coincidem</p>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
-              <input
-                type="password"
-                placeholder="Senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl py-3 pl-12 pr-4 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
-                required
-              />
+
+            <div className="space-y-4">
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl py-3 pl-12 pr-12 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+
+              {!isLogin && (
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirmar senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className={`w-full bg-[var(--bg)]/50 border ${confirmPassword && password !== confirmPassword ? 'border-rose-500' : 'border-[var(--border-ui)]'} rounded-2xl py-3 pl-12 pr-12 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                  {confirmPassword && password !== confirmPassword && (
+                    <p className="text-[10px] text-rose-500 mt-1 ml-4 font-bold uppercase tracking-widest">As senhas não coincidem</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {error && <p className="text-rose-500 text-[10px] font-bold uppercase tracking-widest text-center">{error}</p>}
