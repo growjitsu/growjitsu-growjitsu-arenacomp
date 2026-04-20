@@ -28,12 +28,22 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   if (challengeError) throw challengeError;
 
+  // Calculate Challenge Points Separately
+  let challengeScore = 0;
+  challenges?.forEach(c => {
+    if (c.challenger_id === athleteId) {
+      challengeScore += (c.challenger_points || 0);
+    } else {
+      challengeScore += (c.challenged_points || 0);
+    }
+  });
+
   // Calculate Fight Stats
   let wins = fights.filter(f => f.resultado === 'win').length;
   let losses = fights.filter(f => f.resultado === 'loss').length;
   let draws = 0;
 
-  // Add Challenge Stats
+  // Add Challenge Stats to Fights (KEEP existing logic to avoid regression in fight history)
   challenges?.forEach(c => {
     if (c.challenger_id === athleteId) {
       if (c.outcome === 'challenger_win') wins++;
@@ -85,6 +95,7 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
       total_fights: totalFights,
       win_rate: winRate,
       arena_score: arenaScore,
+      challenge_score: challengeScore,
       updated_at: new Date().toISOString()
     })
     .eq('id', athleteId);

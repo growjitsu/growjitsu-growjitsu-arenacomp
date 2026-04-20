@@ -2363,9 +2363,10 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
       {/* Stats Grid */}
       {profile.role !== 'admin' && (
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
           {[
-            { label: 'Arena Score', value: Math.round(profile.arena_score), icon: Award, color: 'text-[var(--primary)]' },
+            { label: 'Arena Score', value: Math.round(profile.arena_score || 0), icon: Award, color: 'text-[var(--primary)]' },
+            { label: 'Desafios Pts', value: Math.round(profile.challenge_score || 0), icon: Zap, color: 'text-amber-500' },
             { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
             { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
             { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },

@@ -188,6 +188,34 @@ export const SharePage = () => {
                 realId: id
               };
             }
+          } else if (type === 'challenge') {
+             const { data: challenge } = await supabase
+              .from('challenges')
+              .select(`
+                *,
+                challenger:profiles!challenges_challenger_id_fkey(*),
+                challenged:profiles!challenges_challenged_id_fkey(*)
+              `)
+              .eq('id', id)
+              .single();
+            
+            if (challenge) {
+              const isFinished = challenge.status === 'finished' || challenge.status === 'completed';
+              const challengerName = challenge.challenger?.full_name || challenge.challenger?.username || 'Atleta';
+              const challengedName = challenge.challenged?.full_name || challenge.challenged?.username || 'Atleta';
+              
+              data = {
+                athleteName: challengerName,
+                achievement: isFinished ? `Enfrentou ${challengedName} no ${challenge.event_name}` : `${challengerName} desafiou ${challengedName}`,
+                modality: challenge.event_name || 'Desafio 1x1',
+                date: new Date(challenge.created_at).toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/user/@${challenge.challenger?.username}`,
+                mainImageUrl: challenge.challenger?.profile_photo || challenge.challenger?.avatar_url,
+                type: 'challenge',
+                realId: id,
+                title: isFinished ? 'Resultado do Desafio' : 'Desafio Lançado!'
+              };
+            }
           }
         }
 
@@ -236,6 +264,9 @@ export const SharePage = () => {
           break;
         case 'fight':
           window.location.href = `/fights/${realId}`;
+          break;
+        case 'challenge':
+          window.location.href = `/profile/${realId}`;
           break;
         default:
           window.location.href = '/feed';

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Target, Trophy, Clock, CheckCircle2, XCircle, ChevronDown, Send, Edit2, Trash2, Award } from 'lucide-react';
+import { Target, Trophy, Clock, CheckCircle2, XCircle, ChevronDown, Send, Edit2, Trash2, Award, Share2 } from 'lucide-react';
 import { challengeService } from '../services/challengeService';
 import { supabase } from '../services/supabase';
 import { ArenaChallenge, ChallengeResult, ArenaProfile } from '../types';
 import { toast } from 'sonner';
+import { generateCard, shareWhatsApp } from '../services/arenaService';
 
 interface ChallengeSectionProps {
   userId: string;
@@ -128,6 +129,60 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
   const userResult = isChallenger ? challenge.challenger_result : challenge.challenged_result;
   const hasSubmitted = !!userResult;
 
+  const handleShare = async () => {
+    try {
+      const isFinished = challenge.status === 'finished' || challenge.status === 'completed';
+      const challengerName = challenge.challenger?.full_name || challenge.challenger?.username || 'Atleta';
+      const challengedName = challenge.challenged?.full_name || challenge.challenged?.username || 'Atleta';
+      const userName = isChallenger ? challengerName : challengedName;
+      const points = isChallenger ? (challenge.challenger_points || 0) : (challenge.challenged_points || 0);
+
+      const mapping: Record<string, string> = { '1st': '1º Lugar', '2nd': '2º Lugar', '3rd': '3º Lugar', 'none': 'Participação' };
+      const rawResult = isChallenger ? challenge.challenger_result?.category : challenge.challenged_result?.category;
+      const resultLabel = rawResult ? mapping[rawResult] : 'Participante';
+
+      const cardData: any = {
+        athleteName: userName,
+        type: 'challenge',
+        realId: challenge.id
+      };
+
+      if (isFinished) {
+        cardData.title = "Resultado do Desafio";
+        cardData.achievement = `${resultLabel} no Desafio ArenaComp (${points} pts)`;
+        cardData.modality = `${challenge.event_name}`;
+        cardData.description = `${userName} vs ${isChallenger ? challengedName : challengerName}`;
+        cardData.mainImageUrl = isChallenger ? (challenge.challenger?.profile_photo || challenge.challenger?.avatar_url) : (challenge.challenged?.profile_photo || challenge.challenged?.avatar_url);
+      } else {
+        cardData.title = "Desafio Lançado!";
+        cardData.achievement = `${challengerName} desafiou ${challengedName}`;
+        cardData.modality = `${challenge.event_name}`;
+        cardData.description = "Duelo 1x1 confirmado na Arena!";
+        cardData.mainImageUrl = challenge.challenger?.profile_photo || challenge.challenger?.avatar_url;
+      }
+
+      const shareUrl = await generateCard(cardData);
+      
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: cardData.title,
+            text: cardData.achievement,
+            url: shareUrl
+          });
+        } catch (e) {
+          if ((e as Error).name !== 'AbortError') throw e;
+        }
+      } else {
+        shareWhatsApp(shareUrl, cardData.achievement);
+      }
+      toast.success('Compartilhamento aberto!');
+    } catch (err) {
+      console.error('Error sharing challenge:', err);
+      toast.error('Erro ao compartilhar desafio');
+    }
+  };
+
   const handleStatusUpdate = async (status: any) => {
     setLoading(true);
     try {
@@ -184,14 +239,21 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
           </div>
         </div>
 
-        {/* Action icons for creator */}
-        {challenge.status === 'pending' && isChallenger && isOwnProfile && (
-          <div className="flex items-center space-x-1 md:absolute md:top-4 md:right-4">
+        {/* Action icons */}
+        <div className="flex items-center space-x-1 md:absolute md:top-4 md:right-4">
+          <button 
+            onClick={handleShare} 
+            className="p-2 md:p-3 hover:bg-[var(--primary)]/10 text-[var(--primary)] rounded-lg md:rounded-xl transition-colors"
+            title="Compartilhar"
+          >
+            <Share2 size={14} className="md:w-5 md:h-5" />
+          </button>
+          {challenge.status === 'pending' && isChallenger && isOwnProfile && (
             <button onClick={handleDelete} className="p-2 md:p-3 hover:bg-rose-500/10 text-rose-500 rounded-lg md:rounded-xl transition-colors">
               <Trash2 size={14} className="md:w-5 md:h-5" />
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Opponents Section */}
@@ -211,8 +273,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
            </div>
            <div className="text-center w-full">
              <span className="text-[8px] md:text-sm font-black uppercase text-center truncate block w-full text-[var(--text-main)] max-sm:px-2">
-               {challenge.challenger?.username}
+               {challenge.challenger?.full_name || challenge.challenger?.username}
              </span>
+             {isOwnProfile && challenge.challenger_id === currentUserId && (
+               <span className="text-[6px] md:text-[8px] font-black bg-[var(--primary)] text-white px-2 py-0.5 rounded-full uppercase tracking-widest inline-block mb-1">Você</span>
+             )}
              <span className="text-[9px] md:text-sm font-black text-[var(--primary)] mt-0.5 md:mt-2 block bg-[var(--primary)]/10 md:py-1 md:px-3 md:rounded-full md:inline-block tracking-widest leading-none">{challenge.challenger_points || 0} PTS</span>
            </div>
         </div>
@@ -237,8 +302,11 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
            </div>
            <div className="text-center w-full">
              <span className="text-[8px] md:text-sm font-black uppercase text-center truncate block w-full text-[var(--text-main)] max-sm:px-2">
-               {challenge.challenged?.username}
+               {challenge.challenged?.full_name || challenge.challenged?.username}
              </span>
+             {isOwnProfile && challenge.challenged_id === currentUserId && (
+               <span className="text-[6px] md:text-[8px] font-black bg-[var(--primary)] text-white px-2 py-0.5 rounded-full uppercase tracking-widest inline-block mb-1">Você</span>
+             )}
              <span className="text-[9px] md:text-sm font-black text-[var(--primary)] mt-0.5 md:mt-2 block bg-[var(--primary)]/10 md:py-1 md:px-3 md:rounded-full md:inline-block tracking-widest leading-none">{challenge.challenged_points || 0} PTS</span>
            </div>
         </div>
@@ -286,9 +354,21 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
         )}
 
         {challenge.status === 'finished' && (
-           <div className="text-center py-2 md:py-4">
-             <p className="text-[8px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] mb-0.5 md:mb-2">Encerrado em</p>
-             <p className="text-[10px] md:text-lg font-bold text-[var(--text-main)] italic">{new Date(challenge.updated_at).toLocaleDateString()}</p>
+           <div className="text-center py-2 md:py-4 flex flex-col items-center">
+             <div className="mb-3">
+               <span className={`text-[10px] md:text-sm font-black uppercase px-4 py-1.5 rounded-full ${
+                 (isChallenger ? challenge.challenger_points : challenge.challenged_points) >= 100 ? 'bg-amber-500/20 text-amber-600 border border-amber-500/30' :
+                 (isChallenger ? challenge.challenger_points : challenge.challenged_points) >= 50 ? 'bg-zinc-400/20 text-zinc-600 border border-zinc-400/30' :
+                 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30'
+               }`}>
+                 {isChallenger 
+                   ? (challenge.challenger_result?.category === '1st' ? '1º Lugar' : challenge.challenger_result?.category === '2nd' ? '2º Lugar' : challenge.challenger_result?.category === '3rd' ? '3º Lugar' : 'Participação')
+                   : (challenge.challenged_result?.category === '1st' ? '1º Lugar' : challenge.challenged_result?.category === '2nd' ? '2º Lugar' : challenge.challenged_result?.category === '3rd' ? '3º Lugar' : 'Participação')
+                 }
+               </span>
+             </div>
+             <p className="text-[8px] md:text-xs font-black uppercase tracking-widest text-[var(--text-muted)] mb-0.5 md:mb-1">Encerrado em</p>
+             <p className="text-[10px] md:text-sm font-bold text-[var(--text-main)] italic">{new Date(challenge.updated_at).toLocaleDateString()}</p>
            </div>
         )}
 
