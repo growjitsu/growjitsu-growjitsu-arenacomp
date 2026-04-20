@@ -225,14 +225,28 @@ export const challengeService = {
 
     if (!isChallenger && !isChallenged) throw new Error('Não autorizado');
 
+    // RE-FETCH CHALLENGE TO ENSURE WE HAVE LATEST DATA (Prevents Race Conditions)
+    const { data: latestChallenge, error: latestError } = await supabase
+      .from('challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .single();
+
+    if (latestError || !latestChallenge) throw new Error('Falha ao verificar dados do desafio.');
+
     // BLOCKED DUPLICATE PLACEMENT: Check if opponent already submitted same placement
-    const opponentResult = isChallenger ? challenge.challenged_result : challenge.challenger_result;
-    if (opponentResult) {
-      if (result.category !== 'none' && opponentResult.category === result.category) {
-        throw new Error(`A posição "${result.category === '1st' ? '1º Lugar' : result.category === '2nd' ? '2º Lugar' : '3º Lugar'}" já foi informada pelo seu oponente.`);
+    const opponentResult = isChallenger ? latestChallenge.challenged_result : latestChallenge.challenger_result;
+    
+    if (opponentResult && typeof opponentResult === 'object') {
+      const oppCategory = (opponentResult as any).category;
+      const oppAbsolute = (opponentResult as any).absolute;
+
+      if (result.category !== 'none' && oppCategory === result.category) {
+        throw new Error(`ESTE LUGAR JÁ FOI OCUPADO: O seu oponente já informou que ficou em ${result.category === '1st' ? '1º' : result.category === '2nd' ? '2º' : '3º'} lugar. Você deve informar sua posição real.`);
       }
-      if (result.absolute && result.absolute !== 'none' && opponentResult.absolute === result.absolute) {
-        throw new Error(`A posição "${result.absolute === '1st' ? '1º Lugar' : result.absolute === '2nd' ? '2º Lugar' : '3º Lugar'}" no absoluto já foi informada pelo seu oponente.`);
+      
+      if (result.absolute && result.absolute !== 'none' && oppAbsolute === result.absolute) {
+        throw new Error(`ESTE LUGAR NO ABSOLUTO JÁ FOI OCUPADO: O seu oponente já informou que ficou em ${result.absolute === '1st' ? '1º' : result.absolute === '2nd' ? '2º' : '3º'} lugar. Você deve informar sua posição real.`);
       }
     }
 
@@ -254,6 +268,7 @@ export const challengeService = {
 
     // Check if both have submitted
     if (updatedChallenge.challenger_result && updatedChallenge.challenged_result) {
+      console.log(`[SERVICE] Both results submitted for challenge ${challengeId}. Finalizing...`);
       await this.finalizeChallenge(updatedChallenge);
     }
 

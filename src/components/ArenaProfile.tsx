@@ -3069,6 +3069,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               <ChallengeSection 
                 userId={profile.id} 
                 isOwnProfile={isOwnProfile}
+                onProfileUpdate={fetchProfileData}
               />
             ) : activeTab === 'intelligence' ? (
               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

@@ -10,9 +10,10 @@ import { generateCard, shareWhatsApp } from '../services/arenaService';
 interface ChallengeSectionProps {
   userId: string;
   isOwnProfile: boolean;
+  onProfileUpdate?: () => void;
 }
 
-export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOwnProfile }) => {
+export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOwnProfile, onProfileUpdate }) => {
   const [challenges, setChallenges] = useState<ArenaChallenge[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'accepted' | 'declined' | 'finished'>('all');
@@ -99,6 +100,7 @@ export const ChallengeSection: React.FC<ChallengeSectionProps> = ({ userId, isOw
               currentUserId={userId}
               isOwnProfile={isOwnProfile}
               onUpdate={loadChallenges} 
+              onProfileUpdate={onProfileUpdate}
             />
           ))}
         </div>
@@ -117,9 +119,10 @@ interface ChallengeCardProps {
   currentUserId: string;
   isOwnProfile: boolean;
   onUpdate: () => void;
+  onProfileUpdate?: () => void;
 }
 
-const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId, isOwnProfile, onUpdate }) => {
+const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId, isOwnProfile, onUpdate, onProfileUpdate }) => {
   const [showResultForm, setShowResultForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const isChallenger = currentUserId === challenge.challenger_id;
@@ -390,8 +393,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({ challenge, currentUserId,
                setLoading(true);
                try {
                  await challengeService.submitResult(challenge.id, result);
-                 toast.success('Resultado enviado! Aguarde o oponente.');
-                 onUpdate();
+                 toast.success('Resultado enviado!');
+                 
+                 // Refresh both challenges and parent profile stats
+                 await onUpdate();
+                 if (onProfileUpdate) onProfileUpdate();
+                 
                  setShowResultForm(false);
                } catch (err: any) {
                  toast.error(err.message || 'Erro ao enviar resultado');
