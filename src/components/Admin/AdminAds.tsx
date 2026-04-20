@@ -543,10 +543,20 @@ export const AdminAds: React.FC = () => {
     const targetBanner = currentList[targetIndex];
 
     try {
-      await updateDoc(doc(db, 'featured_banners', banner.id), { order: targetBanner.order });
-      await updateDoc(doc(db, 'featured_banners', targetBanner.id), { order: banner.order });
+      const order1 = typeof targetBanner.order === 'number' ? targetBanner.order : targetIndex;
+      const order2 = typeof banner.order === 'number' ? banner.order : currentIndex;
+
+      if (order1 === order2) {
+        const adjustedOrder = direction === 'up' ? order1 - 1 : order1 + 1;
+        await updateDoc(doc(db, 'featured_banners', banner.id), { order: adjustedOrder });
+      } else {
+        await updateDoc(doc(db, 'featured_banners', banner.id), { order: order1 });
+        await updateDoc(doc(db, 'featured_banners', targetBanner.id), { order: order2 });
+      }
+      toast.success('Ordem atualizada!');
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'featured_banners');
+      toast.error('Erro ao reordenar banner.');
     }
   };
 
@@ -677,9 +687,20 @@ export const AdminAds: React.FC = () => {
     const targetAd = currentList[targetIndex];
 
     try {
-      // Usar os valores de order atuais para a troca
-      await updateDoc(doc(db, 'arena_ads', ad.id), { order: targetAd.order || 0 });
-      await updateDoc(doc(db, 'arena_ads', targetAd.id), { order: ad.order || 0 });
+      // Usar os valores de order atuais para a troca, com fallback para o índice para evitar empates
+      const order1 = typeof targetAd.order === 'number' ? targetAd.order : targetIndex;
+      const order2 = typeof ad.order === 'number' ? ad.order : currentIndex;
+      
+      // Se as ordens forem iguais, forçamos um distanciamento real
+      if (order1 === order2) {
+        const adjustedOrder = direction === 'up' ? order1 - 1 : order1 + 1;
+        await updateDoc(doc(db, 'arena_ads', ad.id), { order: adjustedOrder });
+      } else {
+        await updateDoc(doc(db, 'arena_ads', ad.id), { order: order1 });
+        await updateDoc(doc(db, 'arena_ads', targetAd.id), { order: order2 });
+      }
+      
+      toast.success('Ordem atualizada!');
     } catch (error: any) {
       console.error('Error reordering feed ad:', error);
       toast.error('Erro ao reordenar anúncio.');
