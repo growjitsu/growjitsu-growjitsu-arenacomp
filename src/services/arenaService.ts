@@ -169,6 +169,8 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 
   // World Ranking
+  // Calculate position based on athletes with higher score
+  // If score is the same, older profiles (created_at) rank higher
   const { count: worldHigher } = await supabase
     .from('profiles')
     .select('*', { count: 'exact', head: true })
@@ -176,7 +178,7 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
     .neq('role', 'developer')
     .eq('perfil_publico', true)
     .gt('arena_score', 0)
-    .gt('arena_score', athlete.arena_score);
+    .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
 
   // National Ranking
   let nationalHigher = 0;
@@ -188,12 +190,12 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .neq('role', 'developer')
       .eq('perfil_publico', true)
       .gt('arena_score', 0)
-      .gt('arena_score', athlete.arena_score);
+      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
 
     if (athlete.country_id) {
       nationalQuery.eq('country_id', athlete.country_id);
     } else {
-      nationalQuery.eq('country', athlete.country);
+      nationalQuery.ilike('country', athlete.country);
     }
 
     const { count } = await nationalQuery;
@@ -210,12 +212,12 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
       .neq('role', 'developer')
       .eq('perfil_publico', true)
       .gt('arena_score', 0)
-      .gt('arena_score', athlete.arena_score);
+      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
 
     if (athlete.city_id) {
       cityQuery.eq('city_id', athlete.city_id);
     } else {
-      cityQuery.eq('city', athlete.city);
+      cityQuery.ilike('city', athlete.city);
     }
 
     const { count } = await cityQuery;
