@@ -101,7 +101,8 @@ export const AdminChallenges: React.FC = () => {
           *,
           challenger:profiles!challenges_challenger_id_fkey(id, full_name, username),
           challenged:profiles!challenges_challenged_id_fkey(id, full_name, username)
-        `, { count: 'exact' });
+        `, { count: 'exact' })
+        .is('deleted_at', null);
 
       if (statusFilter) {
         query = query.eq('status', statusFilter);
@@ -150,7 +151,12 @@ export const AdminChallenges: React.FC = () => {
     try {
       await challengeService.adminBulkHardDelete(Array.from(selectedIds));
       toast.success(`${count} desafios excluídos com sucesso`);
+      
+      // Update local state immediately for "vanishing" effect
+      setChallenges(prev => prev.filter(c => !selectedIds.has(c.id)));
       setSelectedIds(new Set());
+      
+      // Refresh to ensure database sync and correct pagination
       fetchChallenges();
     } catch (err: any) {
       toast.error(err.message || 'Erro na exclusão em massa');
@@ -173,6 +179,15 @@ export const AdminChallenges: React.FC = () => {
     try {
       await challengeService.adminHardDeleteChallenge(challengeId);
       toast.success('Desafio excluído com sucesso');
+      
+      // Update local state immediately
+      setChallenges(prev => prev.filter(c => c.id !== challengeId));
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        next.delete(challengeId);
+        return next;
+      });
+
       fetchChallenges();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir desafio');
