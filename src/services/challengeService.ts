@@ -673,7 +673,13 @@ export const challengeService = {
     
     if (fetchError || !challenge) throw new Error('Desafio não encontrado');
 
-    // 2. Delete the challenge (Supabase will handle results if they are in columns)
+    // 2. Delete related notifications first (prevent FK constraint errors)
+    await supabase
+      .from('notifications')
+      .delete()
+      .eq('challenge_id', challengeId);
+
+    // 3. Delete the challenge
     const { error: deleteError } = await supabase
       .from('challenges')
       .delete()
@@ -681,7 +687,7 @@ export const challengeService = {
     
     if (deleteError) throw deleteError;
 
-    // 3. Recalculate stats for both athletes
+    // 4. Recalculate stats for both athletes
     await calculateAndUpdateStats(challenge.challenger_id);
     await calculateAndUpdateStats(challenge.challenged_id);
     
@@ -699,7 +705,13 @@ export const challengeService = {
     
     if (fetchError) throw fetchError;
 
-    // 2. Delete all challenges in bulk
+    // 2. Delete related notifications in bulk
+    await supabase
+      .from('notifications')
+      .delete()
+      .in('challenge_id', challengeIds);
+
+    // 3. Delete all challenges in bulk
     const { error: deleteError } = await supabase
       .from('challenges')
       .delete()
@@ -707,14 +719,14 @@ export const challengeService = {
     
     if (deleteError) throw deleteError;
 
-    // 3. Identify unique athletes to recalculate stats
+    // 4. Identify unique athletes to recalculate stats
     const athleteIds = new Set<string>();
     involvedChallenges?.forEach(c => {
       athleteIds.add(c.challenger_id);
       athleteIds.add(c.challenged_id);
     });
 
-    // 4. Recalculate stats for each unique athlete
+    // 5. Recalculate stats for each unique athlete
     for (const uid of athleteIds) {
       await calculateAndUpdateStats(uid);
     }

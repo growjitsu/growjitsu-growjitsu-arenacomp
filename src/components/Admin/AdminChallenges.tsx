@@ -147,19 +147,21 @@ export const AdminChallenges: React.FC = () => {
     
     if (!window.confirm(`AVISO CRÍTICO: Você está prestes a EXCLUIR DEFINITIVAMENTE ${count} desafios. Esta ação é irreversível e irá recalcular os pontos de todos os atletas envolvidos. Continuar?`)) return;
 
+    const originalChallenges = [...challenges];
+    const idsToDelete = Array.from(selectedIds) as string[];
     setLoading(true);
+    
+    // Optimistic UI update
+    setChallenges(prev => prev.filter(c => !selectedIds.has(c.id)));
+    setSelectedIds(new Set<string>());
+
     try {
-      await challengeService.adminBulkHardDelete(Array.from(selectedIds));
+      await challengeService.adminBulkHardDelete(idsToDelete);
       toast.success(`${count} desafios excluídos com sucesso`);
-      
-      // Update local state immediately for "vanishing" effect
-      setChallenges(prev => prev.filter(c => !selectedIds.has(c.id)));
-      setSelectedIds(new Set());
-      
-      // Refresh to ensure database sync and correct pagination
       fetchChallenges();
     } catch (err: any) {
       toast.error(err.message || 'Erro na exclusão em massa');
+      setChallenges(originalChallenges);
       setLoading(false);
     }
   };
@@ -176,21 +178,24 @@ export const AdminChallenges: React.FC = () => {
 
   const handleHardDelete = async (challengeId: string) => {
     if (!window.confirm('CUIDADO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este desafio? Todos os pontos relacionados serão removidos e as estatísticas recalculadas.')) return;
+    
+    const originalChallenges = [...challenges];
+    
+    // Optimistic local update
+    setChallenges(prev => prev.filter(c => c.id !== challengeId));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(challengeId);
+      return next;
+    });
+
     try {
       await challengeService.adminHardDeleteChallenge(challengeId);
       toast.success('Desafio excluído com sucesso');
-      
-      // Update local state immediately
-      setChallenges(prev => prev.filter(c => c.id !== challengeId));
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        next.delete(challengeId);
-        return next;
-      });
-
       fetchChallenges();
     } catch (err: any) {
       toast.error(err.message || 'Erro ao excluir desafio');
+      setChallenges(originalChallenges);
     }
   };
 
