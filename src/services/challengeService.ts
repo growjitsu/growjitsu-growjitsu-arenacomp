@@ -480,9 +480,15 @@ export const challengeService = {
 
     if (fetchError || !challenge) throw new Error('Desafio não encontrado');
 
+    const challenger_points = outcome === 'challenger_win' ? 100 : (outcome === 'draw' ? 25 : 5);
+    const challenged_points = outcome === 'challenged_win' ? 100 : (outcome === 'draw' ? 25 : 5);
+
     const updateData: any = {
       status: 'finished',
       winner_id: winnerId ? challenge[winnerId] : null,
+      challenger_points,
+      challenged_points,
+      outcome,
       updated_at: new Date().toISOString(),
       completed_at: new Date().toISOString()
     };

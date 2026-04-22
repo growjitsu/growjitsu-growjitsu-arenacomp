@@ -38,13 +38,20 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
       ? Number(c.challenger_points || 0)
       : Number(c.challenged_points || 0);
     
-    // REPAIR LOGIC: If points are 0 but status is finished/completed, try to recalculate from results
+    // REPAIR LOGIC: If points are 0 but status is finished/completed, try to recalculate from results or outcome
     if (points === 0) {
       const result = (c.challenger_id === athleteId) ? c.challenger_result : c.challenged_result;
       if (result && result.category) {
         points = pointsMap[result.category] || 0;
         if (result.absolute && pointsMap[result.absolute]) {
           points += pointsMap[result.absolute];
+        }
+      } else if (c.outcome) {
+        // Fallback for challenges resolved without detailed podium results (e.g. manual victory)
+        if (c.challenger_id === athleteId) {
+          points = (c.outcome === 'challenger_win') ? 100 : (c.outcome === 'draw' ? 25 : 5);
+        } else {
+          points = (c.outcome === 'challenged_win') ? 100 : (c.outcome === 'draw' ? 25 : 5);
         }
       }
     }
@@ -56,29 +63,16 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
   let wins = fights.filter(f => f.resultado === 'win').length;
   let losses = fights.filter(f => f.resultado === 'loss').length;
   let draws = 0;
-
-  // Add Challenge Stats to Fights (KEEP existing logic to avoid regression in fight history)
-  challenges?.forEach(c => {
-    if (c.challenger_id === athleteId) {
-      if (c.outcome === 'challenger_win') wins++;
-      else if (c.outcome === 'challenged_win') losses++;
-      else if (c.outcome === 'draw') draws++;
-    } else {
-      if (c.outcome === 'challenged_win') wins++;
-      else if (c.outcome === 'challenger_win') losses++;
-      else if (c.outcome === 'draw') draws++;
-    }
-  });
   
-  // Arena Score from Fights/Challenges = (wins * 15) - (losses * 5) + (draws * 2) + (submissions/knockouts * 5)
-  // Scoring update: increased fight weight to distinguish from championships
+  // Arena Score from Fights = (wins * 15) - (losses * 5) + (draws * 2) + (submissions/knockouts * 5)
+  // IMPORTANT: Challenges are NOT mixed with Arena Score (Ranking) as per requirements
   const bonusPoints = fights.filter(f => 
     f.resultado === 'win' && (f.tipo_vitoria === 'finalização' || f.tipo_vitoria === 'nocaute')
   ).length * 5;
 
   let arenaScore = (wins * 15) - (losses * 5) + (draws * 2) + bonusPoints;
 
-  // Add Championship Stats
+  // Add Championship Stats to Arena Score
   championships?.forEach(champ => {
     switch (champ.resultado) {
       case 'Campeão':
@@ -98,6 +92,23 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   const totalFights = wins + losses;
   const winRate = totalFights > 0 ? (wins / totalFights) * 100 : 0;
+
+  // Calculate separate Challenge outcomes (Optional: for profile display if needed, but NOT mixed with ranking)
+  let challengeWins = 0;
+  let challengeLosses = 0;
+  let challengeDraws = 0;
+
+  challenges?.forEach(c => {
+    if (c.challenger_id === athleteId) {
+      if (c.outcome === 'challenger_win') challengeWins++;
+      else if (c.outcome === 'challenged_win') challengeLosses++;
+      else if (c.outcome === 'draw') challengeDraws++;
+    } else {
+      if (c.outcome === 'challenged_win') challengeWins++;
+      else if (c.outcome === 'challenger_win') challengeLosses++;
+      else if (c.outcome === 'draw') challengeDraws++;
+    }
+  });
 
   // Update profile
   const { error: updateError } = await supabase
