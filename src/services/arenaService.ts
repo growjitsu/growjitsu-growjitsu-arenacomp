@@ -59,6 +59,18 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
     challengeScore += points;
   });
 
+  // Fetch manual adjustments for challenge points
+  const { data: adjustments, error: adjError } = await supabase
+    .from('challenge_points_adjustments')
+    .select('adjustment_value')
+    .eq('athlete_id', athleteId);
+
+  if (!adjError && adjustments) {
+    adjustments.forEach(adj => {
+      challengeScore += Number(adj.adjustment_value || 0);
+    });
+  }
+
   // Calculate Fight Stats
   let wins = fights.filter(f => f.resultado === 'win').length;
   let losses = fights.filter(f => f.resultado === 'loss').length;

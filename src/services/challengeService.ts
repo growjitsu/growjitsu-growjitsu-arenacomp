@@ -661,5 +661,70 @@ export const challengeService = {
       }
       throw error;
     }
+  },
+
+  async adminHardDeleteChallenge(challengeId: string) {
+    // 1. Fetch challenge to know who are the athletes
+    const { data: challenge, error: fetchError } = await supabase
+      .from('challenges')
+      .select('challenger_id, challenged_id')
+      .eq('id', challengeId)
+      .single();
+    
+    if (fetchError || !challenge) throw new Error('Desafio não encontrado');
+
+    // 2. Delete the challenge (Supabase will handle results if they are in columns)
+    const { error: deleteError } = await supabase
+      .from('challenges')
+      .delete()
+      .eq('id', challengeId);
+    
+    if (deleteError) throw deleteError;
+
+    // 3. Recalculate stats for both athletes
+    await calculateAndUpdateStats(challenge.challenger_id);
+    await calculateAndUpdateStats(challenge.challenged_id);
+    
+    return true;
+  },
+
+  async addPointAdjustment(athleteId: string, value: number, reason: string = '') {
+    const { error } = await supabase
+      .from('challenge_points_adjustments')
+      .insert({
+        athlete_id: athleteId,
+        adjustment_value: value,
+        reason
+      });
+    if (error) throw error;
+    
+    // Recalculate
+    await calculateAndUpdateStats(athleteId);
+    return true;
+  },
+
+  async resetChallengePoints(athleteId: string) {
+    // To reset to 0, we add a negative adjustment equal to the current total
+    const { data: currentScore } = await supabase
+        .from('profiles')
+        .select('challenge_score')
+        .eq('id', athleteId)
+        .single();
+    
+    const currentPoints = currentScore?.challenge_score || 0;
+    if (currentPoints === 0) return true;
+
+    const { error } = await supabase
+      .from('challenge_points_adjustments')
+      .insert({
+        athlete_id: athleteId,
+        adjustment_value: -currentPoints,
+        reason: 'Reset administrativo'
+      });
+    
+    if (error) throw error;
+
+    await calculateAndUpdateStats(athleteId);
+    return true;
   }
 };

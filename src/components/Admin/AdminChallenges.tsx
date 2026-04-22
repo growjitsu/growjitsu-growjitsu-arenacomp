@@ -33,9 +33,16 @@ export const AdminChallenges: React.FC = () => {
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState<ArenaChallenge | null>(null);
   const [editData, setEditData] = useState<any>(null);
   
+  // For points adjustment
+  const [selectedAthleteId, setSelectedAthleteId] = useState('');
+  const [adjustmentValue, setAdjustmentValue] = useState<number>(0);
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [currentPoints, setCurrentPoints] = useState<number>(0);
+
   // For creation
   const [athletes, setAthletes] = useState<ArenaProfile[]>([]);
   const [events, setEvents] = useState<any[]>([]);
@@ -52,16 +59,23 @@ export const AdminChallenges: React.FC = () => {
   }, [page, statusFilter]);
 
   useEffect(() => {
-    if (isCreateModalOpen) {
+    if (isCreateModalOpen || isPointsModalOpen) {
       fetchAthletes();
       fetchEvents();
     }
-  }, [isCreateModalOpen]);
+  }, [isCreateModalOpen, isPointsModalOpen]);
+
+  useEffect(() => {
+    if (selectedAthleteId) {
+      const athlete = athletes.find(a => a.id === selectedAthleteId);
+      setCurrentPoints(athlete?.challenge_score || 0);
+    }
+  }, [selectedAthleteId, athletes]);
 
   const fetchAthletes = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, full_name, username')
+      .select('id, full_name, username, challenge_score')
       .order('full_name');
     if (data) setAthletes(data);
   };
@@ -115,14 +129,43 @@ export const AdminChallenges: React.FC = () => {
     }
   };
 
-  const handleSoftDelete = async (challengeId: string) => {
-    if (!window.confirm('Tem certeza que deseja desativar este desafio? Ele não aparecerá mais para os usuários.')) return;
+  const handleHardDelete = async (challengeId: string) => {
+    if (!window.confirm('CUIDADO: Tem certeza que deseja EXCLUIR DEFINITIVAMENTE este desafio? Todos os pontos relacionados serão removidos e as estatísticas recalculadas.')) return;
     try {
-      await challengeService.adminSoftDeleteChallenge(challengeId);
-      toast.success('Desafio desativado com sucesso');
+      await challengeService.adminHardDeleteChallenge(challengeId);
+      toast.success('Desafio excluído com sucesso');
       fetchChallenges();
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao desativar desafio');
+      toast.error(err.message || 'Erro ao excluir desafio');
+    }
+  };
+
+  const handleApplyAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAthleteId) return;
+
+    try {
+      await challengeService.addPointAdjustment(selectedAthleteId, adjustmentValue, adjustmentReason);
+      toast.success('Ajuste aplicado com sucesso');
+      setAdjustmentValue(0);
+      setAdjustmentReason('');
+      // Refresh athletes to get updated points
+      fetchAthletes();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao aplicar ajuste');
+    }
+  };
+
+  const handleResetPoints = async () => {
+    if (!selectedAthleteId) return;
+    if (!window.confirm('Tem certeza que deseja ZERAR os pontos de desafios deste atleta?')) return;
+
+    try {
+      await challengeService.resetChallengePoints(selectedAthleteId);
+      toast.success('Pontuação zerada com sucesso');
+      fetchAthletes();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao zerar pontos');
     }
   };
 
@@ -173,13 +216,22 @@ export const AdminChallenges: React.FC = () => {
           <h2 className="text-2xl font-black uppercase italic italic tracking-tighter text-white">Gestão de Desafios</h2>
           <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">Controle Administrativo de Confrontos 1x1</p>
         </div>
-        <button 
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-primary/20"
-        >
-          <Plus size={18} />
-          Criar Desafio
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setIsPointsModalOpen(true)}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-amber-600/20"
+          >
+            <Shield size={18} />
+            Ajuste de Pontos
+          </button>
+          <button 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-primary/20"
+          >
+            <Plus size={18} />
+            Criar Desafio
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -299,9 +351,9 @@ export const AdminChallenges: React.FC = () => {
                           <Edit2 size={14} />
                         </button>
                         <button 
-                          onClick={() => handleSoftDelete(challenge.id)}
-                          disabled={!!challenge.deleted_at}
-                          className={`p-2 transition-colors bg-white/5 rounded-xl border border-white/5 ${challenge.deleted_at ? 'text-gray-700 cursor-not-allowed' : 'text-gray-400 hover:text-rose-500'}`}
+                          onClick={() => handleHardDelete(challenge.id)}
+                          className="p-2 text-gray-400 hover:text-rose-500 transition-colors bg-white/5 rounded-xl border border-white/5"
+                          title="Excluir Definitivamente"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -340,6 +392,113 @@ export const AdminChallenges: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Points Adjustment Modal */}
+      <AnimatePresence>
+        {isPointsModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#121212] w-full max-w-lg rounded-[2.5rem] border border-white/10 overflow-hidden"
+            >
+              <div className="p-8 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black uppercase italic italic tracking-tighter text-white">Ajuste de Pontos</h3>
+                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Controle Manual de Pontuação de Desafios</p>
+                </div>
+                <button onClick={() => setIsPointsModalOpen(false)} className="p-2 text-gray-500 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleApplyAdjustment} className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 pl-4">Selecionar Atleta</label>
+                    <select 
+                      value={selectedAthleteId}
+                      onChange={(e) => setSelectedAthleteId(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm text-white focus:border-primary/50 outline-none transition-all"
+                      required
+                    >
+                      <option value="">Escolha um Atleta</option>
+                      {athletes.map(a => (
+                        <option key={a.id} value={a.id}>{a.full_name} (@{a.username})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {selectedAthleteId && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white/5 p-6 rounded-3xl border border-white/10 space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase text-gray-500">Pontuação Atual</span>
+                        <span className="text-2xl font-black italic text-primary underline decoration-primary/30 underline-offset-4">{currentPoints} Pts</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-gray-500 block mb-1">Ajuste (Numérico)</label>
+                          <input 
+                            type="number"
+                            value={adjustmentValue}
+                            onChange={(e) => setAdjustmentValue(Number(e.target.value))}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:border-primary/50 outline-none"
+                            placeholder="Ex: 50 ou -50"
+                            required
+                          />
+                        </div>
+                        <div className="flex items-end">
+                           <button 
+                            type="button"
+                            onClick={handleResetPoints}
+                            className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-rose-500/20 hover:text-white"
+                          >
+                            Zerar Pontos
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-gray-500 block mb-1">Motivo do Ajuste</label>
+                        <input 
+                          type="text"
+                          value={adjustmentReason}
+                          onChange={(e) => setAdjustmentReason(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:border-primary/50 outline-none"
+                          placeholder="Ex: Correção de pódio, bônus..."
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setIsPointsModalOpen(false)}
+                    className="flex-1 py-4 bg-white/5 text-gray-400 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all border border-white/5"
+                  >
+                    Fechar
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={!selectedAthleteId || adjustmentValue === 0}
+                    className="flex-1 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+                  >
+                    Aplicar Ajuste
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Modal */}
       <AnimatePresence>
