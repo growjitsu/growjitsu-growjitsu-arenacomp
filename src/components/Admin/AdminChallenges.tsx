@@ -31,6 +31,8 @@ export const AdminChallenges: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 15;
 
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
@@ -56,6 +58,7 @@ export const AdminChallenges: React.FC = () => {
 
   useEffect(() => {
     fetchChallenges();
+    setSelectedIds(new Set());
   }, [page, statusFilter]);
 
   useEffect(() => {
@@ -115,6 +118,42 @@ export const AdminChallenges: React.FC = () => {
       console.error('Error fetching challenges:', error);
       toast.error('Erro ao carregar desafios');
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === challenges.length && challenges.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(challenges.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    
+    if (!window.confirm(`AVISO CRÍTICO: Você está prestes a EXCLUIR DEFINITIVAMENTE ${count} desafios. Esta ação é irreversível e irá recalcular os pontos de todos os atletas envolvidos. Continuar?`)) return;
+
+    setLoading(true);
+    try {
+      await challengeService.adminBulkHardDelete(Array.from(selectedIds));
+      toast.success(`${count} desafios excluídos com sucesso`);
+      setSelectedIds(new Set());
+      fetchChallenges();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro na exclusão em massa');
       setLoading(false);
     }
   };
@@ -234,6 +273,32 @@ export const AdminChallenges: React.FC = () => {
         </div>
       </div>
 
+      {/* Tool bar for bulk actions */}
+      <AnimatePresence>
+        {selectedIds.size > 0 && (
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            className="flex items-center justify-between p-4 bg-primary/10 border border-primary/20 rounded-2xl"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center text-xs font-black italic">
+                {selectedIds.size}
+              </div>
+              <span className="text-xs font-bold uppercase tracking-tight text-white">Desafios Selecionados</span>
+            </div>
+            <button 
+              onClick={handleBulkDelete}
+              className="px-6 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-rose-600/20"
+            >
+              <Trash2 size={14} />
+              Excluir Selecionados
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-white/5 rounded-3xl border border-white/10">
         <div className="relative">
@@ -269,6 +334,14 @@ export const AdminChallenges: React.FC = () => {
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/10">
+                <th className="pl-6 py-4 w-10">
+                  <input 
+                    type="checkbox"
+                    checked={challenges.length > 0 && selectedIds.size === challenges.length}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary/50 transition-all cursor-pointer"
+                  />
+                </th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Data</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Participantes</th>
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Evento</th>
@@ -280,20 +353,28 @@ export const AdminChallenges: React.FC = () => {
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
                     Carregando desafios...
                   </td>
                 </tr>
               ) : challenges.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                     Nenhum desafio encontrado
                   </td>
                 </tr>
               ) : (
                 challenges.map((challenge) => (
-                  <tr key={challenge.id} className={`hover:bg-white/5 transition-colors ${challenge.deleted_at ? 'opacity-50 grayscale' : ''}`}>
+                  <tr key={challenge.id} className={`hover:bg-white/5 transition-colors ${challenge.deleted_at ? 'opacity-50 grayscale' : ''} ${selectedIds.has(challenge.id) ? 'bg-primary/5' : ''}`}>
+                    <td className="pl-6 py-4">
+                      <input 
+                        type="checkbox"
+                        checked={selectedIds.has(challenge.id)}
+                        onChange={() => toggleSelection(challenge.id)}
+                        className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary focus:ring-primary/50 transition-all cursor-pointer"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col">
                         <span className="text-sm text-white font-medium">{new Date(challenge.created_at).toLocaleDateString()}</span>

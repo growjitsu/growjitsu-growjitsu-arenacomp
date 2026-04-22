@@ -688,6 +688,40 @@ export const challengeService = {
     return true;
   },
 
+  async adminBulkHardDelete(challengeIds: string[]) {
+    if (!challengeIds.length) return true;
+
+    // 1. Fetch all challenges to know all involved athletes
+    const { data: involvedChallenges, error: fetchError } = await supabase
+      .from('challenges')
+      .select('challenger_id, challenged_id')
+      .in('id', challengeIds);
+    
+    if (fetchError) throw fetchError;
+
+    // 2. Delete all challenges in bulk
+    const { error: deleteError } = await supabase
+      .from('challenges')
+      .delete()
+      .in('id', challengeIds);
+    
+    if (deleteError) throw deleteError;
+
+    // 3. Identify unique athletes to recalculate stats
+    const athleteIds = new Set<string>();
+    involvedChallenges?.forEach(c => {
+      athleteIds.add(c.challenger_id);
+      athleteIds.add(c.challenged_id);
+    });
+
+    // 4. Recalculate stats for each unique athlete
+    for (const uid of athleteIds) {
+      await calculateAndUpdateStats(uid);
+    }
+    
+    return true;
+  },
+
   async addPointAdjustment(athleteId: string, value: number, reason: string = '') {
     const { error } = await supabase
       .from('challenge_points_adjustments')
