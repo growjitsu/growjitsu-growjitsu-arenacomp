@@ -168,69 +168,54 @@ export const recalculateAllRankings = async () => {
 export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 
-  // World Ranking
-  // Calculate position based on athletes with higher score
-  // If score is the same, older profiles (created_at) rank higher
-  const { count: worldHigher } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .neq('role', 'admin')
-    .neq('role', 'developer')
-    .eq('perfil_publico', true)
-    .gt('arena_score', 0)
-    .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
-
-  // National Ranking
-  let nationalHigher = 0;
-  if (athlete.country_id || athlete.country) {
-    const nationalQuery = supabase
+  const getRank = async (filterFn: (q: any) => any) => {
+    // 1. Count athletes with strictly higher arena_score
+    const higherScoreQuery = supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .neq('role', 'admin')
-      .neq('role', 'developer')
       .eq('perfil_publico', true)
-      .gt('arena_score', 0)
-      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
-
-    if (athlete.country_id) {
-      nationalQuery.eq('country_id', athlete.country_id);
-    } else {
-      nationalQuery.ilike('country', athlete.country);
-    }
-
-    const { count } = await nationalQuery;
-    nationalHigher = count || 0;
-  }
-
-  // City Ranking
-  let cityHigher = 0;
-  if (athlete.city_id || athlete.city) {
-    const cityQuery = supabase
+      .gt('arena_score', athlete.arena_score);
+    
+    // 2. Count athletes with equal arena_score but older profile (created_at)
+    // Using created_at as tie-breaker to match ArenaRankings.tsx
+    const tieQuery = supabase
       .from('profiles')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .neq('role', 'admin')
-      .neq('role', 'developer')
       .eq('perfil_publico', true)
-      .gt('arena_score', 0)
-      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
+      .eq('arena_score', athlete.arena_score)
+      .lt('created_at', athlete.created_at);
 
-    if (athlete.city_id) {
-      cityQuery.eq('city_id', athlete.city_id);
-    } else {
-      cityQuery.ilike('city', athlete.city);
-    }
+    filterFn(higherScoreQuery);
+    filterFn(tieQuery);
 
-    const { count } = await cityQuery;
-    cityHigher = count || 0;
-  }
+    const [{ count: higherCount }, { count: tieCount }] = await Promise.all([
+      higherScoreQuery,
+      tieQuery
+    ]);
+
+    return (higherCount || 0) + (tieCount || 0) + 1;
+  };
 
   const isVisible = athlete.perfil_publico && athlete.arena_score > 0;
+  if (!isVisible) return { world: 0, national: 0, city: 0 };
 
-  return {
-    world: isVisible ? (worldHigher || 0) + 1 : 0,
-    national: (isVisible && athlete.country) ? nationalHigher + 1 : 0,
-    city: (isVisible && athlete.city) ? cityHigher + 1 : 0
-  };
+  const [world, national, city] = await Promise.all([
+    getRank(q => q), // World: no extra filters
+    getRank(q => {
+      if (athlete.country_id) return q.eq('country_id', athlete.country_id);
+      if (athlete.country) return q.ilike('country', athlete.country);
+      return q;
+    }),
+    getRank(q => {
+      if (athlete.city_id) return q.eq('city_id', athlete.city_id);
+      if (athlete.city) return q.ilike('city', athlete.city);
+      return q;
+    })
+  ]);
+
+  return { world, national, city };
 };
 
 export const searchTeams = async (query: string) => {

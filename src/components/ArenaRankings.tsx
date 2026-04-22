@@ -212,6 +212,7 @@ export const ArenaRankings: React.FC = () => {
         .eq('perfil_publico', true)
         .gt('arena_score', 0)
         .order('arena_score', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: true }) // Tie-breaker: older profiles rank higher
         .limit(50);
 
       if (filter.modality !== 'Todas') {
