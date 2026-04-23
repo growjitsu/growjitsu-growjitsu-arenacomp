@@ -65,39 +65,24 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         const start = parseDate(banner.start_date);
         const end = parseDate(banner.end_date);
 
-        if (start && start > now) return false;
-        if (end && end < now) return false;
+        // More lenient date filtering (allow current time with a small buffer)
+        const checkTime = now.getTime() + 10000; // 10s buffer
+        if (start && start.getTime() > checkTime) return false;
+        if (end && end.getTime() < now.getTime()) return false;
 
-        // Geographic segmentation
-        const hasGeographicConstraint = 
-          (banner.country_id && banner.country_id.trim() !== '') || 
-          (banner.state_id && banner.state_id.trim() !== '') || 
-          (banner.city_id && banner.city_id.trim() !== '') ||
-          (banner.country && banner.country.trim() !== '') ||
-          (banner.state && banner.state.trim() !== '') ||
-          (banner.city && banner.city.trim() !== '');
-
+        // Geographic segmentation - More resilient for landing page
         if (userProfile) {
           if (banner.country_id && banner.country_id.trim() !== '') {
             if (banner.country_id !== userProfile.country_id) return false;
-          } else if (banner.country && banner.country.trim() !== '') {
-            if (banner.country !== userProfile.country) return false;
           }
-
           if (banner.state_id && banner.state_id.trim() !== '') {
             if (banner.state_id !== userProfile.state_id) return false;
-          } else if (banner.state && banner.state.trim() !== '') {
-            if (banner.state !== userProfile.state) return false;
           }
-
           if (banner.city_id && banner.city_id.trim() !== '') {
             if (banner.city_id !== userProfile.city_id) return false;
-          } else if (banner.city && banner.city.trim() !== '') {
-            if (banner.city !== userProfile.city) return false;
           }
-        } else {
-          if (hasGeographicConstraint) return false;
         }
+        // If no userProfile, we show the banner (don't hide global banners from visitors)
 
         return true;
       });
@@ -105,8 +90,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       setBanners(filteredBanners);
     });
 
-    // Fetch Arena Highlights (Ads with type 'destaques' or placement 'landing_highlights')
-    // Likewise, we simplify the query
+    // Fetch Arena Highlights (Ads with type 'destaques' or 'landing' or placement 'landing_highlights')
     const qHighlights = query(
       collection(db, 'arena_ads'), 
       where('active', '==', true)
@@ -117,9 +101,13 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         ...doc.data()
       })) as ArenaAd[];
 
-      // Filter highlights that belong to the landing page (either by type OR placement)
+      // Filter highlights more inclusively to match admin panel categories
       const filteredHighlights = adsData
-        .filter(ad => ad.type === 'destaques' || (ad.placement && ad.placement.includes('landing_highlights')))
+        .filter(ad => 
+          ad.type === 'destaques' || 
+          ad.type === 'landing' || 
+          (ad.placement && ad.placement.includes('landing_highlights'))
+        )
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       setHighlights(filteredHighlights);
