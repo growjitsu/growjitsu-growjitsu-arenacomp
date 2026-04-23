@@ -50,37 +50,53 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
       // Filter by date and geographic location
       const filteredBanners = bannersData.filter(banner => {
-        const start = banner.start_date ? new Date(banner.start_date.seconds * 1000) : null;
-        const end = banner.end_date ? new Date(banner.end_date.seconds * 1000) : null;
+        const parseDate = (val: any) => {
+          if (!val) return null;
+          if (val.seconds) return new Date(val.seconds * 1000);
+          if (val instanceof Date) return val;
+          try { return new Date(val); } catch (e) { return null; }
+        };
+
+        const start = parseDate(banner.start_date);
+        const end = parseDate(banner.end_date);
 
         if (start && start > now) return false;
         if (end && end < now) return false;
 
         // Geographic segmentation
+        // Only apply if at least one geographic field is present and NOT empty
+        const hasGeographicConstraint = 
+          (banner.country_id && banner.country_id.trim() !== '') || 
+          (banner.state_id && banner.state_id.trim() !== '') || 
+          (banner.city_id && banner.city_id.trim() !== '') ||
+          (banner.country && banner.country.trim() !== '') ||
+          (banner.state && banner.state.trim() !== '') ||
+          (banner.city && banner.city.trim() !== '');
+
         if (userProfile) {
-          // Priority 1: Match by ID if both have it
-          // Priority 2: Fallback to name if ID is missing on either side
-          
-          if (banner.country_id && userProfile.country_id) {
+          // Check Country
+          if (banner.country_id && banner.country_id.trim() !== '') {
             if (banner.country_id !== userProfile.country_id) return false;
-          } else if (banner.country && banner.country !== userProfile.country) {
-            return false;
+          } else if (banner.country && banner.country.trim() !== '') {
+            if (banner.country !== userProfile.country) return false;
           }
 
-          if (banner.state_id && userProfile.state_id) {
+          // Check State
+          if (banner.state_id && banner.state_id.trim() !== '') {
             if (banner.state_id !== userProfile.state_id) return false;
-          } else if (banner.state && banner.state !== userProfile.state) {
-            return false;
+          } else if (banner.state && banner.state.trim() !== '') {
+            if (banner.state !== userProfile.state) return false;
           }
 
-          if (banner.city_id && userProfile.city_id) {
+          // Check City
+          if (banner.city_id && banner.city_id.trim() !== '') {
             if (banner.city_id !== userProfile.city_id) return false;
-          } else if (banner.city && banner.city !== userProfile.city) {
-            return false;
+          } else if (banner.city && banner.city.trim() !== '') {
+            if (banner.city !== userProfile.city) return false;
           }
         } else {
           // If not logged in, hide banners that have specific location constraints
-          if (banner.country || banner.state || banner.city || banner.country_id || banner.state_id || banner.city_id) return false;
+          if (hasGeographicConstraint) return false;
         }
 
         return true;

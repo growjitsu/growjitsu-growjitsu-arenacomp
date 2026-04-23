@@ -291,7 +291,7 @@ export const AdminAds: React.FC = () => {
         title: '',
         display_time: 15,
         is_active: true,
-        order: banners.length > 0 ? Math.max(...banners.map(b => b.order)) + 1 : 0,
+        order: banners.length > 0 ? Math.max(...banners.map(b => typeof b.order === 'number' && !isNaN(b.order) ? b.order : 0)) + 1 : 0,
         start_date: '',
         end_date: '',
         country: '',
@@ -433,6 +433,13 @@ export const AdminAds: React.FC = () => {
         mobile_image_url: finalMobileImageUrl,
         start_date: formData.start_date ? new Date(formData.start_date) : null,
         end_date: formData.end_date ? new Date(formData.end_date) : null,
+        // Normalize geographic fields to null if empty to prevent filter issues
+        country: formData.country || null,
+        state: formData.state || null,
+        city: formData.city || null,
+        country_id: formData.country_id || null,
+        state_id: formData.state_id || null,
+        city_id: formData.city_id || null,
       };
 
       if (editingBanner) {
@@ -1032,7 +1039,7 @@ export const AdminAds: React.FC = () => {
                       </button>
                       <button 
                         onClick={() => reorder(banner, 'down')}
-                        disabled={index === banners.length - 1}
+                        disabled={index === banners.filter(b => !b.type || b.type === 'landing').length - 1}
                         className="p-1.5 text-gray-500 hover:text-white disabled:opacity-20"
                       >
                         <ChevronDown size={16} />
