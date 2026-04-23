@@ -226,7 +226,6 @@ export const AdminDashboard: React.FC = () => {
         profilesData.forEach(p => {
           let m = (p.modality && p.modality.trim() !== '') ? p.modality.trim().toUpperCase() : 'OUTROS';
           
-          // Heuristic: If it looks like a belt (from common mistakes), move to OUTROS
           const isLikelyBelt = BELTS_KEYWORDS.some(kw => m.includes(kw)) && !m.includes('JIU JITSU') && !m.includes('JUD');
           if (isLikelyBelt || m === 'FAIXA PRETA' || m === 'FAIXA AZUL' || m === 'FAIXA BRANCA') {
             m = 'OUTROS';
@@ -236,14 +235,33 @@ export const AdminDashboard: React.FC = () => {
         });
         
         const totalSample = profilesData.length || 1;
-        const newModalityData = Object.entries(modalityMap)
-          .map(([name, count]) => ({ 
-            name, 
-            value: Math.round((count / totalSample) * 100),
-            count: count 
+        const sortedModalities = Object.entries(modalityMap)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count);
+
+        // Take top 4 and group the rest
+        const topModalities = sortedModalities.slice(0, 4);
+        const restModalities = sortedModalities.slice(4);
+        
+        if (restModalities.length > 0) {
+          const othersCount = restModalities.reduce((acc, curr) => acc + curr.count, 0);
+          // Check if 'OUTROS' already exists in top 4
+          const othersIndex = topModalities.findIndex(m => m.name === 'OUTROS');
+          if (othersIndex > -1) {
+            topModalities[othersIndex].count += othersCount;
+          } else {
+            topModalities.push({ name: 'OUTROS', count: othersCount });
+          }
+        }
+
+        const newModalityData = topModalities
+          .map(item => ({
+            name: item.name,
+            count: item.count,
+            value: Math.round((item.count / totalSample) * 100)
           }))
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
+          .sort((a, b) => b.count - a.count);
+
         setModalityData(newModalityData);
 
         // Process Team Data
@@ -385,7 +403,7 @@ export const AdminDashboard: React.FC = () => {
                   innerRadius={60}
                   outerRadius={100}
                   paddingAngle={5}
-                  dataKey="value"
+                  dataKey="count"
                 >
                   {modalityData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
