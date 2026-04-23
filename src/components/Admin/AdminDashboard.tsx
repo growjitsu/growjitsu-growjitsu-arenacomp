@@ -138,26 +138,26 @@ export const AdminDashboard: React.FC = () => {
         { count: postsPrevious },
         { count: likesPrevious }
       ] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete'),
-        supabase.from('teams').select('*', { count: 'exact', head: true }),
-        supabase.from('posts').select('*', { count: 'exact', head: true }),
-        supabase.from('eventos').select('*', { count: 'exact', head: true }),
-        supabase.from('likes').select('*', { count: 'exact', head: true }),
-        supabase.from('comments').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('created_at, graduation, modality, team_id').eq('role', 'athlete').limit(2000),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'athlete'),
+        supabase.from('teams').select('id', { count: 'exact', head: true }),
+        supabase.from('posts').select('id', { count: 'exact', head: true }),
+        supabase.from('eventos').select('id', { count: 'exact', head: true }),
+        supabase.from('likes').select('id', { count: 'exact', head: true }),
+        supabase.from('comments').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('created_at, modality, team_id').eq('role', 'athlete').limit(5000),
         supabase.from('teams').select('id, name').limit(100),
         
         // Recent
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', thirtyDaysAgo),
-        supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
-        supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
-        supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', thirtyDaysAgo),
+        supabase.from('teams').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
+        supabase.from('likes').select('id', { count: 'exact', head: true }).gte('created_at', thirtyDaysAgo),
 
         // Previous
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
-        supabase.from('teams').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
-        supabase.from('posts').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
-        supabase.from('likes').select('*', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo)
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'athlete').gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('teams').select('id', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('posts').select('id', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo),
+        supabase.from('likes').select('id', { count: 'exact', head: true }).gte('created_at', sixtyDaysAgo).lt('created_at', thirtyDaysAgo)
       ]);
 
       setStats({
@@ -221,10 +221,17 @@ export const AdminDashboard: React.FC = () => {
 
         // Process Modality Data
         const modalityMap: Record<string, number> = {};
+        const BELTS_KEYWORDS = ['FAIXA', 'BRANCA', 'AZUL', 'ROXA', 'MARROM', 'PRETA', 'CORAL', 'VERMELHA'];
+
         profilesData.forEach(p => {
-          // Use only modality, normalize to uppercase, default to 'OUTROS'
-          // We remove the fallback to p.graduation to avoid mixing belts with modalities
-          const m = (p.modality && p.modality.trim() !== '') ? p.modality.trim().toUpperCase() : 'OUTROS';
+          let m = (p.modality && p.modality.trim() !== '') ? p.modality.trim().toUpperCase() : 'OUTROS';
+          
+          // Heuristic: If it looks like a belt (from common mistakes), move to OUTROS
+          const isLikelyBelt = BELTS_KEYWORDS.some(kw => m.includes(kw)) && !m.includes('JIU JITSU') && !m.includes('JUD');
+          if (isLikelyBelt || m === 'FAIXA PRETA' || m === 'FAIXA AZUL' || m === 'FAIXA BRANCA') {
+            m = 'OUTROS';
+          }
+          
           modalityMap[m] = (modalityMap[m] || 0) + 1;
         });
         
