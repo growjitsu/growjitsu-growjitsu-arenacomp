@@ -20,51 +20,56 @@ export const SharePage = () => {
 
     const loadData = async () => {
       setLoading(true);
-      try {
-        let data: any = null;
+      setError(null);
+      let data: any = null;
 
-        // 1. Tenta buscar via Token Curto (Nova Arquitetura)
-        if (id.length >= 6 && id.length <= 12) {
-          try {
-            const tokenRes = await fetch(getApiUrl(`/api/share/token/${id}`));
-            if (tokenRes.ok) {
-              const tokenData = await tokenRes.json();
-              if (tokenData.success && tokenData.data) {
-                const s = tokenData.data;
-                data = {
-                  athleteName: s.title,
-                  achievement: s.description,
-                  modality: 'Arena',
-                  mainImageUrl: s.image,
-                  title: s.title,
-                  type: s.type || type,
-                  realId: id
-                };
-                console.log('Dados carregados via Token Curto:', data);
-              }
-            }
-          } catch (tokenErr) {
-            console.warn('Erro ao buscar token curto:', tokenErr);
+      try {
+        console.log(`[SharePage] Carregando metadados via API unificada para id: ${id}, type: ${type || 'auto'}`);
+        
+        // 1. Tenta buscar via API Unificada (Servidor)
+        // O servidor já tem toda a lógica para lidar com Tokens, Base64 e Supabase (Admin)
+        const apiUrl = type 
+          ? getApiUrl(`/api/share/info/${type}/${id}`)
+          : getApiUrl(`/api/share/info/${id}`);
+          
+        const apiRes = await fetch(apiUrl);
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          if (apiData.success && apiData.data) {
+            console.log('[SharePage] Dados obtidos via API do servidor:', apiData.data);
+            data = apiData.data;
           }
         }
 
-        // 2. Tenta decodificar como Base64 (formato antigo/fallback)
-        if (!data && id.length > 50) {
+        // 2. Fallback: Se a API do servidor falhou e é um ID longo, tenta decodificação local
+        if (!data && id.length > 30) {
           try {
             const base64 = id.replace(/-/g, '+').replace(/_/g, '/');
             const decodedString = atob(base64);
-            // Handling UTF-8 decoding properly
             const jsonString = decodeURIComponent(escape(decodedString));
-            data = JSON.parse(jsonString);
-            console.log('Dados decodificados via Base64 URL-Safe (UTF-8):', data);
+            const decoded = JSON.parse(jsonString);
+            
+            if (decoded && (decoded.title || decoded.athleteName)) {
+              data = {
+                athleteName: decoded.athleteName || decoded.title,
+                achievement: decoded.achievement || decoded.description,
+                modality: decoded.modality || 'Arena',
+                date: decoded.date || new Date().toLocaleDateString(),
+                profileUrl: decoded.profileUrl,
+                mainImageUrl: decoded.mainImageUrl || decoded.image,
+                type: decoded.type || type,
+                realId: decoded.realId,
+                title: decoded.title
+              };
+            }
           } catch (e) {
-            console.log('ID longo mas não é Base64 JSON válido ou erro de decodificação UTF-8');
+            console.log('[SharePage] Erro no fallback Base64 local');
           }
         }
 
-        // 3. Se não decodificou ou se temos um type explícito, busca via Supabase (Retro-compatibilidade direta)
+        // 3. Fallback Final: Supabase direto no cliente (apenas se tudo mais falhar)
         if (!data && type) {
-          console.log(`Buscando dados via Supabase para type: ${type}, id: ${id}`);
+          console.log(`[SharePage] Fallback para Supabase direto para type: ${type}, id: ${id}`);
           
           if (type === 'atleta' || type === 'profile') {
             const { data: profile } = await supabase
@@ -85,15 +90,6 @@ export const SharePage = () => {
                 realId: id
               };
             }
-          } else if (type === 'equipe') {
-            // Simplified team data
-            data = {
-              athleteName: id,
-              achievement: 'Confira nossa equipe no ranking ArenaComp!',
-              modality: 'Equipe',
-              type: 'equipe',
-              realId: id
-            };
           } else if (type === 'post' || type === 'clip') {
             const { data: post } = await supabase
               .from('posts')
@@ -102,118 +98,16 @@ export const SharePage = () => {
               .single();
             
             if (post) {
+              const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
               data = {
-                athleteName: post.profiles?.full_name || 'Atleta Arena',
+                athleteName: profile?.full_name || 'Atleta Arena',
                 achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
-                modality: post.profiles?.modality || 'Feed',
+                modality: profile?.modality || 'Feed',
                 date: new Date(post.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${post.profiles?.username}`,
+                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
                 mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
                 type: type,
                 realId: id
-              };
-            }
-          } else if (type === 'certificate') {
-            const { data: cert } = await supabase
-              .from('certificates')
-              .select('*')
-              .eq('id', id)
-              .single();
-            
-            if (cert) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username, full_name, modality')
-                .eq('id', cert.athlete_id)
-                .single();
-
-              data = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `Certificado: ${cert.name}`,
-                modality: profile?.modality || 'Atleta',
-                date: new Date(cert.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
-                mainImageUrl: cert.media_url,
-                type: 'certificate',
-                realId: id
-              };
-            }
-          } else if (type === 'championship') {
-             const { data: champ } = await supabase
-              .from('championship_results')
-              .select('*')
-              .eq('id', id)
-              .single();
-            
-            if (champ) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username, full_name, modality')
-                .eq('id', champ.athlete_id)
-                .single();
-
-              data = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `${champ.resultado} no ${champ.championship_name}`,
-                modality: profile?.modality || 'Atleta',
-                date: new Date(champ.data_evento + 'T00:00:00').toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
-                mainImageUrl: champ.media_url,
-                type: 'championship',
-                realId: id
-              };
-            }
-          } else if (type === 'fight') {
-             const { data: fight } = await supabase
-              .from('fights')
-              .select('*')
-              .eq('id', id)
-              .single();
-            
-            if (fight) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('username, full_name, modality')
-                .eq('id', fight.athlete_id)
-                .single();
-
-              data = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `Luta no ${fight.evento_nome}`,
-                modality: profile?.modality || 'Atleta',
-                date: new Date(fight.data_luta + 'T00:00:00').toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
-                mainImageUrl: fight.media_url,
-                type: 'fight',
-                realId: id
-              };
-            }
-          } else if (type === 'challenge') {
-             const { data: challenge } = await supabase
-              .from('challenges')
-              .select(`
-                *,
-                challenger:profiles!challenges_challenger_id_fkey(*),
-                challenged:profiles!challenges_challenged_id_fkey(*)
-              `)
-              .eq('id', id)
-              .single();
-            
-            if (challenge) {
-              const isFinished = challenge.status === 'finished' || challenge.status === 'completed';
-              const challengerName = challenge.challenger?.full_name || challenge.challenger?.username || 'Atleta';
-              const challengedName = challenge.challenged?.full_name || challenge.challenged?.username || 'Atleta';
-              
-              data = {
-                athleteName: challengerName,
-                achievement: isFinished ? `Enfrentou ${challengedName} no ${challenge.event_name}` : `${challengerName} desafiou ${challengedName}`,
-                modality: challenge.event_name || 'Desafio 1x1',
-                date: new Date(challenge.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${challenge.challenger?.username}`,
-                mainImageUrl: challenge.challenger?.profile_photo || challenge.challenger?.avatar_url,
-                type: 'challenge',
-                realId: id,
-                title: isFinished ? 'Resultado do Desafio' : 'Desafio Lançado!'
               };
             }
           }
@@ -225,8 +119,8 @@ export const SharePage = () => {
           setError('Conteúdo não encontrado ou link inválido.');
         }
       } catch (err) {
-        console.error('Erro ao carregar dados do card:', err);
-        setError('Falha ao carregar informações de compartilhamento.');
+        console.error('[SharePage] Erro ao carregar dados:', err);
+        setError('Ocorreu um erro ao carregar o conteúdo compartilhado.');
       } finally {
         setLoading(false);
       }

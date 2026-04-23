@@ -280,13 +280,14 @@ async function startServer() {
               .single();
             
             if (champ) {
+              const profile = Array.isArray(champ.profiles) ? champ.profiles[0] : champ.profiles;
               cardData = {
-                athleteName: champ.profiles?.full_name || 'Atleta Arena',
-                achievement: `${champ.resultado} no ${champ.evento}`,
+                athleteName: profile?.full_name || 'Atleta Arena',
+                achievement: `${champ.resultado} no ${champ.championship_name || champ.evento}`,
                 mainImageUrl: champ.media_url,
-                profilePhoto: champ.profiles?.profile_photo,
+                profilePhoto: profile?.profile_photo,
                 title: 'Conquista ArenaComp',
-                modality: champ.profiles?.modality || 'Arena'
+                modality: profile?.modality || 'Arena'
               };
             }
           } else if (type === 'fight') {
@@ -297,13 +298,14 @@ async function startServer() {
               .single();
             
             if (fight) {
+              const profile = Array.isArray(fight.profiles) ? fight.profiles[0] : fight.profiles;
               cardData = {
-                athleteName: fight.profiles?.full_name || 'Atleta Arena',
-                achievement: `Luta no ${fight.evento}`,
+                athleteName: profile?.full_name || 'Atleta Arena',
+                achievement: `Luta no ${fight.evento_nome || fight.evento}`,
                 mainImageUrl: fight.media_url,
-                profilePhoto: fight.profiles?.profile_photo,
+                profilePhoto: profile?.profile_photo,
                 title: 'Luta ArenaComp',
-                modality: fight.profiles?.modality || 'Arena'
+                modality: profile?.modality || 'Arena'
               };
             }
           } else if (type === 'ranking-atleta' || type === 'atleta' || type === 'ranking') {
@@ -456,8 +458,30 @@ async function startServer() {
     }
 
     // If it's NOT a crawler, we can just let the SPA handle it or redirect
-    if (!isCrawler) {
-      return res.redirect(redirectUrl);
+    if (!isCrawler && !req.path.includes('/api/share/info')) {
+      // For shared links, we prefer to stay on the /share/:id or /share/:type/:id path
+      // so the client-side SharePage can render its beautiful preview and "Open in App" button.
+      // Redirecting often takes users to protected routes (like /feed/post/:id) which forces login.
+      
+      if (process.env.NODE_ENV !== "production" && vite) {
+        return vite.middlewares(req, res, next);
+      } else {
+        const distPath = path.join(process.cwd(), 'dist');
+        const indexPath = path.join(distPath, 'index.html');
+        if (fs.existsSync(indexPath)) {
+          return res.sendFile(indexPath);
+        }
+        // Fallback if index.html is missing
+        return res.redirect(redirectUrl);
+      }
+    }
+
+    if (req.path.includes('/api/share/info')) {
+      return res.json({ 
+        success: !!cardData, 
+        data: cardData,
+        error: !cardData ? "Conteúdo não encontrado ou expirado" : null
+      });
     }
 
     // FOR CRAWLERS: Return minimal HTML with OG tags
@@ -558,6 +582,8 @@ async function startServer() {
   });
 
   // 2. Share Routes
+  app.get("/api/share/info/:type/:id", handleShareRequest);
+  app.get("/api/share/info/:id", handleShareRequest);
   app.get("/share/:type/:id", handleShareRequest);
   app.get("/share/:id", handleShareRequest);
 
