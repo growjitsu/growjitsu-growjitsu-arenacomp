@@ -214,12 +214,15 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     fetchPromotedProfiles();
 
     // Fetch Ads from Firebase (Mirroring Landing Page logic)
-    const qAds = query(collection(firestoreDb, 'arena_ads'), where('active', '==', true), orderBy('order', 'asc'));
+    const qAds = query(collection(firestoreDb, 'arena_ads'), where('active', '==', true));
     const unsubscribeAds = onSnapshot(qAds, (snapshot) => {
       const adsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ArenaAd[];
+
+      // Sort client-side
+      adsData.sort((a, b) => (a.order || 0) - (b.order || 0));
 
       const now = new Date();
       const filteredAds = adsData.filter(ad => {

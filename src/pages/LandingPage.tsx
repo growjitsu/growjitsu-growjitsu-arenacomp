@@ -40,13 +40,18 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
   useEffect(() => {
     // Fetch Banners from Firebase
-    const q = query(collection(db, 'featured_banners'), where('is_active', '==', true), orderBy('order', 'asc'));
+    // We use a simpler query without orderBy to avoid composite index requirements
+    // and handle sorting/filtering locally for maximum robustness
+    const q = query(collection(db, 'featured_banners'), where('is_active', '==', true));
     const unsubscribeBanners = onSnapshot(q, (snapshot) => {
       const now = new Date();
       const bannersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Banner[];
+
+      // Sort by order manually to avoid composite index issues
+      bannersData.sort((a, b) => (a.order || 0) - (b.order || 0));
 
       // Filter by date and geographic location
       const filteredBanners = bannersData.filter(banner => {
@@ -64,7 +69,6 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         if (end && end < now) return false;
 
         // Geographic segmentation
-        // Only apply if at least one geographic field is present and NOT empty
         const hasGeographicConstraint = 
           (banner.country_id && banner.country_id.trim() !== '') || 
           (banner.state_id && banner.state_id.trim() !== '') || 
@@ -74,28 +78,24 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
           (banner.city && banner.city.trim() !== '');
 
         if (userProfile) {
-          // Check Country
           if (banner.country_id && banner.country_id.trim() !== '') {
             if (banner.country_id !== userProfile.country_id) return false;
           } else if (banner.country && banner.country.trim() !== '') {
             if (banner.country !== userProfile.country) return false;
           }
 
-          // Check State
           if (banner.state_id && banner.state_id.trim() !== '') {
             if (banner.state_id !== userProfile.state_id) return false;
           } else if (banner.state && banner.state.trim() !== '') {
             if (banner.state !== userProfile.state) return false;
           }
 
-          // Check City
           if (banner.city_id && banner.city_id.trim() !== '') {
             if (banner.city_id !== userProfile.city_id) return false;
           } else if (banner.city && banner.city.trim() !== '') {
             if (banner.city !== userProfile.city) return false;
           }
         } else {
-          // If not logged in, hide banners that have specific location constraints
           if (hasGeographicConstraint) return false;
         }
 
@@ -105,19 +105,24 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       setBanners(filteredBanners);
     });
 
-    // Fetch Arena Highlights (Ads with type 'destaques')
+    // Fetch Arena Highlights (Ads with type 'destaques' or placement 'landing_highlights')
+    // Likewise, we simplify the query
     const qHighlights = query(
       collection(db, 'arena_ads'), 
-      where('active', '==', true), 
-      where('type', '==', 'destaques'), 
-      orderBy('order', 'asc')
+      where('active', '==', true)
     );
     const unsubscribeHighlights = onSnapshot(qHighlights, (snapshot) => {
       const adsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ArenaAd[];
-      setHighlights(adsData);
+
+      // Filter highlights that belong to the landing page (either by type OR placement)
+      const filteredHighlights = adsData
+        .filter(ad => ad.type === 'destaques' || (ad.placement && ad.placement.includes('landing_highlights')))
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      setHighlights(filteredHighlights);
     });
 
     // Fetch Rankings from Supabase

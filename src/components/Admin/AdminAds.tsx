@@ -147,24 +147,32 @@ export const AdminAds: React.FC = () => {
   };
 
   useEffect(() => {
-    const qBanners = query(collection(db, 'featured_banners'), orderBy('order', 'asc'));
+    const qBanners = query(collection(db, 'featured_banners'));
     const unsubscribeBanners = onSnapshot(qBanners, (snapshot) => {
       const bannersData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Banner[];
+      
+      // Sort client-side for maximum robustness against missing/invalid order fields
+      bannersData.sort((a, b) => (a.order || 0) - (b.order || 0));
+      
       setBanners(bannersData);
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'featured_banners');
     });
 
-    const qFeedAds = query(collection(db, 'arena_ads'), orderBy('order', 'asc'));
+    const qFeedAds = query(collection(db, 'arena_ads'));
     const unsubscribeFeedAds = onSnapshot(qFeedAds, (snapshot) => {
       const adsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ArenaAd[];
+
+      // Sort client-side
+      adsData.sort((a, b) => (a.order || 0) - (b.order || 0));
+
       setFeedAds(adsData);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'arena_ads');
