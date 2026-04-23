@@ -437,9 +437,9 @@ function AppContent() {
       <Route path="/fights/:id" element={renderLayout(<ProfileWrapper />, 'profile')} />
       <Route path="/championships/:id" element={renderLayout(<ProfileWrapper />, 'profile')} />
       
-      <Route path="/post/:id" element={<Navigate to="/" replace />} />
-      <Route path="/clip/:id" element={<Navigate to="/clips" replace />} />
-      <Route path="/certificate/:id" element={<Navigate to="/profile" replace />} />
+      <Route path="/post/:id" element={<SharePage />} />
+      <Route path="/clip/:id" element={<SharePage />} />
+      <Route path="/certificate/:id" element={<SharePage />} />
       <Route path="/curriculo/:userId" element={<AthleteResume />} />
       <Route path="/share/:type/:id" element={<SharePage />} />
       <Route path="/share/:id" element={<SharePage />} />

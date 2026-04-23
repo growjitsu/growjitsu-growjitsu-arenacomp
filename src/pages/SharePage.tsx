@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { CardPreview } from '../components/CardPreview';
 import { Logo } from '../components/Logo';
 import { Trophy, ArrowLeft, Share2, Download, Loader2 } from 'lucide-react';
@@ -9,11 +9,21 @@ import { getApiUrl } from '../lib/api';
 import { toast } from 'sonner';
 
 export const SharePage = () => {
-  const { type, id } = useParams<{ type?: string; id: string }>();
+  const location = useLocation();
+  const { type: paramType, id } = useParams<{ type?: string; id: string }>();
   const navigate = useNavigate();
   const [cardData, setCardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Inferred type from URL path if not provided in params
+  const type = paramType || (() => {
+    const path = location.pathname;
+    if (path.startsWith('/post/')) return 'post';
+    if (path.startsWith('/clip/')) return 'clip';
+    if (path.startsWith('/certificate/')) return 'certificate';
+    return undefined;
+  })();
 
   useEffect(() => {
     if (!id) return;

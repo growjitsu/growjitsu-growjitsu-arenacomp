@@ -300,6 +300,12 @@ export const generateShareLink = ({ type, id }: { type: string; id: string }) =>
   if (!type || !id) {
     throw new Error('Dados inválidos para gerar link');
   }
+  
+  // Custom friendly formats for main content types
+  if (type === 'post') return `${window.location.origin}/post/${id}`;
+  if (type === 'clip') return `${window.location.origin}/clip/${id}`;
+  if (type === 'certificate') return `${window.location.origin}/certificate/${id}`;
+  
   return `${window.location.origin}/share/${type}/${id}`;
 };
 
