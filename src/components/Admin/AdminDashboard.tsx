@@ -254,11 +254,12 @@ export const AdminDashboard: React.FC = () => {
           }
         }
 
-        const newModalityData = topModalities
+      const newModalityData = topModalities
           .map(item => ({
             name: item.name,
             count: item.count,
-            value: Math.round((item.count / totalSample) * 100)
+            // Use percentage for value to keep slices proportional to 100% of visible data
+            value: (item.count / totalSample) * 100
           }))
           .sort((a, b) => b.count - a.count);
 
@@ -400,13 +401,15 @@ export const AdminDashboard: React.FC = () => {
                   data={modalityData}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
+                  innerRadius="50%"
+                  outerRadius="80%"
                   paddingAngle={5}
-                  dataKey="count"
+                  dataKey="value"
+                  nameKey="name"
+                  isAnimationActive={false}
                 >
                   {modalityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length] || '#2563eb'} />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -422,7 +425,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">{item.name}</span>
-                  <span className="text-[10px] font-black text-white">{item.count} <span className="text-gray-500 font-bold ml-1 text-[8px]">({item.value}%)</span></span>
+                  <span className="text-[10px] font-black text-white">{item.count} <span className="text-gray-500 font-bold ml-1 text-[8px]">({Math.round(item.value)}%)</span></span>
                 </div>
               </div>
             ))}
