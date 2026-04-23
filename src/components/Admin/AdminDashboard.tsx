@@ -222,14 +222,20 @@ export const AdminDashboard: React.FC = () => {
         // Process Modality Data
         const modalityMap: Record<string, number> = {};
         profilesData.forEach(p => {
-          const m = p.modality || p.graduation || 'Outros';
+          // Use only modality, normalize to uppercase, default to 'OUTROS'
+          // We remove the fallback to p.graduation to avoid mixing belts with modalities
+          const m = (p.modality && p.modality.trim() !== '') ? p.modality.trim().toUpperCase() : 'OUTROS';
           modalityMap[m] = (modalityMap[m] || 0) + 1;
         });
         
         const totalSample = profilesData.length || 1;
         const newModalityData = Object.entries(modalityMap)
-          .map(([name, count]) => ({ name, value: Math.round((count / totalSample) * 100) }))
-          .sort((a, b) => b.value - a.value)
+          .map(([name, count]) => ({ 
+            name, 
+            value: Math.round((count / totalSample) * 100),
+            count: count 
+          }))
+          .sort((a, b) => b.count - a.count)
           .slice(0, 5);
         setModalityData(newModalityData);
 
@@ -389,8 +395,10 @@ export const AdminDashboard: React.FC = () => {
             {modalityData.map((item, index) => (
               <div key={item.name} className="flex items-center space-x-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.name}</span>
-                <span className="text-[10px] font-black">{item.value}%</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">{item.name}</span>
+                  <span className="text-[10px] font-black text-white">{item.count} <span className="text-gray-500 font-bold ml-1 text-[8px]">({item.value}%)</span></span>
+                </div>
               </div>
             ))}
           </div>
