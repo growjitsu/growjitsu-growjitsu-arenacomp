@@ -155,7 +155,10 @@ async function startServer() {
 
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
-    if (req.url.startsWith('/api') || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
+    // Skip OG logic for specific static assets and non-share APIs
+    // But ALLOW /api/share/info to proceed as it's handled by this logic
+    const isShareApi = req.url.includes('/api/share/info');
+    if ((req.url.startsWith('/api') && !isShareApi) || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       return next();
     }
 
@@ -439,6 +442,43 @@ async function startServer() {
             }
           }
         }
+           
+        // Final catch-all lookup if still no cardData but we have a UUID
+        if (!cardData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inferredId)) {
+          console.log(`[OG-TAGS] Still no cardData for UUID ${inferredId}, trying exhaustive lookup...`);
+          
+          // Try post
+          const { data: p } = await supabaseAdmin.from('posts').select('*, profiles(full_name, modality)').eq('id', inferredId).maybeSingle();
+          if (p) {
+            const prof = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+            cardData = {
+              athleteName: prof?.full_name || 'Atleta Arena',
+              achievement: p.content || 'Compartilhou um post',
+              mainImageUrl: p.media_url || (p.media_urls && p.media_urls[0]),
+              title: 'Conteúdo ArenaComp',
+              modality: prof?.modality || 'Arena'
+            };
+          }
+          
+          // Try certificate
+          if (!cardData) {
+            const { data: c } = await supabaseAdmin.from('certificates').select('*, profiles(full_name)').eq('id', inferredId).maybeSingle();
+            if (c) {
+              const prof = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
+              cardData = {
+                athleteName: prof?.full_name || 'Atleta Arena',
+                achievement: `Certificado: ${c.name}`,
+                mainImageUrl: c.media_url,
+                title: 'Certificado ArenaComp',
+                modality: 'Arena'
+              };
+            }
+          }
+        }
+      }
+
+      if (!cardData && !isHome) {
+        console.warn(`[OG-TAGS] Could not find any data for share ID: ${id} | type: ${type} | inferred: ${inferredId}/${inferredType}`);
       }
     } catch (err) {
       console.error("[OG-TAGS] Error loading data:", err);
