@@ -960,20 +960,20 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                       >
                         {/* Manual Navigation Arrows */}
                         {topAds.length > 1 && (
-                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
+                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
                             <button
                               onClick={(e) => handlePrevTopAd(e, topAds)}
-                              className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                              className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                               aria-label="Anúncio anterior"
                             >
-                              <ChevronLeft size={18} />
+                              <ChevronLeft size={20} className="md:w-[18px] md:h-[18px]" />
                             </button>
                             <button
                               onClick={(e) => handleNextTopAd(e, topAds)}
-                              className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                              className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                               aria-label="Próximo anúncio"
                             >
-                              <ChevronRight size={18} />
+                              <ChevronRight size={20} className="md:w-[18px] md:h-[18px]" />
                             </button>
                           </div>
                         )}
@@ -1353,20 +1353,20 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           >
                             {/* Manual Navigation Arrows */}
                             {inFeedAds.length > 1 && (
-                              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-4 z-20 pointer-events-none opacity-0 group-hover/promo:opacity-100 transition-opacity duration-300">
+                              <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
                                 <button
                                   onClick={(e) => handlePrevInFeedAd(e, inFeedAds)}
-                                  className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                                  className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                                   aria-label="Anúncio anterior"
                                 >
-                                  <ChevronLeft size={18} />
+                                  <ChevronLeft size={20} className="md:w-[18px] md:h-[18px]" />
                                 </button>
                                 <button
                                   onClick={(e) => handleNextInFeedAd(e, inFeedAds)}
-                                  className="p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg"
+                                  className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                                   aria-label="Próximo anúncio"
                                 >
-                                  <ChevronRight size={18} />
+                                  <ChevronRight size={20} className="md:w-[18px] md:h-[18px]" />
                                 </button>
                               </div>
                             )}
