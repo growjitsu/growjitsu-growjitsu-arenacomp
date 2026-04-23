@@ -415,6 +415,10 @@ export const AdminDashboard: React.FC = () => {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #ffffff10', borderRadius: '12px' }}
                   itemStyle={{ color: '#fff', fontSize: '12px', fontWeight: 'bold' }}
+                  formatter={(value: number, name: string, props: any) => [
+                    `${props.payload.count} (${Math.round(value)}%)`, 
+                    name
+                  ]}
                 />
               </PieChart>
             </ResponsiveContainer>
