@@ -235,8 +235,8 @@ export const AdminAthletes: React.FC = () => {
       
       const token = await user.getIdToken();
       
-      const apiUrl = getApiUrl('/api/admin/v3/reset-password');
-      console.log(`[ADMIN] Solicitando reset de senha V3 para ${selectedAthlete.id} via ${apiUrl}`);
+      const apiUrl = getApiUrl('/api/admin/v4/reset-password');
+      console.log(`[ADMIN] Solicitando reset de senha V4 para ${selectedAthlete.id} via ${apiUrl}`);
       
       const response = await fetch(apiUrl, {
         method: 'POST',

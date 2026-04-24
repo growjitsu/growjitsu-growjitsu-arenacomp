@@ -675,8 +675,76 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ===========================================================================
-  // 🚀 CRITICAL: HIGH-PRIORITY ADMIN ENDPOINTS
-  // These must be handled AFTER body-parsing but BEFORE any SPA/SEO fallback
+  // 🚀 CRITICAL: RESET PASSWORD V4 (HIGH-PRIORITY & ISOLATED)
+  // This route is handled with max priority to avoid any SPA/Middleware intercepts.
+  // ===========================================================================
+  app.options("/api/admin/v4/reset-password", (req, res) => {
+    console.log(`[FIREBASE-ADMIN] Preflight request for V4`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4-OPTIONS');
+    return res.sendStatus(200);
+  });
+
+  app.all("/api/admin/v4/reset-password", async (req, res) => {
+    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4');
+    res.setHeader('Content-Type', 'application/json');
+    console.log(`[FIREBASE-ADMIN] Request V4 reached: ${req.method} ${req.url}`);
+
+    if (req.method !== 'POST') {
+      console.warn(`[FIREBASE-ADMIN] Method not allowed V4: ${req.method}`);
+      return res.status(405).json({ 
+        success: false, 
+        error: "Method Not Allowed",
+        message: "Use POST para alterar a senha."
+      });
+    }
+
+    const { uid, password } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!uid || !password) {
+      return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
+    }
+
+    try {
+      const fbAuth = getAuth();
+      const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
+      
+      if (!token) {
+        return res.status(401).json({ success: false, error: "Token ausente." });
+      }
+
+      const decodedToken = await fbAuth.verifyIdToken(token);
+      if (!decodedToken.admin) {
+        return res.status(403).json({ success: false, error: "Apenas administradores." });
+      }
+
+      await fbAuth.updateUser(uid, { password: password });
+      console.log(`[FIREBASE-ADMIN] Senha alterada V4: ${uid}`);
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Senha atualizada com sucesso pelo Admin V4." 
+      });
+    } catch (error: any) {
+      console.error('[FIREBASE-ADMIN] Erro V4:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || "Erro interno V4." 
+      });
+    }
+  });
+
+  // Health check for V4
+  app.get("/api/admin/v4/ping", (req, res) => {
+    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4-PING');
+    res.json({ status: "ok", version: "v4" });
+  });
+
+  // ===========================================================================
+  // 🚀 CRITICAL: OLD ADMIN ENDPOINTS (V3)
   // ===========================================================================
   app.post("/api/admin/v3/reset-password", async (req, res) => {
     res.setHeader('X-API-Route', 'reset-password-v3');
