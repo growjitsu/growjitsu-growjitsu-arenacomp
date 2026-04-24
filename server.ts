@@ -19,7 +19,7 @@ dotenv.config();
 // Supabase configuration
 const rawUrl = process.env.VITE_SUPABASE_URL || 'https://vfefztzaiqhpsfnvpkba.supabase.co';
 const rawKey = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZmZWZ6dHphaXFocHNmbnZwa2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MzM1MzEsImV4cCI6MjA4NzAwOTUzMX0.G2AVN2yvCaGGtR7fK0nim2eRBAow2C57eeIaOEz1LDQ';
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const isValidUrl = (url: string) => {
   try {
@@ -34,11 +34,16 @@ const supabaseUrl = isValidUrl(rawUrl) ? rawUrl.trim() : 'https://vfefztzaiqhpsf
 const supabaseAnonKey = rawKey.trim();
 
 // Create Supabase clients
-// Use secret key if available for backend operations, otherwise fallback to anon key
-const supabase = createClient(supabaseUrl, supabaseSecretKey || supabaseAnonKey);
+// Use secret key (Service Role) for backend operations to bypass RLS and manage Auth
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20) 
-  ? createClient(supabaseUrl, supabaseSecretKey) 
-  : supabase;
+  ? createClient(supabaseUrl, supabaseSecretKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }) 
+  : null;
 
 // Institutional branded image for fallbacks - Professional Jiu-Jitsu competition image
 // This is the official institutional image for ArenaComp share previews
@@ -688,7 +693,7 @@ async function startServer() {
     res.setHeader('Content-Type', 'application/json');
     console.log(`[AUTH-ADMIN] Request reached: ${req.method} ${req.url}`);
 
-    // CORS & Preflight
+    // CORS & Preflight headers for direct browser calls
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -698,24 +703,27 @@ async function startServer() {
     }
 
     if (req.method !== 'POST') {
-      console.warn(`[AUTH-ADMIN] Method not allowed: ${req.method}`);
+      console.warn(`[AUTH-ADMIN] Method not allowed: ${req.method} for ${req.url}`);
       return res.status(405).json({ 
         success: false, 
         error: "Method Not Allowed",
-        message: "Use POST para alterar a senha."
+        message: "Apenas requisições POST são aceitas para reset de senha."
       });
     }
 
-    const { uid, password } = req.body;
+    // Support both sets of possible body parameters (Legacy/New/Athlete)
+    const uid = req.body.uid || req.body.userId;
+    const password = req.body.password || req.body.newPassword;
     const authHeader = req.headers.authorization;
 
     if (!uid || !password) {
       console.warn('[AUTH-ADMIN] Missing UID or password in body');
-      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
+      return res.status(400).json({ success: false, error: "UID (ou userId) e a nova senha são obrigatórios." });
     }
 
     try {
       // 1. Verify Requester is an Admin (via Firebase Auth)
+      // This system uses Firebase for Admins and Supabase for Athletes
       const fbAuth = getAuth();
       const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
       
@@ -731,20 +739,18 @@ async function startServer() {
       }
 
       // 2. Check for Supabase Admin Configuration
-      // @ts-ignore - defined at top level
-      if (!supabaseAdmin || !supabaseSecretKey) {
-        console.error('[AUTH-ADMIN] CRITICAL: SUPABASE_SECRET_KEY is missing in server environment.');
+      if (!supabaseAdmin) {
+        console.error('[AUTH-ADMIN] CRITICAL: SUPABASE_SECRET_KEY/SERVICE_ROLE_KEY is missing in server environment.');
         return res.status(500).json({ 
           success: false, 
           error: "Configuração do servidor incompleta.",
-          message: "Favor configurar a variável SUPABASE_SECRET_KEY nas configurações do AI Studio para permitir resets de senha (Supabase Auth)."
+          message: "Favor configurar a variável 'SUPABASE_SECRET_KEY' (Service Role) nas configurações do AI Studio para permitir resets de senha no Supabase Auth."
         });
       }
 
-      // 3. Execute password reset in Supabase using Service Role client
-      console.log(`[AUTH-ADMIN] Attempting password reset for Supabase UID: ${uid} (Ordered by Admin: ${decodedToken.email})`);
+      // 3. Execute password reset in Supabase using Service Role client (Admin API)
+      console.log(`[AUTH-ADMIN] Executing password update for Supabase UID: ${uid} (Requested by Firebase Admin: ${decodedToken.email})`);
       
-      // @ts-ignore - defined at top level
       const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, {
         password: password
       });
@@ -757,11 +763,11 @@ async function startServer() {
         });
       }
 
-      console.log(`[AUTH-ADMIN] Success: Password updated for ${uid}`);
+      console.log(`[AUTH-ADMIN] Success: Password updated successfully for athlete ID ${uid}`);
       
       return res.status(200).json({ 
         success: true, 
-        message: "Senha do atleta (Supabase) atualizada com sucesso!" 
+        message: "Senha do atleta atualizada com sucesso no Supabase Auth!" 
       });
     } catch (error: any) {
       console.error('[AUTH-ADMIN] Internal Server Error:', error);
