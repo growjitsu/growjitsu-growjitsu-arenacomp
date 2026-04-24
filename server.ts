@@ -730,6 +730,71 @@ async function startServer() {
     }
   });
 
+  // FIREBASE ADMIN: Reset User Password (MOVED UP FOR BETTER ROUTING STABILITY)
+  app.all("/api/admin/reset-password", async (req, res) => {
+    res.setHeader('X-API-Route', 'reset-password-v2');
+    console.log(`[FIREBASE-ADMIN] Incoming request to reset-password: ${req.method} ${req.url}`);
+    
+    // Explicitly handle only POST
+    if (req.method !== 'POST') {
+      console.warn(`[FIREBASE-ADMIN] Method not allowed for reset-password: ${req.method}`);
+      return res.status(405).json({ 
+        success: false, 
+        error: "Method Not Allowed",
+        message: "Este endpoint aceita apenas requisições POST."
+      });
+    }
+
+    const { uid, password } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!uid || !password) {
+      console.warn('[FIREBASE-ADMIN] Missing UID or password');
+      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
+    }
+
+    if (password.length < 6) {
+      console.warn('[FIREBASE-ADMIN] Password too short');
+      return res.status(400).json({ success: false, error: "A senha deve ter pelo menos 6 caracteres." });
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('[FIREBASE-ADMIN] Missing or invalid Authorization header');
+      return res.status(401).json({ success: false, error: "Não autorizado. Token de admin ausente." });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+
+    try {
+      const fbAuth = getAuth();
+      // Verify requester is an admin
+      const decodedToken = await fbAuth.verifyIdToken(token);
+      
+      if (!decodedToken.admin) {
+        console.warn(`[FIREBASE-ADMIN] Tentativa não autorizada de reset de senha por: ${decodedToken.email}`);
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores podem alterar senhas." });
+      }
+
+      // Update password using Admin SDK
+      await fbAuth.updateUser(uid, {
+        password: password
+      });
+
+      console.log(`[FIREBASE-ADMIN] Senha alterada para usuário ${uid} por admin ${decodedToken.email}`);
+      
+      return res.json({ 
+        success: true, 
+        message: "Senha atualizada com sucesso no Firebase Authentication." 
+      });
+    } catch (error: any) {
+      console.error('[FIREBASE-ADMIN] Erro crítico ao resetar senha:', error);
+      return res.status(error.status || 500).json({ 
+        success: false, 
+        error: error.message || "Falha ao atualizar a senha do usuário." 
+      });
+    }
+  });
+
   app.get("/api/share/token/:token", (req, res) => {
     const { token } = req.params;
     try {
@@ -1543,61 +1608,6 @@ async function startServer() {
       return res.status(500).json({ 
         success: false, 
         error: error.message || "Erro interno ao definir claim." 
-      });
-    }
-  });
-
-  // FIREBASE ADMIN: Reset User Password
-  app.post("/api/admin/reset-password", async (req, res) => {
-    res.setHeader('X-API-Route', 'reset-password');
-    console.log(`[FIREBASE-ADMIN] Request for password reset. Body:`, JSON.stringify(req.body));
-    const { uid, password } = req.body;
-    const authHeader = req.headers.authorization;
-
-    if (!uid || !password) {
-      console.warn('[FIREBASE-ADMIN] Missing UID or password');
-      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
-    }
-
-    if (password.length < 6) {
-      console.warn('[FIREBASE-ADMIN] Password too short');
-      return res.status(400).json({ success: false, error: "A senha deve ter pelo menos 6 caracteres." });
-    }
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.warn('[FIREBASE-ADMIN] Missing or invalid Authorization header');
-      return res.status(401).json({ success: false, error: "Não autorizado. Token de admin ausente." });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-
-    try {
-      const fbAuth = getAuth();
-      // Verify requester is an admin
-      const decodedToken = await fbAuth.verifyIdToken(token);
-      
-      if (!decodedToken.admin) {
-        console.warn(`[FIREBASE-ADMIN] Tentativa não autorizada de reset de senha por: ${decodedToken.email}`);
-        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores podem alterar senhas." });
-      }
-
-      // Update password using Admin SDK
-      await fbAuth.updateUser(uid, {
-        password: password
-      });
-
-      console.log(`[FIREBASE-ADMIN] Senha alterada para usuário ${uid} por admin ${decodedToken.email}`);
-      
-      return res.json({ 
-        success: true, 
-        message: "Senha atualizada com sucesso no Firebase Authentication." 
-      });
-    } catch (error: any) {
-      console.error('[FIREBASE-ADMIN] Erro crítico ao resetar senha:', error);
-      // Ensure we always return JSON
-      return res.status(error.status || 500).json({ 
-        success: false, 
-        error: error.message || "Falha ao atualizar a senha do usuário." 
       });
     }
   });

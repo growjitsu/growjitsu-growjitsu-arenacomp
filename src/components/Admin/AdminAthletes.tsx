@@ -18,6 +18,7 @@ import {
 import { supabase } from '../../services/supabase';
 import { auth } from '../../firebase';
 import { ArenaProfile } from '../../types';
+import { getApiUrl } from '../../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { BELTS } from '../../utils/data';
 
@@ -234,7 +235,10 @@ export const AdminAthletes: React.FC = () => {
       
       const token = await user.getIdToken();
       
-      const response = await fetch('/api/admin/reset-password', {
+      const apiUrl = getApiUrl('/api/admin/reset-password');
+      console.log(`[ADMIN] Solicitando reset de senha para ${selectedAthlete.id} via ${apiUrl}`);
+      
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -246,6 +250,8 @@ export const AdminAthletes: React.FC = () => {
         })
       });
 
+      console.log(`[ADMIN] Status da resposta: ${response.status} (${response.statusText})`);
+
       let result;
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
@@ -253,7 +259,7 @@ export const AdminAthletes: React.FC = () => {
       } else {
         const text = await response.text();
         console.error('Unexpected response format:', text);
-        throw new Error(`Erro inesperado do servidor (${response.status}).`);
+        throw new Error(`Erro inesperado do servidor (${response.status}). Verifique os logs do console.`);
       }
       
       if (result.success) {
