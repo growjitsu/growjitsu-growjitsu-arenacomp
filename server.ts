@@ -1547,6 +1547,56 @@ async function startServer() {
     }
   });
 
+  // FIREBASE ADMIN: Reset User Password
+  app.post("/api/admin/reset-password", async (req, res) => {
+    res.setHeader('X-API-Route', 'reset-password');
+    const { uid, password } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!uid || !password) {
+      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, error: "A senha deve ter pelo menos 6 caracteres." });
+    }
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, error: "Não autorizado. Token de admin ausente." });
+    }
+
+    const token = authHeader.split('Bearer ')[1];
+
+    try {
+      const auth = getAuth();
+      // Verify requester is an admin
+      const decodedToken = await auth.verifyIdToken(token);
+      
+      if (!decodedToken.admin) {
+        console.warn(`[FIREBASE-ADMIN] Tentativa não autorizada de reset de senha por: ${decodedToken.email}`);
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores podem alterar senhas." });
+      }
+
+      // Update password using Admin SDK
+      await auth.updateUser(uid, {
+        password: password
+      });
+
+      console.log(`[FIREBASE-ADMIN] Senha alterada para usuário ${uid} por admin ${decodedToken.email}`);
+      
+      return res.json({ 
+        success: true, 
+        message: "Senha atualizada com sucesso no Firebase Authentication." 
+      });
+    } catch (error: any) {
+      console.error('[FIREBASE-ADMIN] Erro ao resetar senha:', error);
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || "Falha ao atualizar a senha do usuário." 
+      });
+    }
+  });
+
   // Location Endpoints
   app.get("/api/locations/states", async (req, res) => {
     res.setHeader('X-API-Route', 'locations-states');

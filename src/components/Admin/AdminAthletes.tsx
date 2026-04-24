@@ -7,6 +7,7 @@ import {
   Trash2, 
   Lock, 
   Unlock, 
+  Key,
   Mail, 
   Shield,
   X,
@@ -15,6 +16,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
+import { auth } from '../../firebase';
 import { ArenaProfile } from '../../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { BELTS } from '../../utils/data';
@@ -36,6 +38,10 @@ export const AdminAthletes: React.FC = () => {
   const [cities, setCities] = useState<any[]>([]);
   const [selectedAthlete, setSelectedAthlete] = useState<ArenaProfile | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [editData, setEditData] = useState<any>(null);
   const pageSize = 10;
 
@@ -210,6 +216,54 @@ export const AdminAthletes: React.FC = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!selectedAthlete?.id) return;
+    if (newPassword.length < 6) {
+      alert('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert('As senhas não coincidem.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error('Admin não autenticado.');
+      
+      const token = await user.getIdToken();
+      
+      const response = await fetch('/api/admin/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          uid: selectedAthlete.id,
+          password: newPassword
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Senha atualizada com sucesso.');
+        setIsPasswordModalOpen(false);
+        setNewPassword('');
+        setConfirmPassword('');
+      } else {
+        throw new Error(result.error || 'Erro ao atualizar senha.');
+      }
+    } catch (error: any) {
+      console.error('Error resetting password:', error);
+      alert(error.message || 'Erro ao atualizar senha.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Search & Filters */}
@@ -318,6 +372,18 @@ export const AdminAthletes: React.FC = () => {
                           className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
                         >
                           <Edit2 size={16} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedAthlete(athlete);
+                            setIsPasswordModalOpen(true);
+                            setNewPassword('');
+                            setConfirmPassword('');
+                          }}
+                          className="p-2 text-gray-400 hover:text-emerald-500 transition-colors"
+                          title="Alterar Senha"
+                        >
+                          <Key size={16} />
                         </button>
                         <button 
                           onClick={() => handleBlockUser(athlete.id, true)}
@@ -530,6 +596,97 @@ export const AdminAthletes: React.FC = () => {
                   className="bg-blue-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all"
                 >
                   Salvar Alterações
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Password Reset Modal */}
+      <AnimatePresence>
+        {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPasswordModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl"
+            >
+              <div className="p-8 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                    <Lock size={20} className="text-emerald-500" />
+                    Alterar Senha
+                  </h3>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Atleta: {selectedAthlete?.full_name}</p>
+                </div>
+                <button onClick={() => setIsPasswordModalOpen(false)} className="p-2 text-gray-400 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Nova Senha</label>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Confirmar Nova Senha</label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repita a nova senha"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-2xl p-4">
+                  <div className="flex gap-3">
+                    <Shield size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] font-medium text-gray-400 leading-relaxed">
+                      Esta ação atualizará a senha do atleta diretamente no <span className="text-emerald-500 font-bold uppercase tracking-widest">Firebase Authentication</span>. 
+                      O atleta deverá usar a nova senha no próximo login.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-white/10 bg-white/5 flex items-center justify-end space-x-4">
+                <button
+                  onClick={() => setIsPasswordModalOpen(false)}
+                  disabled={passwordLoading}
+                  className="px-6 py-3 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white transition-all disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={passwordLoading}
+                  className="bg-emerald-600 text-white px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {passwordLoading ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Check size={16} />
+                  )}
+                  <span>{passwordLoading ? 'Atualizando...' : 'Confirmar Alteração'}</span>
                 </button>
               </div>
             </motion.div>
