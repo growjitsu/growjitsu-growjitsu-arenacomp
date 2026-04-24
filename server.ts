@@ -256,17 +256,48 @@ async function startServer() {
           
           if (targetType === 'post' || targetType === 'clip') {
             const fetchPost = async (postId: string) => {
-              // Strategy A: profiles join
-              let res = await supabaseAdmin.from('posts').select('*, profiles(username, full_name, profile_photo, modality)').eq('id', postId).maybeSingle();
-              if (res.data) return { data: res.data, author: res.data.profiles };
-              
-              // Strategy B: usuarios join
-              res = await supabaseAdmin.from('posts').select('*, usuarios(nome, foto_url)').eq('id', postId).maybeSingle();
-              if (res.data) return { data: res.data, author: res.data.usuarios };
+              try {
+                // Strategy A: profiles join (standard)
+                const { data: postA, error: errA } = await supabaseAdmin
+                  .from('posts')
+                  .select('*, profiles(username, full_name, profile_photo, modality)')
+                  .eq('id', postId)
+                  .maybeSingle();
+                
+                if (postA) return { data: postA, author: postA.profiles };
+              } catch (e) {}
 
-              // Strategy C: direct post
-              res = await supabaseAdmin.from('posts').select('*').eq('id', postId).maybeSingle();
-              return { data: res.data, author: null };
+              try {
+                // Strategy B: usuarios join (fallback)
+                const { data: postB, error: errB } = await supabaseAdmin
+                  .from('posts')
+                  .select('*, usuarios(nome, foto_url, avatar_url)')
+                  .eq('id', postId)
+                  .maybeSingle();
+
+                if (postB) return { data: postB, author: postB.usuarios };
+              } catch (e) {}
+
+              try {
+                // Strategy C: Direct fetch then separate author check
+                const { data: postC } = await supabaseAdmin
+                  .from('posts')
+                  .select('*')
+                  .eq('id', postId)
+                  .maybeSingle();
+
+                if (postC) {
+                  // Try to find author separately if possible
+                  const authorId = postC.author_id || postC.user_id;
+                  if (authorId) {
+                    const { data: prof } = await supabaseAdmin.from('profiles').select('*').eq('id', authorId).maybeSingle();
+                    return { data: postC, author: prof };
+                  }
+                  return { data: postC, author: null };
+                }
+              } catch (e) {}
+
+              return { data: null, author: null };
             };
 
             const { data: post, author } = await fetchPost(targetId);
@@ -283,9 +314,9 @@ async function startServer() {
               }
 
               cardData = {
-                athleteName: p?.full_name || p?.nome || 'Atleta Arena',
+                athleteName: p?.full_name || p?.nome || (post.metadata?.author_name) || 'Atleta Arena',
                 achievement: post.content || (targetType === 'clip' ? 'Veja este Clip na ArenaComp' : 'Veja este Post na ArenaComp'),
-                mainImageUrl: mainImage,
+                mainImageUrl: mainImage || post.thumbnail_url,
                 profilePhoto: p?.profile_photo || p?.foto_url || p?.avatar_url,
                 title: targetType === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
                 modality: p?.modality || 'Arena',
@@ -372,6 +403,7 @@ async function startServer() {
         if (!cardData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inferredId)) {
           console.log(`[OG-TAGS] Still no cardData for UUID ${inferredId}, trying exhaustive lookup...`);
           
+          // Try post
           const { data: p } = await supabaseAdmin.from('posts').select('*, profiles(full_name, modality)').eq('id', inferredId).maybeSingle();
           if (p) {
             const prof = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
@@ -380,10 +412,13 @@ async function startServer() {
               achievement: p.content || 'Compartilhou um post',
               mainImageUrl: p.media_url || (p.media_urls && p.media_urls[0]),
               title: 'Conteúdo ArenaComp',
-              modality: prof?.modality || 'Arena'
+              modality: prof?.modality || 'Arena',
+              realId: inferredId,
+              type: 'post'
             };
           }
           
+          // Try certificate
           if (!cardData) {
             const { data: c } = await supabaseAdmin.from('certificates').select('*, profiles(full_name)').eq('id', inferredId).maybeSingle();
             if (c) {
@@ -393,7 +428,9 @@ async function startServer() {
                 achievement: `Certificado: ${c.name}`,
                 mainImageUrl: c.media_url,
                 title: 'Certificado ArenaComp',
-                modality: 'Arena'
+                modality: 'Arena',
+                realId: inferredId,
+                type: 'certificate'
               };
             }
           }
