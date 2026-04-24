@@ -680,129 +680,108 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ===========================================================================
-  // 🚀 CRITICAL: RESET PASSWORD V4 (HIGH-PRIORITY & ISOLATED)
-  // This route is handled with max priority to avoid any SPA/Middleware intercepts.
+  // 🛡️ GLOBAL API CONFIGURATION
   // ===========================================================================
-  // ===========================================================================
-  // 🚀 CRITICAL: RESET PASSWORD V5 (SUPABASE AUTH + FIREBASE ADMIN GATE)
-  // This is the definitive version for athletes (Supabase) managed by Admins (Firebase).
-  // Registered early to avoid any SPA intercept.
-  // ===========================================================================
-  app.all(["/api/admin/reset-password", "/api/admin/v3/reset-password", "/api/admin/v4/reset-password", "/api/admin/v5/reset-password"], async (req, res) => {
-    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V5');
+  app.use("/api", (req, res, next) => {
+    console.log(`[API-CORE] ${req.method} ${req.url}`);
     res.setHeader('Content-Type', 'application/json');
-    console.log(`[AUTH-ADMIN] Request reached: ${req.method} ${req.url}`);
+    res.setHeader('X-API-MID', 'express-core');
+    
+    // Disable caching for API calls
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
 
-    // CORS & Preflight headers for direct browser calls
+  // ===========================================================================
+  // 🚀 CRITICAL: ISOLATED ADMIN API V5 (PRIORIDADE MÁXIMA)
+  // ===========================================================================
+  const adminV5Router = express.Router();
+
+  adminV5Router.use((req, res, next) => {
+    res.setHeader('X-API-ROUTE', 'admin-v5-isolated');
+    
+    // Explicit CORS Preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
+    next();
+  });
 
-    if (req.method !== 'POST') {
-      console.warn(`[AUTH-ADMIN] Method not allowed: ${req.method} for ${req.url}`);
-      return res.status(405).json({ 
-        success: false, 
-        error: "Method Not Allowed",
-        message: "Apenas requisições POST são aceitas para reset de senha."
-      });
-    }
+  // Health Ping
+  adminV5Router.get('/ping', (req, res) => {
+    res.json({ status: "ok", version: "v5", engine: "supabase-admin" });
+  });
 
-    // Support both sets of possible body parameters (Legacy/New/Athlete)
-    const uid = req.body.uid || req.body.userId;
+  // Reset Password Logic
+  adminV5Router.post('/reset-password', async (req, res) => {
+    const uid = req.body.uid || req.body.userId || req.body.athleteId;
     const password = req.body.password || req.body.newPassword;
     const authHeader = req.headers.authorization;
 
+    console.log(`[AUTH-ADMIN] Reset Password V5 for ${uid}`);
+
     if (!uid || !password) {
-      console.warn('[AUTH-ADMIN] Missing UID or password in body');
-      return res.status(400).json({ success: false, error: "UID (ou userId) e a nova senha são obrigatórios." });
+      return res.status(400).json({ success: false, error: "UID/ATHLETE_ID e senha são obrigatórios." });
     }
 
     try {
-      // 1. Verify Requester is an Admin (via Firebase Auth)
-      // This system uses Firebase for Admins and Supabase for Athletes
       const fbAuth = getAuth();
       const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
       
       if (!token) {
-        console.warn('[AUTH-ADMIN] Authorization token missing');
-        return res.status(401).json({ success: false, error: "Token de autenticação de admin ausente." });
+        return res.status(401).json({ success: false, error: "Token ausente." });
       }
 
       const decodedToken = await fbAuth.verifyIdToken(token);
       if (!decodedToken.admin) {
-        console.warn(`[AUTH-ADMIN] Unauthorized attempt by: ${decodedToken.email}`);
-        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores oficiais podem alterar senhas." });
+        console.warn(`[AUTH-ADMIN] Forbidden access attempt by ${decodedToken.email}`);
+        return res.status(403).json({ success: false, error: "Acesso restrito a administradores." });
       }
 
-      // 2. Check for Supabase Admin Configuration
       if (!supabaseAdmin) {
-        console.error('[AUTH-ADMIN] CRITICAL: SUPABASE_SECRET_KEY/SERVICE_ROLE_KEY is missing in server environment.');
         return res.status(500).json({ 
           success: false, 
-          error: "Configuração do servidor incompleta.",
-          message: "Favor configurar a variável 'SUPABASE_SECRET_KEY' (Service Role) nas configurações do AI Studio para permitir resets de senha no Supabase Auth."
+          error: "Supabase Admin não disponível.",
+          message: "Favor configurar SUPABASE_SECRET_KEY (Service Role) nas variáveis de ambiente." 
         });
       }
 
-      // 3. Execute password reset in Supabase using Service Role client (Admin API)
-      console.log(`[AUTH-ADMIN] Executing password update for Supabase UID: ${uid} (Requested by Firebase Admin: ${decodedToken.email})`);
-      
       const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, {
         password: password
       });
 
       if (updateError) {
         console.error(`[AUTH-ADMIN] Supabase Admin Error:`, updateError);
-        return res.status(updateError.status || 400).json({ 
-          success: false, 
-          error: updateError.message || "Falha ao atualizar o usuário no Supabase Auth." 
-        });
+        return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
       }
 
-      console.log(`[AUTH-ADMIN] Success: Password updated successfully for athlete ID ${uid}`);
-      
-      return res.status(200).json({ 
-        success: true, 
-        message: "Senha do atleta atualizada com sucesso no Supabase Auth!" 
-      });
+      console.log(`[AUTH-ADMIN] Success for athlete ID ${uid}`);
+      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
     } catch (error: any) {
-      console.error('[AUTH-ADMIN] Internal Server Error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message || "Ocorreu um erro interno ao processar a mudança de senha." 
-      });
+      console.error('[AUTH-ADMIN] Internal error:', error);
+      return res.status(500).json({ success: false, error: error.message });
     }
   });
 
-  // Health check for V5
-  app.get("/api/admin/v5/ping", (req, res) => {
-    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V5-PING');
-    res.json({ status: "ok", version: "v5", engine: "supabase-admin" });
+  // 405 Catch for specific endpoints in router
+  adminV5Router.all('/reset-password', (req, res) => {
+    return res.status(405).json({ success: false, error: "Method Not Allowed", message: "Apenas POST é aceito nesta rota." });
   });
 
-
-  // ===========================================================================
-  // API SECTION - ALL API ROUTES MUST BE DEFINED HERE
-  // ===========================================================================
-  
-  // Force JSON for all /api routes and prevent HTML fallback
-  app.use("/api", (req, res, next) => {
-    console.log(`[API-CORE] Incoming API request: ${req.method} ${req.url}`);
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-API-Route', 'api-middleware-active');
-    
-    // Prevent caching for API routes
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    
-    next();
+  // Mount router at multiple path versions for compatibility
+  app.use('/api/admin/v5', adminV5Router);
+  app.use('/api/admin/v4', adminV5Router);
+  app.use('/api/admin/v3', adminV5Router);
+  app.post('/api/admin/reset-password', (req, res, next) => {
+    req.url = '/reset-password';
+    adminV5Router(req, res, next);
   });
-
   // --- NEW: SHORT LINK CREATION API ---
   app.post("/api/share/create", (req, res) => {
     const { title, description, image, type } = req.body;
