@@ -678,22 +678,27 @@ async function startServer() {
   // 🚀 CRITICAL: RESET PASSWORD V4 (HIGH-PRIORITY & ISOLATED)
   // This route is handled with max priority to avoid any SPA/Middleware intercepts.
   // ===========================================================================
-  app.options("/api/admin/v4/reset-password", (req, res) => {
-    console.log(`[FIREBASE-ADMIN] Preflight request for V4`);
+  // ===========================================================================
+  // 🚀 CRITICAL: RESET PASSWORD V5 (SUPABASE AUTH + FIREBASE ADMIN GATE)
+  // This is the definitive version for athletes (Supabase) managed by Admins (Firebase).
+  // Registered early to avoid any SPA intercept.
+  // ===========================================================================
+  app.all(["/api/admin/reset-password", "/api/admin/v3/reset-password", "/api/admin/v4/reset-password", "/api/admin/v5/reset-password"], async (req, res) => {
+    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V5');
+    res.setHeader('Content-Type', 'application/json');
+    console.log(`[AUTH-ADMIN] Request reached: ${req.method} ${req.url}`);
+
+    // CORS & Preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4-OPTIONS');
-    return res.sendStatus(200);
-  });
 
-  app.all("/api/admin/v4/reset-password", async (req, res) => {
-    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4');
-    res.setHeader('Content-Type', 'application/json');
-    console.log(`[FIREBASE-ADMIN] Request V4 reached: ${req.method} ${req.url}`);
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
 
     if (req.method !== 'POST') {
-      console.warn(`[FIREBASE-ADMIN] Method not allowed V4: ${req.method}`);
+      console.warn(`[AUTH-ADMIN] Method not allowed: ${req.method}`);
       return res.status(405).json({ 
         success: false, 
         error: "Method Not Allowed",
@@ -705,98 +710,74 @@ async function startServer() {
     const authHeader = req.headers.authorization;
 
     if (!uid || !password) {
-      return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
+      console.warn('[AUTH-ADMIN] Missing UID or password in body');
+      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
     }
 
     try {
+      // 1. Verify Requester is an Admin (via Firebase Auth)
       const fbAuth = getAuth();
       const token = authHeader?.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
       
       if (!token) {
-        return res.status(401).json({ success: false, error: "Token ausente." });
+        console.warn('[AUTH-ADMIN] Authorization token missing');
+        return res.status(401).json({ success: false, error: "Token de autenticação de admin ausente." });
       }
 
       const decodedToken = await fbAuth.verifyIdToken(token);
       if (!decodedToken.admin) {
-        return res.status(403).json({ success: false, error: "Apenas administradores." });
+        console.warn(`[AUTH-ADMIN] Unauthorized attempt by: ${decodedToken.email}`);
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores oficiais podem alterar senhas." });
       }
 
-      await fbAuth.updateUser(uid, { password: password });
-      console.log(`[FIREBASE-ADMIN] Senha alterada V4: ${uid}`);
+      // 2. Check for Supabase Admin Configuration
+      // @ts-ignore - defined at top level
+      if (!supabaseAdmin || !supabaseSecretKey) {
+        console.error('[AUTH-ADMIN] CRITICAL: SUPABASE_SECRET_KEY is missing in server environment.');
+        return res.status(500).json({ 
+          success: false, 
+          error: "Configuração do servidor incompleta.",
+          message: "Favor configurar a variável SUPABASE_SECRET_KEY nas configurações do AI Studio para permitir resets de senha (Supabase Auth)."
+        });
+      }
+
+      // 3. Execute password reset in Supabase using Service Role client
+      console.log(`[AUTH-ADMIN] Attempting password reset for Supabase UID: ${uid} (Ordered by Admin: ${decodedToken.email})`);
+      
+      // @ts-ignore - defined at top level
+      const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, {
+        password: password
+      });
+
+      if (updateError) {
+        console.error(`[AUTH-ADMIN] Supabase Admin Error:`, updateError);
+        return res.status(updateError.status || 400).json({ 
+          success: false, 
+          error: updateError.message || "Falha ao atualizar o usuário no Supabase Auth." 
+        });
+      }
+
+      console.log(`[AUTH-ADMIN] Success: Password updated for ${uid}`);
       
       return res.status(200).json({ 
         success: true, 
-        message: "Senha atualizada com sucesso pelo Admin V4." 
+        message: "Senha do atleta (Supabase) atualizada com sucesso!" 
       });
     } catch (error: any) {
-      console.error('[FIREBASE-ADMIN] Erro V4:', error);
+      console.error('[AUTH-ADMIN] Internal Server Error:', error);
       return res.status(500).json({ 
         success: false, 
-        error: error.message || "Erro interno V4." 
+        error: error.message || "Ocorreu um erro interno ao processar a mudança de senha." 
       });
     }
   });
 
-  // Health check for V4
-  app.get("/api/admin/v4/ping", (req, res) => {
-    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V4-PING');
-    res.json({ status: "ok", version: "v4" });
+  // Health check for V5
+  app.get("/api/admin/v5/ping", (req, res) => {
+    res.setHeader('X-API-ROUTE', 'RESET-PASSWORD-V5-PING');
+    res.json({ status: "ok", version: "v5", engine: "supabase-admin" });
   });
 
-  // ===========================================================================
-  // 🚀 CRITICAL: OLD ADMIN ENDPOINTS (V3)
-  // ===========================================================================
-  app.post("/api/admin/v3/reset-password", async (req, res) => {
-    res.setHeader('X-API-Route', 'reset-password-v3');
-    res.setHeader('Content-Type', 'application/json');
-    console.log(`[FIREBASE-ADMIN] Request for password reset V3 reached. UID: ${req.body?.uid}`);
-    
-    const { uid, password } = req.body;
-    const authHeader = req.headers.authorization;
-
-    if (!uid || !password) {
-      return res.status(400).json({ success: false, error: "UID e nova senha são obrigatórios." });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, error: "A senha deve ter pelo menos 6 caracteres." });
-    }
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: "Não autorizado. Token de admin ausente." });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-
-    try {
-      const fbAuth = getAuth();
-      const decodedToken = await fbAuth.verifyIdToken(token);
-      
-      if (!decodedToken.admin) {
-        console.warn(`[FIREBASE-ADMIN] Tentativa não autorizada por: ${decodedToken.email}`);
-        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
-      }
-
-      await fbAuth.updateUser(uid, { password: password });
-      console.log(`[FIREBASE-ADMIN] Senha alterada para ${uid} por ${decodedToken.email}`);
-      
-      return res.json({ 
-        success: true, 
-        message: "Senha atualizada com sucesso." 
-      });
-    } catch (error: any) {
-      console.error('[FIREBASE-ADMIN] Erro:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message || "Erro interno do servidor." 
-      });
-    }
-  });
-
-  // Health check for admin API
-  app.get("/api/admin/v3/ping", (req, res) => {
-    res.json({ status: "ok", message: "Admin API V3 is reachable" });
-  });
 
   // ===========================================================================
   // API SECTION - ALL API ROUTES MUST BE DEFINED HERE
