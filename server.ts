@@ -141,52 +141,46 @@ async function startServer() {
 
   // --- START OF SHARE LOGIC ---
   const handleShareRequest = async (req: any, res: any, next: any) => {
-    const { id, type } = req.params;
     const userAgent = req.get('User-Agent') || '';
+    // Improved ID and type extraction
+    let id = (req.params.id || "").split('?')[0].split('#')[0].trim();
+    let type = (req.params.type || "").trim();
     
-    // Detect if it's a crawler
+    // Check if it's a crawler
     const isCrawler = CRAWLER_REGEX.test(userAgent);
     
     // Check if it's the root path (home)
-    const isHome = !type && (!id || id === 'undefined' || id === '/');
+    const isHome = (!type && (!id || id === 'undefined' || id === '/' || id === 'info')) || req.path === '/';
 
     // Official logo mapping for homepage
-    const OFFICIAL_LOGO_URL = ARENA_LOGO_IMAGE.startsWith('http') ? ARENA_LOGO_IMAGE : `https://${req.get('host')}${ARENA_LOGO_IMAGE}`;
+    const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const domain = `${protocol}://${host}`;
+    const OFFICIAL_LOGO_URL = ARENA_LOGO_IMAGE.startsWith('http') ? ARENA_LOGO_IMAGE : `${domain}${ARENA_LOGO_IMAGE}`;
 
     console.log(`[OG-TAGS] Request for id: ${id}, type: ${type} | Home: ${isHome} | Crawler: ${isCrawler} | UA: ${userAgent}`);
     
     // Skip OG logic for specific static assets and non-share APIs
-    // But ALLOW /api/share/info to proceed as it's handled by this logic
     const isShareApi = req.url.includes('/api/share/info');
     if ((req.url.startsWith('/api') && !isShareApi) || req.url.match(/\.(png|jpg|jpeg|gif|svg|ico|css|js|woff2?)$/i)) {
       return next();
     }
 
-    // Direct route detection (e.g. /post/:id) when used via browser and not explicitly via /api/share/info
-    let inferredType = type;
+    // Direct route detection (e.g. /post/:id) fallback
+    let inferredType = type.toLowerCase();
     let inferredId = id;
 
-    if (!type && id) {
-      let pathToCheck = req.path;
-      // Handle both API and direct routes for inference
-      if (pathToCheck.startsWith('/api/share/info/')) {
-        pathToCheck = pathToCheck.replace('/api/share/info/', '');
-      } else if (pathToCheck.startsWith('/share/')) {
-        pathToCheck = pathToCheck.replace('/share/', '');
-      } else if (pathToCheck.startsWith('/post/')) {
-        pathToCheck = pathToCheck.replace('/post/', 'post/');
-      }
-
-      const pathParts = pathToCheck.split('/').filter(Boolean);
-      if (pathParts.length >= 2) {
-        const pathType = pathParts[0];
-        const validTypes = ['post', 'clip', 'certificate', 'profile', 'user', 'athlete', 'fights', 'championship'];
-        if (validTypes.includes(pathType)) {
-          inferredType = pathType === 'user' || pathType === 'athlete' ? 'profile' : pathType;
-          inferredId = pathParts[1].split('?')[0].split('#')[0]; // Sanitize ID
-        }
-      } else if (pathParts.length === 1 && !inferredId) {
-        inferredId = pathParts[0].split('?')[0].split('#')[0];
+    if (!inferredType && inferredId) {
+      const pathToCheck = req.path.toLowerCase();
+      if (pathToCheck.includes('/post/')) inferredType = 'post';
+      else if (pathToCheck.includes('/clip/')) inferredType = 'clip';
+      else if (pathToCheck.includes('/certificate/')) inferredType = 'certificate';
+      else if (pathToCheck.includes('/profile/')) inferredType = 'profile';
+      
+      // Attempt to extract ID if it's embedded in the path but not in req.params
+      if (!inferredId || inferredId === 'info' || inferredId.length < 2) {
+         const parts = req.path.split('/').filter(Boolean);
+         inferredId = parts[parts.length - 1] || inferredId;
       }
     }
 
@@ -261,44 +255,44 @@ async function startServer() {
           const targetId = inferredId;
           
           if (targetType === 'post' || targetType === 'clip') {
-            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId);
-            
-            if (!isUuid && targetType === 'post') {
-              console.warn(`[OG-TAGS] Invalid UUID format for post: ${targetId}`);
-            }
+            const fetchPost = async (postId: string) => {
+              // Strategy A: profiles join
+              let res = await supabaseAdmin.from('posts').select('*, profiles(username, full_name, profile_photo, modality)').eq('id', postId).maybeSingle();
+              if (res.data) return { data: res.data, author: res.data.profiles };
+              
+              // Strategy B: usuarios join
+              res = await supabaseAdmin.from('posts').select('*, usuarios(nome, foto_url)').eq('id', postId).maybeSingle();
+              if (res.data) return { data: res.data, author: res.data.usuarios };
 
-            const { data: post, error: postError } = await supabaseAdmin
-              .from('posts')
-              .select('*, profiles(username, full_name, profile_photo, modality)')
-              .eq('id', targetId)
-              .single();
-            
-            if (postError) {
-              console.error(`[OG-TAGS] Error fetching post ${targetId}:`, postError);
-            }
+              // Strategy C: direct post
+              res = await supabaseAdmin.from('posts').select('*').eq('id', postId).maybeSingle();
+              return { data: res.data, author: null };
+            };
+
+            const { data: post, author } = await fetchPost(targetId);
 
             if (post) {
-              const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
-              
-              // Handle multiple images stored as JSON string in media_url or media_urls array
+              const p = Array.isArray(author) ? author[0] : author;
               let mainImage = post.media_url || (post.media_urls && post.media_urls[0]);
-              try {
-                if (mainImage && mainImage.startsWith('[')) {
+              
+              if (typeof mainImage === 'string' && mainImage.startsWith('[')) {
+                try {
                   const urls = JSON.parse(mainImage);
                   if (Array.isArray(urls)) mainImage = urls[0];
-                }
-              } catch (e) {}
+                } catch (e) {}
+              }
 
               cardData = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: post.content || (targetType === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+                athleteName: p?.full_name || p?.nome || 'Atleta Arena',
+                achievement: post.content || (targetType === 'clip' ? 'Veja este Clip na ArenaComp' : 'Veja este Post na ArenaComp'),
                 mainImageUrl: mainImage,
-                profilePhoto: profile?.profile_photo,
+                profilePhoto: p?.profile_photo || p?.foto_url || p?.avatar_url,
                 title: targetType === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
-                modality: profile?.modality || 'Arena'
+                modality: p?.modality || 'Arena'
               };
             }
-          } else if (targetType === 'profile') {
+          }
+ else if (targetType === 'profile') {
             const { data: profile } = await supabaseAdmin
               .from('profiles')
               .select('*')
@@ -314,131 +308,58 @@ async function startServer() {
                 modality: profile.modality || 'Arena'
               };
             }
-          } else if (targetType === 'certificate') {
-            const { data: cert } = await supabaseAdmin
-              .from('certificates')
-              .select('*, profiles(username, full_name, profile_photo, modality)')
-              .eq('id', targetId)
-              .single();
-            
-            if (cert) {
-              const profile = Array.isArray(cert.profiles) ? cert.profiles[0] : cert.profiles;
-              cardData = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `Certificado: ${cert.name}`,
-                mainImageUrl: cert.media_url,
-                profilePhoto: profile?.profile_photo,
-                title: 'Certificado ArenaComp',
-                modality: profile?.modality || 'Arena'
-              };
-            }
-          } else if (targetType === 'championship') {
-             const { data: champ } = await supabaseAdmin
-              .from('championship_results')
-              .select('*, profiles(username, full_name, profile_photo, modality)')
-              .eq('id', targetId)
-              .single();
-            
-            if (champ) {
-              const profile = Array.isArray(champ.profiles) ? champ.profiles[0] : champ.profiles;
-              cardData = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `${champ.resultado} no ${champ.championship_name || champ.evento}`,
-                mainImageUrl: champ.media_url,
-                profilePhoto: profile?.profile_photo,
-                title: 'Conquista ArenaComp',
-                modality: profile?.modality || 'Arena'
-              };
-            }
-          } else if (targetType === 'fight') {
-             const { data: fight } = await supabaseAdmin
-              .from('fights')
-              .select('*, profiles(username, full_name, profile_photo, modality)')
-              .eq('id', targetId)
-              .single();
-            
-            if (fight) {
-              const profile = Array.isArray(fight.profiles) ? fight.profiles[0] : fight.profiles;
-              cardData = {
-                athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: `Luta no ${fight.evento_nome || fight.evento}`,
-                mainImageUrl: fight.media_url,
-                profilePhoto: profile?.profile_photo,
-                title: 'Luta ArenaComp',
-                modality: profile?.modality || 'Arena'
-              };
-            }
-          } else if (targetType === 'ranking-atleta' || targetType === 'atleta' || targetType === 'ranking') {
-            const { data: profile } = await supabaseAdmin
-              .from('profiles')
-              .select('*')
-              .eq('id', targetId)
-              .single();
-            
+          } else if (targetType === 'certificate' || targetType === 'auto') {
+             const { data: cert } = await supabaseAdmin.from('certificates').select('*, profiles(full_name, profile_photo, avatar_url)').eq('id', targetId).maybeSingle();
+             if (cert) {
+               const p = Array.isArray(cert.profiles) ? cert.profiles[0] : cert.profiles;
+               cardData = {
+                 athleteName: p?.full_name || 'Atleta Arena',
+                 achievement: `Certificado: ${cert.name || 'Conquista Arena'}`,
+                 mainImageUrl: cert.media_url || cert.image_url,
+                 profilePhoto: p?.profile_photo || p?.avatar_url,
+                 title: 'Certificado ArenaComp',
+                 modality: 'Certificado'
+               };
+             }
+          } else if (targetType === 'profile' || targetType === 'user' || targetType === 'athlete' || targetType === 'auto') {
+            const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', targetId).maybeSingle();
             if (profile) {
-              const { count: rankCount } = await supabaseAdmin
-                .from('profiles')
-                .select('*', { count: 'exact', head: true })
-                .neq('role', 'admin')
-                .eq('perfil_publico', true)
-                .gt('arena_score', profile.arena_score || 0);
-
-              const rank = (rankCount || 0) + 1;
               cardData = {
                 athleteName: profile.full_name || 'Atleta Arena',
-                achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
+                achievement: 'Confira meu perfil na ArenaComp!',
                 mainImageUrl: profile.profile_photo || profile.avatar_url,
-                title: `${profile.full_name || 'Atleta'} no ranking ArenaComp`,
+                title: 'Perfil ArenaComp',
                 modality: profile.modality || 'Arena'
               };
             }
-          } else if (targetType === 'ranking-equipe' || targetType === 'equipe') {
-            // First try to find team in the teams table for the logo
-            const { data: teamData } = await supabaseAdmin
-              .from('teams')
-              .select('name, logo_url')
-              .or(`id.eq."${targetId}",name.eq."${targetId}"`)
-              .maybeSingle();
+          } else if (targetType === 'ranking-atleta' || targetType === 'atleta' || targetType === 'ranking') {
+            const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', targetId).maybeSingle();
+            if (profile) {
+              try {
+                const { count: rankCount } = await supabaseAdmin
+                  .from('profiles')
+                  .select('*', { count: 'exact', head: true })
+                  .neq('role', 'admin')
+                  .eq('perfil_publico', true)
+                  .gt('arena_score', profile.arena_score || 0);
 
-            const teamName = teamData?.name || targetId;
-            let logoUrl = teamData?.logo_url || null;
-            
-            const { data: teamProfiles } = await supabaseAdmin
-              .from('profiles')
-              .select('arena_score, team, team_id')
-              .or(`team_id.eq."${targetId}",team.eq."${targetId}"`);
-            
-            if (teamProfiles && teamProfiles.length > 0) {
-              const actualTeamName = teamProfiles[0].team || teamName;
-              const teamId = teamProfiles[0].team_id || actualTeamName;
-              
-              const { data: allRankings } = await supabaseAdmin.rpc('get_team_rankings');
-              let rank = 1;
-              if (allRankings) {
-                const sorted = allRankings.sort((a: any, b: any) => (b.total_score || 0) - (a.total_score || 0));
-                const idx = sorted.findIndex((t: any) => (t.team_id === teamId || t.team_name === actualTeamName));
-                if (idx !== -1) {
-                  rank = idx + 1;
-                  if (!logoUrl) logoUrl = sorted[idx].logo_url;
-                }
+                const rank = (rankCount || 0) + 1;
+                cardData = {
+                  athleteName: profile.full_name || 'Atleta Arena',
+                  achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
+                  mainImageUrl: profile.profile_photo || profile.avatar_url,
+                  title: `${profile.full_name || 'Atleta'} no ranking ArenaComp`,
+                  modality: profile.modality || 'Arena'
+                };
+              } catch (e) {
+                cardData = {
+                  athleteName: profile.full_name || 'Atleta Arena',
+                  achievement: `Confira meu desempenho no ranking ArenaComp!`,
+                  mainImageUrl: profile.profile_photo || profile.avatar_url,
+                  title: `${profile.full_name || 'Atleta'} no ArenaComp`,
+                  modality: profile.modality || 'Arena'
+                };
               }
-
-              cardData = {
-                athleteName: actualTeamName,
-                achievement: `Posição #${rank} no ranking. Veja agora no ArenaComp.`,
-                mainImageUrl: logoUrl,
-                title: `${actualTeamName} no ranking ArenaComp`,
-                modality: 'Equipe'
-              };
-            } else if (teamData) {
-               // If no profiles found but team exists
-               cardData = {
-                athleteName: teamName,
-                achievement: `Veja o ranking da equipe ${teamName} no ArenaComp.`,
-                mainImageUrl: logoUrl,
-                title: `${teamName} no ranking ArenaComp`,
-                modality: 'Equipe'
-              };
             }
           }
         }
@@ -447,7 +368,6 @@ async function startServer() {
         if (!cardData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inferredId)) {
           console.log(`[OG-TAGS] Still no cardData for UUID ${inferredId}, trying exhaustive lookup...`);
           
-          // Try post
           const { data: p } = await supabaseAdmin.from('posts').select('*, profiles(full_name, modality)').eq('id', inferredId).maybeSingle();
           if (p) {
             const prof = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
@@ -460,7 +380,6 @@ async function startServer() {
             };
           }
           
-          // Try certificate
           if (!cardData) {
             const { data: c } = await supabaseAdmin.from('certificates').select('*, profiles(full_name)').eq('id', inferredId).maybeSingle();
             if (c) {
@@ -478,10 +397,10 @@ async function startServer() {
       }
 
       if (!cardData && !isHome) {
-        console.warn(`[OG-TAGS] Could not find any data for share ID: ${id} | type: ${type} | inferred: ${inferredId}/${inferredType}`);
+        console.warn(`[OG-TAGS] Could not find any data for share ID: ${id} | type: ${type} | inferred: ${inferredId}`);
       }
     } catch (err) {
-      console.error("[OG-TAGS] Error loading data:", err);
+      console.error("[OG-TAGS] Internal lookup error:", err);
     }
 
     const athleteName = cardData?.athleteName || "Atleta";
@@ -497,11 +416,11 @@ async function startServer() {
     }
     
     // Robust Base URL detection - FORCE HTTPS for WhatsApp
-    const host = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
-    let baseUrl = `https://${host}`;
+    const currentHost = req.get('x-forwarded-host') || req.get('host') || 'www.arenacomp.com.br';
+    let baseUrl = `https://${currentHost}`;
     
     // Override with APP_URL if it seems correct for the current host
-    if (process.env.APP_URL && process.env.APP_URL.includes(host)) {
+    if (process.env.APP_URL && process.env.APP_URL.includes(currentHost)) {
       baseUrl = process.env.APP_URL.replace(/\/$/, '');
       if (!baseUrl.startsWith('https')) baseUrl = baseUrl.replace('http', 'https');
     }
