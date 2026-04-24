@@ -288,7 +288,9 @@ async function startServer() {
                 mainImageUrl: mainImage,
                 profilePhoto: p?.profile_photo || p?.foto_url || p?.avatar_url,
                 title: targetType === 'clip' ? 'Clip ArenaComp' : 'Post ArenaComp',
-                modality: p?.modality || 'Arena'
+                modality: p?.modality || 'Arena',
+                type: targetType,
+                realId: targetId
               };
             }
           }
@@ -318,7 +320,9 @@ async function startServer() {
                  mainImageUrl: cert.media_url || cert.image_url,
                  profilePhoto: p?.profile_photo || p?.avatar_url,
                  title: 'Certificado ArenaComp',
-                 modality: 'Certificado'
+                 modality: 'Certificado',
+                 type: 'certificate',
+                 realId: targetId
                };
              }
           } else if (targetType === 'profile' || targetType === 'user' || targetType === 'athlete' || targetType === 'auto') {

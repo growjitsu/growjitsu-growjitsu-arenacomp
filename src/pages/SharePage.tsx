@@ -78,46 +78,79 @@ export const SharePage = () => {
         }
 
         // 3. Fallback Final: Supabase direto no cliente (apenas se tudo mais falhar)
-        if (!data && type) {
-          console.log(`[SharePage] Fallback para Supabase direto para type: ${type}, id: ${id}`);
+        if (!data) {
+          const targetType = type || 'auto';
+          console.log(`[SharePage] Fallback para Supabase direto para type: ${targetType}, id: ${id}`);
           
-          if (type === 'atleta' || type === 'profile') {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', id)
-              .single();
-            
-            if (profile) {
-              data = {
-                athleteName: profile.full_name || 'Atleta Arena',
-                achievement: type === 'atleta' ? `Confira minha posição no Ranking ArenaComp!` : 'Confira meu perfil na ArenaComp!',
-                modality: profile.modality || 'Atleta',
-                date: new Date().toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${profile.username}`,
-                mainImageUrl: profile.profile_photo || profile.avatar_url,
-                type: type,
-                realId: id
-              };
-            }
-          } else if (type === 'post' || type === 'clip') {
-            const { data: post } = await supabase
+          if (targetType === 'post' || targetType === 'clip' || targetType === 'auto') {
+            // Tenta buscar post com profiles
+            let { data: post } = await supabase
               .from('posts')
               .select('*, profiles(username, full_name, profile_photo, modality)')
               .eq('id', id)
-              .single();
+              .maybeSingle();
             
+            // Se não achou com profiles, tenta busca direta ou com usuarios
+            if (!post) {
+               const { data: directPost } = await supabase.from('posts').select('*').eq('id', id).maybeSingle();
+               post = directPost;
+            }
+
             if (post) {
               const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
               data = {
                 athleteName: profile?.full_name || 'Atleta Arena',
-                achievement: post.content || (type === 'clip' ? 'Compartilhou um clip' : 'Compartilhou um post'),
+                achievement: post.content || (targetType === 'clip' ? 'Veja este Clip na ArenaComp' : 'Veja este Post na ArenaComp'),
                 modality: profile?.modality || 'Feed',
-                date: new Date(post.created_at).toLocaleDateString(),
-                profileUrl: `https://arenacomp.com.br/user/@${profile?.username}`,
+                date: post.created_at ? new Date(post.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+                profileUrl: profile?.username ? `https://arenacomp.com.br/user/@${profile.username}` : undefined,
                 mainImageUrl: post.media_url || (post.media_urls && post.media_urls[0]),
-                type: type,
+                type: targetType === 'auto' ? 'post' : targetType,
+                realId: id,
+                profilePhoto: profile?.profile_photo
+              };
+            }
+          }
+
+          if (!data && (targetType === 'profile' || targetType === 'atleta' || targetType === 'auto')) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            
+            if (profile) {
+              data = {
+                athleteName: profile.full_name || 'Atleta Arena',
+                achievement: 'Confira meu perfil na ArenaComp!',
+                modality: profile.modality || 'Atleta',
+                date: new Date().toLocaleDateString(),
+                profileUrl: `https://arenacomp.com.br/user/@${profile.username}`,
+                mainImageUrl: profile.profile_photo || profile.avatar_url,
+                type: 'profile',
                 realId: id
+              };
+            }
+          }
+
+          if (!data && (targetType === 'certificate' || targetType === 'auto')) {
+            const { data: cert } = await supabase
+              .from('certificates')
+              .select('*, profiles(full_name, profile_photo)')
+              .eq('id', id)
+              .maybeSingle();
+            
+            if (cert) {
+              const p = Array.isArray(cert.profiles) ? cert.profiles[0] : cert.profiles;
+              data = {
+                athleteName: p?.full_name || 'Atleta Arena',
+                achievement: `Certificado: ${cert.name}`,
+                modality: 'Conquista',
+                mainImageUrl: cert.media_url,
+                profilePhoto: p?.profile_photo,
+                type: 'certificate',
+                realId: id,
+                title: 'Certificado ArenaComp'
               };
             }
           }
