@@ -246,7 +246,15 @@ export const AdminAthletes: React.FC = () => {
         })
       });
 
-      const result = await response.json();
+      let result;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('Unexpected response format:', text);
+        throw new Error(`Erro inesperado do servidor (${response.status}).`);
+      }
       
       if (result.success) {
         alert('Senha atualizada com sucesso.');
