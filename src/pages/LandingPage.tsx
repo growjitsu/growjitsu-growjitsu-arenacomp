@@ -101,13 +101,33 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
         ...doc.data()
       })) as ArenaAd[];
 
+      const now = new Date();
       // Filter highlights more inclusively to match admin panel categories
       const filteredHighlights = adsData
-        .filter(ad => 
-          ad.type === 'destaques' || 
-          ad.type === 'landing' || 
-          (ad.placement && ad.placement.includes('landing_highlights'))
-        )
+        .filter(ad => {
+          // Type/Placement filtering
+          const matchesType = ad.type === 'destaques' || 
+                             ad.type === 'landing' || 
+                             (ad.placement && ad.placement.includes('landing_highlights'));
+          
+          if (!matchesType) return false;
+
+          // Date filtering
+          let isStarted = true;
+          let isNotEnded = true;
+          
+          if (ad.start_date) {
+            const startDate = ad.start_date.seconds ? new Date(ad.start_date.seconds * 1000) : new Date(ad.start_date);
+            isStarted = !isNaN(startDate.getTime()) && startDate <= now;
+          }
+          
+          if (ad.end_date) {
+            const endDate = ad.end_date.seconds ? new Date(ad.end_date.seconds * 1000) : new Date(ad.end_date);
+            isNotEnded = !isNaN(endDate.getTime()) && endDate >= now;
+          }
+          
+          return isStarted && isNotEnded;
+        })
         .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       setHighlights(filteredHighlights);
