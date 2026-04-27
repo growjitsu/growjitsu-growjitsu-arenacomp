@@ -40,6 +40,8 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
   const [cities, setCities] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   React.useEffect(() => {
     if (isCreatingTeam) {
@@ -422,6 +424,24 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setResetEmailSent(true);
+    } catch (err: any) {
+      console.error('[ERROR] Erro ao solicitar reset de senha:', err);
+      setError(err.message || 'Ocorreu um erro ao enviar o e-mail de recuperação.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -492,7 +512,74 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           transition={{ delay: 0.2 }}
           className="bg-[var(--surface)] border border-[var(--border-ui)] p-8 rounded-3xl space-y-6 shadow-2xl backdrop-blur-xl transition-colors duration-300"
         >
-          <form onSubmit={handleAuth} className="space-y-4">
+          {isForgotPassword ? (
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <h2 className="text-xl font-black uppercase italic tracking-tight text-[var(--text-main)]">Recuperar Senha</h2>
+                <p className="text-xs text-[var(--text-muted)] font-medium">Informe seu e-mail para receber as instruções de recuperação.</p>
+              </div>
+
+              {resetEmailSent ? (
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl space-y-3"
+                >
+                  <div className="flex items-center space-x-2 text-emerald-500">
+                    <CheckCircle2 size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">E-mail Enviado!</span>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] leading-relaxed font-medium">
+                    Se o e-mail <span className="text-[var(--text-main)] font-bold">{email}</span> estiver cadastrado, você receberá um link para redefinir sua senha em instantes.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsForgotPassword(false);
+                      setResetEmailSent(false);
+                    }}
+                    className="w-full py-2 text-[var(--primary)] text-[9px] font-black uppercase tracking-widest hover:underline"
+                  >
+                    Voltar para o Login
+                  </button>
+                </motion.div>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+                    <input
+                      type="email"
+                      placeholder="Seu E-mail"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-[var(--bg)]/50 border border-[var(--border-ui)] rounded-2xl py-3 pl-12 pr-4 text-sm text-[var(--text-main)] focus:border-[var(--primary)] outline-none transition-all"
+                      required
+                    />
+                  </div>
+
+                  {error && <p className="text-rose-500 text-[10px] font-bold uppercase tracking-widest text-center">{error}</p>}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-[var(--primary)] text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center space-x-2 hover:bg-[var(--primary-highlight)] transition-all disabled:opacity-50"
+                  >
+                    <span>{loading ? 'Processando...' : 'Enviar Link de Recuperação'}</span>
+                    {!loading && <ArrowRight size={16} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(false)}
+                    className="w-full py-2 text-[var(--text-main)] opacity-60 hover:opacity-100 text-[9px] font-black uppercase tracking-widest transition-colors"
+                  >
+                    Voltar para o Login
+                  </button>
+                </form>
+              )}
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <>
                 <div className="relative">
@@ -721,6 +808,21 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
                 </button>
               </div>
 
+              {isLogin && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError(null);
+                    }}
+                    className="text-[var(--text-main)] opacity-60 hover:opacity-100 text-[10px] font-bold uppercase tracking-tight transition-colors"
+                  >
+                    Esqueci minha senha?
+                  </button>
+                </div>
+              )}
+
               {!isLogin && (
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
@@ -761,14 +863,20 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
           {!isAdminLogin && (
             <div className="text-center">
               <button
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={() => {
+                  setIsLogin(!isLogin);
+                  setError(null);
+                  setIsForgotPassword(false);
+                }}
                 className="text-[var(--text-main)] opacity-60 hover:opacity-100 text-[10px] font-black uppercase tracking-widest transition-colors"
               >
                 {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Entre'}
               </button>
             </div>
           )}
-        </motion.div>
+        </>
+      )}
+    </motion.div>
 
         {/* Team Conflict Modal */}
         <AnimatePresence>

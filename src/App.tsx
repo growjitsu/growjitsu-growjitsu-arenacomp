@@ -29,6 +29,7 @@ import { AdminExport } from './components/Admin/AdminExport';
 import { AdminAds } from './components/Admin/AdminAds';
 import { AdminChallenges } from './components/Admin/AdminChallenges';
 import { LandingPage } from './pages/LandingPage';
+import { ResetPassword } from './pages/ResetPassword';
 import { TermsPage } from './pages/Institutional/TermsPage';
 import { PrivacyPage } from './pages/Institutional/PrivacyPage';
 import { CookiesPage } from './pages/Institutional/CookiesPage';
@@ -411,6 +412,7 @@ function AppContent() {
 
       <Routes>
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />
       <Route path="/home-public" element={<LandingPage />} />
       <Route path="/termos" element={<TermsPage />} />
