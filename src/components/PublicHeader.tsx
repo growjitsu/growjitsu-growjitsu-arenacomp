@@ -95,7 +95,7 @@ export const PublicHeader: React.FC = () => {
       {/* Center: Search */}
       <div 
         ref={searchRef}
-        className={`flex-1 flex justify-center px-4 transition-all duration-500 ${isSearchExpanded ? 'w-full md:max-w-2xl' : 'max-w-xs'}`}
+        className={`flex-1 flex justify-center px-4 transition-all duration-500 ${isSearchExpanded ? 'w-full md:max-w-2xl' : 'max-w-[40px] md:max-w-xs'}`}
       >
         <AnimatePresence mode="wait">
           {!isSearchExpanded ? (
@@ -105,9 +105,9 @@ export const PublicHeader: React.FC = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               onClick={() => setIsSearchExpanded(true)}
-              className="p-1.5 md:p-2.5 text-[var(--text-muted)] hover:text-blue-400 bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
+              className="md:hidden p-1.5 text-[var(--text-muted)] hover:text-blue-400 bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
             >
-              <Search className="w-4 h-4 md:w-5 md:h-5" />
+              <Search className="w-4 h-4" />
             </motion.button>
           ) : (
             <motion.div
@@ -212,7 +212,16 @@ export const PublicHeader: React.FC = () => {
       </div>
 
       {/* Right: Actions */}
-      <div className={`flex items-center space-x-1 md:space-x-4 shrink-0 ${isSearchExpanded ? 'hidden md:flex' : 'flex'}`}>
+      <div className={`flex items-center space-x-1 md:space-x-3 shrink-0 ${isSearchExpanded ? 'hidden md:flex' : 'flex'}`}>
+        {!isSearchExpanded && (
+          <button 
+            onClick={() => setIsSearchExpanded(true)}
+            className="hidden md:block p-2.5 text-[var(--text-muted)] hover:text-blue-400 bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
+          >
+            <Search className="w-5 h-5" />
+          </button>
+        )}
+
         <button 
           onClick={toggleTheme}
           className="p-1.5 md:p-2.5 text-[var(--text-muted)] hover:text-[var(--header-text)] bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
