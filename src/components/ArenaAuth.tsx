@@ -429,10 +429,15 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     setLoading(true);
     setError(null);
     try {
-      // In some preview environments, window.location.origin might be localhost even if accessed via a public URL.
-      // We try to ensure we use the most reliable path.
-      const currentOrigin = window.location.origin;
-      const redirectTo = `${currentOrigin}/reset-password`;
+      // Robust redirect detection for Production vs Preview
+      let redirectTo = 'https://www.arenacomp.com.br/reset-password';
+      
+      // If we are in the development/preview environment, we want to keep the current host
+      // but avoid "localhost" if the user is accessing via a public URL
+      const host = window.location.hostname;
+      if (host !== 'localhost' && !host.includes('127.0.0.1') && !host.includes('0.0.0.0')) {
+        redirectTo = `${window.location.origin}/reset-password`;
+      }
       
       console.log('[AUTH] Requesting password reset redirecting to:', redirectTo);
 

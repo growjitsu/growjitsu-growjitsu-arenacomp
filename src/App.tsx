@@ -106,6 +106,14 @@ function AppContent() {
     else if (['rankings', 'search', 'profile', 'settings', 'gyms', 'notifications'].includes(path)) setActiveTab(path);
   }, [location.pathname]);
 
+  // Detect Supabase recovery tokens in URL and redirect to reset page
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('recovery'))) {
+      navigate('/reset-password' + window.location.hash);
+    }
+  }, [navigate]);
+
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setIsInitializing(false);
