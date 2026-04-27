@@ -13,25 +13,31 @@ export const ResetPassword = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a recovery session
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        // If no session, wait a bit as it might be loading from URL
-        setTimeout(async () => {
-          const { data: { session: retrySession } } = await supabase.auth.getSession();
-          if (!retrySession) {
-             toast.error('Sessão expirada ou inválida. Solicite um novo link.');
-             // Small delay to let toast show
-             setTimeout(() => navigate('/login'), 3000);
+    // Supabase needs a moment to parse the hash fragment from the URL
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsReady(true);
+      } else if (session) {
+        // If we already have a session, assume it's valid for recovery if we just landed here
+        setIsReady(true);
+      } else {
+        // Wait a bit to be sure no recovery event is coming
+        const timer = setTimeout(() => {
+          if (!isReady) {
+            toast.error('Sessão expirada ou link inválido.');
+            setTimeout(() => navigate('/login'), 2000);
           }
-        }, 1000);
+        }, 3000);
+        return () => clearTimeout(timer);
       }
-    };
-    checkSession();
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const handleReset = async (e: React.FormEvent) => {
@@ -68,6 +74,17 @@ export const ResetPassword = () => {
       setLoading(false);
     }
   };
+
+  if (!isReady && !success) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] animate-pulse">Validando Protocolo...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (success) {
     return (

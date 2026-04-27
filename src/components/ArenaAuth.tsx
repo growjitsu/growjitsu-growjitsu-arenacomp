@@ -429,8 +429,15 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
     setLoading(true);
     setError(null);
     try {
+      // In some preview environments, window.location.origin might be localhost even if accessed via a public URL.
+      // We try to ensure we use the most reliable path.
+      const currentOrigin = window.location.origin;
+      const redirectTo = `${currentOrigin}/reset-password`;
+      
+      console.log('[AUTH] Requesting password reset redirecting to:', redirectTo);
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: redirectTo,
       });
       if (error) throw error;
       setResetEmailSent(true);
