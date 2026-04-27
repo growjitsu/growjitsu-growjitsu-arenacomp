@@ -231,12 +231,14 @@ export const AdminAthletes: React.FC = () => {
     setPasswordLoading(true);
     try {
       const user = auth.currentUser;
-      if (!user) throw new Error('Admin não autenticado.');
+      if (!user) {
+        throw new Error('Sessão de administrador não encontrada. Por favor, certifique-se de estar logado corretamente.');
+      }
       
       const token = await user.getIdToken();
-      
       const apiUrl = getApiUrl('/api/admin/v5/reset-password');
-      console.log(`[ADMIN] Solicitando reset de senha V5 para ${selectedAthlete.id} via ${apiUrl}`);
+      
+      console.log(`[ADMIN-AUTH] Token obtido. Solicitando reset para: ${selectedAthlete.id} via ${apiUrl}`);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -250,29 +252,33 @@ export const AdminAthletes: React.FC = () => {
         })
       });
 
-      console.log(`[ADMIN] Status da resposta: ${response.status} (${response.statusText})`);
+      console.log(`[ADMIN-AUTH] Status API: ${response.status} (${response.statusText})`);
 
-      let result;
       const contentType = response.headers.get("content-type");
+      let result;
+
       if (contentType && contentType.includes("application/json")) {
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error('Unexpected response format:', text);
-        throw new Error(`Erro inesperado do servidor (${response.status}). Verifique os logs do console.`);
+        console.error('[ADMIN-AUTH] Resposta não-JSON:', text);
+        
+        // Handle the specific 405 error message if it's in the text (though usually it's JSON now with my server change)
+        throw new Error(`Erro do servidor (${response.status}). Verifique a rota da API.`);
       }
       
       if (result.success) {
-        alert('Senha atualizada com sucesso.');
+        alert('Senha alterada com sucesso!');
         setIsPasswordModalOpen(false);
         setNewPassword('');
         setConfirmPassword('');
       } else {
-        throw new Error(result.error || 'Erro ao atualizar senha.');
+        console.error('[ADMIN-AUTH] API Error Result:', result);
+        throw new Error(result.message || result.error || 'Erro ao processar alteração de senha.');
       }
     } catch (error: any) {
-      console.error('Error resetting password:', error);
-      alert(error.message || 'Erro ao atualizar senha.');
+      console.error('[ADMIN-AUTH] Erro no reset de senha:', error);
+      alert(`Erro: ${error.message}`);
     } finally {
       setPasswordLoading(false);
     }

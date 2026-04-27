@@ -695,13 +695,12 @@ async function startServer() {
   });
 
   // ===========================================================================
-  // 🚀 CRITICAL: ISOLATED ADMIN API V5 (PRIORIDADE MÁXIMA)
+  // 🚀 CRITICAL: ISOLATED ADMIN API
   // ===========================================================================
   const adminV5Router = express.Router();
 
   adminV5Router.use((req, res, next) => {
     res.setHeader('X-API-ROUTE', 'admin-v5-isolated');
-    
     // Explicit CORS Preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -718,13 +717,13 @@ async function startServer() {
     res.json({ status: "ok", version: "v5", engine: "supabase-admin" });
   });
 
-  // Reset Password Logic
-  adminV5Router.post('/reset-password', async (req, res) => {
+  // Reset Password Logic (Reusable handler)
+  const handleAdminResetPassword = async (req: any, res: any) => {
     const uid = req.body.uid || req.body.userId || req.body.athleteId;
     const password = req.body.password || req.body.newPassword;
     const authHeader = req.headers.authorization;
 
-    console.log(`[AUTH-ADMIN] Reset Password V5 for ${uid}`);
+    console.log(`[AUTH-ADMIN] Reset Password V5 Request for UID: ${uid}`);
 
     if (!uid || !password) {
       return res.status(400).json({ success: false, error: "UID/ATHLETE_ID e senha são obrigatórios." });
@@ -752,36 +751,64 @@ async function startServer() {
         });
       }
 
+      console.log(`[AUTH-ADMIN] Alterando senha no Supabase para UUID: ${uid}`);
       const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, {
         password: password
       });
 
       if (updateError) {
-        console.error(`[AUTH-ADMIN] Supabase Admin Error:`, updateError);
-        return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
+        console.error(`[AUTH-ADMIN] Supabase Admin Error for UID ${uid}:`, updateError);
+        return res.status(updateError.status || 400).json({ 
+          success: false, 
+          error: updateError.message,
+          code: updateError.code
+        });
       }
 
-      console.log(`[AUTH-ADMIN] Success for athlete ID ${uid}`);
-      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
+      console.log(`[AUTH-ADMIN] Senha alterada com sucesso para UID: ${uid}`);
+      return res.status(200).json({ 
+        success: true, 
+        message: "Senha atualizada com sucesso!",
+        updatedAt: new Date().toISOString()
+      });
     } catch (error: any) {
       console.error('[AUTH-ADMIN] Internal error:', error);
-      return res.status(500).json({ success: false, error: error.message });
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || "Erro inesperado do servidor" 
+      });
     }
+  };
+
+  // Register methods in router
+  adminV5Router.post('/reset-password', handleAdminResetPassword);
+  adminV5Router.all('/reset-password', (req: any, res: any) => {
+    console.error(`[AUTH-ADMIN] Method Not Allowed in Router: ${req.method} ${req.url}`);
+    return res.status(405).json({ 
+      success: false, 
+      error: "Method Not Allowed", 
+      message: "Apenas POST é aceito nesta rota." 
+    });
   });
 
-  // 405 Catch for specific endpoints in router
-  adminV5Router.all('/reset-password', (req, res) => {
-    return res.status(405).json({ success: false, error: "Method Not Allowed", message: "Apenas POST é aceito nesta rota." });
-  });
-
-  // Mount router at multiple path versions for compatibility
+  // Mount router
   app.use('/api/admin/v5', adminV5Router);
   app.use('/api/admin/v4', adminV5Router);
-  app.use('/api/admin/v3', adminV5Router);
-  app.post('/api/admin/reset-password', (req, res, next) => {
-    req.url = '/reset-password';
-    adminV5Router(req, res, next);
-  });
+  
+  // DIRECT ROUTES (Bypassing router issues)
+  app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
+  app.post('/api/admin/reset-password', handleAdminResetPassword);
+  
+  // Catch-all 405 for direct legacy paths
+  const directMethodNotAllowed = (req: any, res: any) => {
+    return res.status(405).json({ 
+      success: false, 
+      error: "Method Not Allowed", 
+      message: "Apenas POST é aceito nesta rota para alteração de senha." 
+    });
+  };
+  app.all('/api/admin/v5/reset-password', directMethodNotAllowed);
+  app.all('/api/admin/reset-password', directMethodNotAllowed);
   // --- NEW: SHORT LINK CREATION API ---
   app.post("/api/share/create", (req, res) => {
     const { title, description, image, type } = req.body;
