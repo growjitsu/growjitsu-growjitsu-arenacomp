@@ -105,9 +105,9 @@ export const PublicHeader: React.FC = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
               onClick={() => setIsSearchExpanded(true)}
-              className="p-3 text-[var(--text-muted)] hover:text-blue-400 bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
+              className="p-1.5 md:p-2.5 text-[var(--text-muted)] hover:text-blue-400 bg-[var(--header-search-bg)] rounded-xl border border-[var(--header-border)] transition-all hover:scale-105 active:scale-95"
             >
-              <Search size={20} />
+              <Search className="w-4 h-4 md:w-5 md:h-5" />
             </motion.button>
           ) : (
             <motion.div
