@@ -230,15 +230,28 @@ export const AdminAthletes: React.FC = () => {
 
     setPasswordLoading(true);
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        throw new Error('Sessão de administrador não encontrada. Por favor, certifique-se de estar logado corretamente.');
+      // Determinar se o Admin está logado via Firebase ou Supabase
+      let token = '';
+      const fbUser = auth.currentUser;
+      
+      if (fbUser) {
+        console.log('[ADMIN-AUTH] Admin logado via Firebase.');
+        token = await fbUser.getIdToken();
+      } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('[ADMIN-AUTH] Admin logado via Supabase.');
+          token = session.access_token;
+        }
+      }
+
+      if (!token) {
+        throw new Error('Sessão de administrador não encontrada. Por favor, faça login novamente.');
       }
       
-      const token = await user.getIdToken();
-      const apiUrl = getApiUrl('/api/admin/v5/reset-password');
-      
-      console.log(`[ADMIN-AUTH] Token obtido. Solicitando reset para: ${selectedAthlete.id} via ${apiUrl}`);
+      // Use relative URL directly to avoid host mismatches and potential 405 redirects
+      const apiUrl = '/api/admin/v5/reset-password';
+      console.log(`[ADMIN-AUTH] Enviando POST para: ${apiUrl}`);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -252,7 +265,7 @@ export const AdminAthletes: React.FC = () => {
         })
       });
 
-      console.log(`[ADMIN-AUTH] Status API: ${response.status} (${response.statusText})`);
+      console.log(`[ADMIN-AUTH] Status API: ${response.status}`);
 
       const contentType = response.headers.get("content-type");
       let result;
