@@ -1017,14 +1017,27 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
                         )}
                         <div className="flex-1 text-center md:text-left">
-                          <div className="flex items-center justify-center md:justify-start space-x-2 mb-2">
-                            <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400">PATROCINADO</span>
-                            <div className="w-1 h-1 rounded-full bg-blue-500/40" />
-                            <span className="text-[8px] font-mono text-blue-400/60 uppercase">{ad.title}</span>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center justify-center md:justify-start space-x-2">
+                              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-blue-400">PATROCINADO</span>
+                              <div className="w-1 h-1 rounded-full bg-blue-500/40" />
+                              <span className="text-[8px] font-mono text-blue-400/60 uppercase line-clamp-1">{ad.title}</span>
+                            </div>
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleShareAd(ad);
+                              }}
+                              className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all translate-y-[-2px]"
+                              aria-label="Compartilhar anúncio"
+                            >
+                              <Share2 size={14} />
+                            </button>
                           </div>
                           <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic leading-tight">{ad.title}</h4>
                           <p className="text-xs text-gray-400 mb-4 line-clamp-2 leading-relaxed">{ad.content}</p>
-                          <div className="flex items-center justify-center md:justify-start space-x-4">
+                          <div className="flex items-center justify-center md:justify-start">
                             <a 
                               href={ad.link_url} 
                               target="_blank" 
@@ -1035,13 +1048,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                               <span>Saiba Mais</span>
                               <ChevronRight size={14} />
                             </a>
-                            <button 
-                              onClick={() => handleShareAd(ad)}
-                              className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
-                              aria-label="Compartilhar anúncio"
-                            >
-                              <Share2 size={16} />
-                            </button>
                             {topAds.length > 1 && (
                               <div className="flex space-x-1">
                                 {topAds.map((_, i) => (
@@ -1411,9 +1417,22 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                               <div className="flex items-center space-x-2">
                                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400">Patrocinado</span>
                                 <div className="w-1 h-1 rounded-full bg-blue-500/40" />
-                                <span className="text-[9px] font-mono text-blue-400/40 uppercase">{currentAd.title}</span>
+                                <span className="text-[9px] font-mono text-blue-400/40 uppercase line-clamp-1">{currentAd.title}</span>
                               </div>
-                              <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/promo:text-blue-400 transition-colors" />
+                              <div className="flex items-center space-x-2">
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleShareAd(currentAd);
+                                  }}
+                                  className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
+                                  aria-label="Compartilhar anúncio"
+                                >
+                                  <Share2 size={14} />
+                                </button>
+                                <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/promo:text-blue-400 transition-colors" />
+                              </div>
                             </div>
                             
                             <div className="flex flex-col md:flex-row gap-8 items-center">
@@ -1433,7 +1452,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 <p className="text-sm text-[var(--text-muted)] line-clamp-3 leading-relaxed">
                                   {currentAd.content}
                                 </p>
-                                <div className="flex items-center justify-center md:justify-start space-x-6">
+                                <div className="flex items-center justify-center md:justify-start">
                                   <a 
                                     href={currentAd.link_url} 
                                     target="_blank" 
@@ -1444,18 +1463,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                     <span>Saiba Mais</span>
                                     <ChevronRight size={16} />
                                   </a>
-                                  
-                                  <button 
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      handleShareAd(currentAd);
-                                    }}
-                                    className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
-                                    aria-label="Compartilhar anúncio"
-                                  >
-                                    <Share2 size={18} />
-                                  </button>
                                   
                                   {/* Rotation Indicator for In-Feed */}
                                   {inFeedAds.length > 1 && (
