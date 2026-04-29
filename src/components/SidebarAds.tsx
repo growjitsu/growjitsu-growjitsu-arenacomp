@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ExternalLink, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ExternalLink, ChevronRight, ChevronLeft, Share2 } from 'lucide-react';
 import { ArenaAd, ArenaProfile } from '../types';
 import { trackAdEvent } from '../services/adService';
 
 interface SidebarAdsProps {
   ads: ArenaAd[];
   userProfile?: ArenaProfile | null;
+  onShareAd?: (ad: ArenaAd) => void;
 }
 
-export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
+export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile, onShareAd }) => {
   const sidebarAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('sidebar'));
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -121,7 +122,21 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile }) => {
                 <span className="px-3 py-1 rounded-full bg-[var(--primary)]/10 border border-[var(--primary)]/20 text-[9px] font-black uppercase tracking-widest text-[var(--primary)]">
                   Ver Detalhes
                 </span>
-                <ExternalLink size={14} className="text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
+                <div className="flex items-center space-x-2">
+                  {onShareAd && (
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onShareAd(currentAd);
+                      }}
+                      className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-white/10 transition-all"
+                    >
+                      <Share2 size={14} />
+                    </button>
+                  )}
+                  <ExternalLink size={14} className="text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
+                </div>
               </div>
             </div>
           </a>

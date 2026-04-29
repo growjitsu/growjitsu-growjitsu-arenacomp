@@ -161,6 +161,35 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     setCurrentInFeedAdIndex(prev => (prev + 1) % inFeedAds.length);
   };
 
+  const handleShareAd = async (ad: ArenaAd) => {
+    const shareUrl = `${window.location.origin}/ad/${ad.id}`;
+    const mainImg = ad.landing_image || ad.media_url_feed_top || ad.media_url_feed_between || ad.media_url_sidebar || ad.media_url;
+    
+    setShareModalData({
+      title: 'Patrocinado: ' + ad.title,
+      subtitle: ad.content || 'Confira esta oferta na ArenaComp!',
+      url: shareUrl,
+      imageUrl: mainImg,
+      onGenerate: () => {
+        const cardData: CardData = {
+          title: ad.title,
+          description: ad.content || 'Confira esta oferta na ArenaComp!',
+          image: mainImg,
+          type: 'post', // Reuse post layout for ads
+          athleteName: 'ArenaComp',
+          achievement: 'Patrocinado',
+          modality: 'Parceiro',
+          date: new Date().toLocaleDateString(),
+          realId: ad.id,
+          mainImageUrl: mainImg
+        };
+        setAchievementData(cardData);
+        setIsAchievementCardOpen(true);
+      }
+    });
+    setIsShareModalOpen(true);
+  };
+
   // Rotation for In-Feed Ads
   useEffect(() => {
     const inFeedAds = ads.filter(ad => (ad.placement || '').toLowerCase().includes('feed_between'));
@@ -1006,6 +1035,13 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                               <span>Saiba Mais</span>
                               <ChevronRight size={14} />
                             </a>
+                            <button 
+                              onClick={() => handleShareAd(ad)}
+                              className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
+                              aria-label="Compartilhar anúncio"
+                            >
+                              <Share2 size={16} />
+                            </button>
                             {topAds.length > 1 && (
                               <div className="flex space-x-1">
                                 {topAds.map((_, i) => (
@@ -1409,6 +1445,18 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                     <ChevronRight size={16} />
                                   </a>
                                   
+                                  <button 
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleShareAd(currentAd);
+                                    }}
+                                    className="p-3.5 rounded-2xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
+                                    aria-label="Compartilhar anúncio"
+                                  >
+                                    <Share2 size={18} />
+                                  </button>
+                                  
                                   {/* Rotation Indicator for In-Feed */}
                                   {inFeedAds.length > 1 && (
                                     <div className="hidden md:flex items-center space-x-1.5">
@@ -1460,7 +1508,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
             {/* Right Column - Sidebar Ads (Desktop Only) */}
             <div className="hidden lg:block lg:col-span-4">
-              <SidebarAds ads={ads} userProfile={userProfile} />
+              <SidebarAds ads={ads} userProfile={userProfile} onShareAd={handleShareAd} />
             </div>
           </div>
         </div>
