@@ -57,6 +57,30 @@
         "foto": { "type": "string" },
         "tipo": { "type": "string", "enum": ["atleta", "nao_atleta"] }
       }
+    },
+    "arena_ad": {
+      "title": "Arena Ad",
+      "description": "An advertisement displayed in various parts of the application.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "media_url": { "type": "string" },
+        "link_url": { "type": "string" },
+        "placement": { "type": "string" },
+        "active": { "type": "boolean" },
+        "order": { "type": "number" },
+        "total_impressions": { "type": "number" },
+        "total_clicks": { "type": "number" },
+        "landing_enabled": { "type": "boolean" },
+        "landing_title": { "type": "string" },
+        "landing_description": { "type": "string" },
+        "landing_image": { "type": "string" },
+        "landing_cta_text": { "type": "string" },
+        "landing_cta_url": { "type": "string" },
+        "landing_layout": { "type": "string", "enum": ["simple", "highlight", "premium"] }
+      }
     }
   },
   "firestore": {
@@ -71,6 +95,10 @@
     "/users/{userId}": {
       "schema": "user",
       "description": "Collection of user profiles for mandatory completion check."
+    },
+    "/arena_ads/{adId}": {
+      "schema": "arena_ad",
+      "description": "Collection of advertisements and landing pages."
     }
   }
 }

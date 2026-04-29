@@ -170,6 +170,13 @@ export interface ArenaAd {
   city?: string;
   display_time?: number;
   created_at: string;
+  landing_enabled?: boolean;
+  landing_title?: string;
+  landing_description?: string;
+  landing_image?: string;
+  landing_cta_text?: string;
+  landing_cta_url?: string;
+  landing_layout?: 'simple' | 'highlight' | 'premium';
 }
 
 export interface ArenaPost {

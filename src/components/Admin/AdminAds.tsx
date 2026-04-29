@@ -97,7 +97,14 @@ export const AdminAds: React.FC = () => {
     city: '',
     country_id: '',
     state_id: '',
-    city_id: ''
+    city_id: '',
+    landing_enabled: false,
+    landing_title: '',
+    landing_description: '',
+    landing_image: '',
+    landing_cta_text: 'SAIBA MAIS',
+    landing_cta_url: '',
+    landing_layout: 'simple' as 'simple' | 'highlight' | 'premium'
   });
 
   const [feedFiles, setFeedFiles] = useState<{ [key: string]: File | null }>({
@@ -106,7 +113,8 @@ export const AdminAds: React.FC = () => {
     feed_between: null,
     sidebar: null,
     profile: null,
-    landing_highlights: null
+    landing_highlights: null,
+    landing_image: null
   });
 
   const [feedPreviews, setFeedPreviews] = useState<{ [key: string]: string }>({
@@ -115,7 +123,8 @@ export const AdminAds: React.FC = () => {
     feed_between: '',
     sidebar: '',
     profile: '',
-    landing_highlights: ''
+    landing_highlights: '',
+    landing_image: ''
   });
 
   useEffect(() => {
@@ -609,7 +618,8 @@ export const AdminAds: React.FC = () => {
       feed_between: null,
       sidebar: null,
       profile: null,
-      landing_highlights: null
+      landing_highlights: null,
+      landing_image: null
     });
     
     if (ad) {
@@ -620,7 +630,8 @@ export const AdminAds: React.FC = () => {
         feed_between: ad.media_url_feed_between || '',
         sidebar: ad.media_url_sidebar || '',
         profile: ad.media_url_profile || '',
-        landing_highlights: ad.media_url_landing_highlights || ''
+        landing_highlights: ad.media_url_landing_highlights || '',
+        landing_image: ad.landing_image || ''
       });
       setFeedFormData({
         title: ad.title,
@@ -644,7 +655,14 @@ export const AdminAds: React.FC = () => {
         city: ad.city || '',
         country_id: ad.country_id || '',
         state_id: ad.state_id || '',
-        city_id: ad.city_id || ''
+        city_id: ad.city_id || '',
+        landing_enabled: ad.landing_enabled || false,
+        landing_title: ad.landing_title || '',
+        landing_description: ad.landing_description || '',
+        landing_image: ad.landing_image || '',
+        landing_cta_text: ad.landing_cta_text || 'SAIBA MAIS',
+        landing_cta_url: ad.landing_cta_url || '',
+        landing_layout: ad.landing_layout || 'simple'
       });
       if (ad.country_id) fetchStates(ad.country_id);
       if (ad.state_id) fetchCities(ad.state_id);
@@ -680,7 +698,14 @@ export const AdminAds: React.FC = () => {
         city: '',
         country_id: '',
         state_id: '',
-        city_id: ''
+        city_id: '',
+        landing_enabled: false,
+        landing_title: '',
+        landing_description: '',
+        landing_image: '',
+        landing_cta_text: 'SAIBA MAIS',
+        landing_cta_url: '',
+        landing_layout: 'simple'
       });
       setStates([]);
       setCities([]);
@@ -770,6 +795,7 @@ export const AdminAds: React.FC = () => {
       let finalMediaUrlSidebar = feedFormData.media_url_sidebar;
       let finalMediaUrlProfile = feedFormData.media_url_profile;
       let finalMediaUrlLandingHighlights = feedFormData.media_url_landing_highlights;
+      let finalLandingImage = feedFormData.landing_image;
 
       // Upload main media if exists
       if (feedFiles.main) {
@@ -792,6 +818,9 @@ export const AdminAds: React.FC = () => {
       if (feedFiles.landing_highlights) {
         finalMediaUrlLandingHighlights = await uploadImage(feedFiles.landing_highlights, 'feed_ads/landing_highlights');
       }
+      if (feedFiles.landing_image) {
+        finalLandingImage = await uploadImage(feedFiles.landing_image, 'feed_ads/landing_pages');
+      }
 
       const dataToSave = {
         ...feedFormData,
@@ -802,6 +831,7 @@ export const AdminAds: React.FC = () => {
         media_url_sidebar: finalMediaUrlSidebar,
         media_url_profile: finalMediaUrlProfile,
         media_url_landing_highlights: finalMediaUrlLandingHighlights,
+        landing_image: finalLandingImage,
         start_date: feedFormData.start_date ? new Date(feedFormData.start_date) : null,
         end_date: feedFormData.end_date ? new Date(feedFormData.end_date) : null,
         // Garantir que campos vazios de localização sejam salvos como null
@@ -1773,6 +1803,139 @@ export const AdminAds: React.FC = () => {
                       })}
                     </div>
                   </div>
+                </div>
+
+                <div className="space-y-6 pt-4 border-t border-white/10 mt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-black uppercase italic tracking-tight text-white">Landing Page Dinâmica</h4>
+                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Habilitar página exclusiva para este anúncio</p>
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={() => setFeedFormData({ ...feedFormData, landing_enabled: !feedFormData.landing_enabled })}
+                      className={`w-12 h-6 rounded-full transition-all relative ${feedFormData.landing_enabled ? 'bg-blue-600' : 'bg-gray-700'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${feedFormData.landing_enabled ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {feedFormData.landing_enabled && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-6 bg-white/[0.02] p-6 rounded-3xl border border-white/5"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título da Landing</label>
+                          <input 
+                            type="text"
+                            value={feedFormData.landing_title}
+                            onChange={(e) => setFeedFormData({ ...feedFormData, landing_title: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
+                            placeholder="Título impactante..."
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Layout da Página</label>
+                          <select 
+                            value={feedFormData.landing_layout}
+                            onChange={(e) => setFeedFormData({ ...feedFormData, landing_layout: e.target.value as any })}
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all appearance-none"
+                          >
+                            <option value="simple">Simples (Clean)</option>
+                            <option value="highlight">Destaque (Vertical)</option>
+                            <option value="premium">Premium (Full Experience)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Descrição Detalhada</label>
+                        <textarea 
+                          value={feedFormData.landing_description}
+                          onChange={(e) => setFeedFormData({ ...feedFormData, landing_description: e.target.value })}
+                          className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all h-24 resize-none"
+                          placeholder="Fale mais sobre a oferta ou evento..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Texto do Botão (CTA)</label>
+                          <input 
+                            type="text"
+                            value={feedFormData.landing_cta_text}
+                            onChange={(e) => setFeedFormData({ ...feedFormData, landing_cta_text: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
+                            placeholder="Ex: QUERO ME INSCREVER"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">URL do Botão (Opcional)</label>
+                          <input 
+                            type="url"
+                            value={feedFormData.landing_cta_url}
+                            onChange={(e) => setFeedFormData({ ...feedFormData, landing_cta_url: e.target.value })}
+                            className="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-3 text-sm text-white focus:outline-none focus:border-blue-500 transition-all"
+                            placeholder="https://..."
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Imagem da Landing (Opcional)</label>
+                        <div className="relative group">
+                          <input 
+                            type="file"
+                            id="landing-image-upload"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => handleFeedFileChange(e, 'landing_image')}
+                          />
+                          <label 
+                            htmlFor="landing-image-upload"
+                            className="flex flex-col items-center justify-center w-full h-24 bg-black/40 border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/5 transition-all"
+                          >
+                            <Upload size={18} className="text-gray-500 mb-2" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                              {feedFiles.landing_image ? feedFiles.landing_image.name : 'Upload Imagem Landing'}
+                            </span>
+                          </label>
+                        </div>
+                        {feedPreviews.landing_image && (
+                          <div className="mt-2 relative w-32 h-20 rounded-xl overflow-hidden border border-white/10">
+                            <img src={feedPreviews.landing_image} className="w-full h-full object-cover" />
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                setFeedPreviews(prev => ({ ...prev, landing_image: '' }));
+                                setFeedFiles(prev => ({ ...prev, landing_image: null }));
+                                setFeedFormData(prev => ({ ...prev, landing_image: '' }));
+                              }}
+                              className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-rose-500 transition-colors"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        )}
+                        {editingFeedAd && (
+                          <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
+                            <div className="flex items-start space-x-3">
+                              <Eye size={16} className="text-blue-500 shrink-0 mt-0.5" />
+                              <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">URL da Landing</p>
+                                <p className="text-[9px] font-bold text-gray-400 break-all select-all">
+                                  {`${window.location.origin}/ad/${editingFeedAd.id}`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

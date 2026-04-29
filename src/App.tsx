@@ -30,6 +30,7 @@ import { AdminAds } from './components/Admin/AdminAds';
 import { AdminChallenges } from './components/Admin/AdminChallenges';
 import { LandingPage } from './pages/LandingPage';
 import { ResetPassword } from './pages/ResetPassword';
+import { AdLanding } from './pages/AdLanding';
 import { TermsPage } from './pages/Institutional/TermsPage';
 import { PrivacyPage } from './pages/Institutional/PrivacyPage';
 import { CookiesPage } from './pages/Institutional/CookiesPage';
@@ -422,6 +423,7 @@ function AppContent() {
       <Route path="/login" element={isLoggedIn ? <Navigate to="/" replace /> : <ArenaAuth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={isLoggedIn ? renderLayout(<ArenaFeed userProfile={profile} />, 'feed') : <LandingPage />} />
+      <Route path="/ad/:id" element={<AdLanding />} />
       <Route path="/home-public" element={<LandingPage />} />
       <Route path="/termos" element={<TermsPage />} />
       <Route path="/privacidade" element={<PrivacyPage />} />
