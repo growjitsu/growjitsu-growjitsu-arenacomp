@@ -130,9 +130,10 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile, onShar
                         e.stopPropagation();
                         onShareAd(currentAd);
                       }}
-                      className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-white/10 transition-all"
+                      className="p-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-white hover:bg-blue-500/30 transition-all hover:scale-110 shadow-[0_0_10px_-2px_rgba(59,130,246,0.5)] active:scale-95"
+                      title="Compartilhar Anúncio"
                     >
-                      <Share2 size={14} />
+                      <Share2 size={12} className="drop-shadow-[0_0_5px_rgba(59,130,246,0.6)]" />
                     </button>
                   )}
                   <ExternalLink size={14} className="text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />

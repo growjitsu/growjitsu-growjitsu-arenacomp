@@ -1029,10 +1029,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 e.stopPropagation();
                                 handleShareAd(ad);
                               }}
-                              className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all translate-y-[-2px]"
-                              aria-label="Compartilhar anúncio"
+                              className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-white hover:bg-blue-500/30 transition-all hover:scale-110 shadow-[0_0_15px_-3px_rgba(59,130,246,0.3)] active:scale-95"
+                              title="Compartilhar Anúncio"
                             >
-                              <Share2 size={14} />
+                              <Share2 size={14} className="drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                             </button>
                           </div>
                           <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic leading-tight">{ad.title}</h4>
@@ -1426,10 +1426,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                     e.stopPropagation();
                                     handleShareAd(currentAd);
                                   }}
-                                  className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all"
-                                  aria-label="Compartilhar anúncio"
+                                  className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:text-white hover:bg-blue-500/30 transition-all hover:scale-110 shadow-[0_0_15px_-3px_rgba(59,130,246,0.3)] active:scale-95"
+                                  title="Compartilhar Anúncio"
                                 >
-                                  <Share2 size={14} />
+                                  <Share2 size={14} className="drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                                 </button>
                                 <ExternalLink size={14} className="text-[var(--text-muted)] group-hover/promo:text-blue-400 transition-colors" />
                               </div>
