@@ -11,6 +11,10 @@ import chromium from '@sparticuz/chromium-min';
 import dotenv from "dotenv";
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import nodemailer from "nodemailer";
+import CryptoJS from "crypto-js";
+import { v4 as uuidv4 } from 'uuid';
 import firebaseConfig from './firebase-applet-config.json';
 
 // Load environment variables
@@ -62,6 +66,36 @@ try {
 } catch (error) {
   console.error('[FIREBASE-ADMIN] Erro ao inicializar SDK:', error);
 }
+
+const firestore = getFirestore();
+const ENCRYPTION_KEY = process.env.EMAIL_ENCRYPTION_KEY || 'arena-comp-secure-key-2024';
+
+// Helper to encrypt/decrypt SMTP passwords
+const encryptPassword = (password: string) => {
+  return CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+};
+
+const decryptPassword = (ciphertext: string) => {
+  const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+  return bytes.toString(CryptoJS.enc.Utf8);
+};
+
+// Helper to get SMTP settings from Firestore
+const getSmtpSettings = async () => {
+  const settingsDoc = await firestore.collection('settings').doc('email').get();
+  if (!settingsDoc.exists) return null;
+  const data = settingsDoc.data();
+  if (!data) return null;
+  
+  return {
+    host: data.smtp_host,
+    port: data.smtp_port,
+    user: data.smtp_user,
+    pass: decryptPassword(data.smtp_password),
+    fromEmail: data.smtp_from_email,
+    fromName: data.smtp_from_name
+  };
+};
 
 const db = new Database("arenacomp.db");
 
@@ -1869,6 +1903,241 @@ async function startServer() {
   // POST Ping for connectivity test
   app.post("/api/ping", (req, res) => {
     res.json({ success: true, message: "POST reached server successfully" });
+  });
+
+  // ===========================================================================
+  // 📧 EMAIL SYSTEM API
+  // ===========================================================================
+
+  // Helper to check if user is admin via custom claims
+  const checkAdmin = async (req: any, res: any, next: any) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const token = authHeader.split('Bearer ')[1];
+    try {
+      const decodedToken = await getAuth().verifyIdToken(token);
+      if (decodedToken.admin || decodedToken.email === 'carlos.atila001@gmail.com' || decodedToken.email === 'admin@arenacomp.com.br') {
+        req.user = decodedToken;
+        next();
+      } else {
+        res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+    } catch (error) {
+      res.status(401).json({ error: 'Unauthorized' });
+    }
+  };
+
+  // 1. SMTP Settings Management
+  app.get("/api/admin/email-settings", checkAdmin, async (req, res) => {
+    try {
+      const settingsDoc = await firestore.collection('settings').doc('email').get();
+      if (!settingsDoc.exists) {
+        return res.json({ success: true, data: null });
+      }
+      const data = settingsDoc.data() || {};
+      // Never return the password
+      const { smtp_password, ...safeData } = data;
+      res.json({ success: true, data: safeData });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post("/api/admin/email-settings", checkAdmin, async (req, res) => {
+    try {
+      const { smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_from_name } = req.body;
+      
+      const updateData: any = {
+        smtp_host,
+        smtp_port: Number(smtp_port),
+        smtp_user,
+        smtp_from_email,
+        smtp_from_name,
+        updated_at: FieldValue.serverTimestamp()
+      };
+
+      // Only update password if provided
+      if (smtp_password) {
+        updateData.smtp_password = encryptPassword(smtp_password);
+      }
+
+      await firestore.collection('settings').doc('email').set(updateData, { merge: true });
+      res.json({ success: true, message: "Configurações de e-mail atualizadas." });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 2. Email Blast API
+  app.post("/api/admin/send-email", checkAdmin, async (req, res) => {
+    try {
+      const { recipients, subject, body } = req.body;
+      
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ error: "No recipients provided" });
+      }
+
+      const smtp = await getSmtpSettings();
+      if (!smtp) {
+        return res.status(400).json({ error: "Servidor SMTP não configurado." });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: smtp.host,
+        port: smtp.port,
+        secure: smtp.port === 465,
+        auth: {
+          user: smtp.user,
+          pass: smtp.pass
+        }
+      });
+
+      // Controlled batch sending
+      const batchSize = 10;
+      const results = { sent: 0, failed: 0, total: recipients.length };
+
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const batch = recipients.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (recipient: string) => {
+          try {
+            await transporter.sendMail({
+              from: `"${smtp.fromName}" <${smtp.fromEmail}>`,
+              to: recipient,
+              subject: subject,
+              html: body
+            });
+            results.sent++;
+          } catch (err) {
+            console.error(`Failed to send email to ${recipient}:`, err);
+            results.failed++;
+          }
+        }));
+
+        // Delay between batches to avoid spam detection
+        if (i + batchSize < recipients.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      res.json({ success: true, data: results });
+    } catch (error: any) {
+      console.error("[EMAIL-BLAST]", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // 3. Email Verification Flow
+  app.post("/api/email/request-verification", async (req, res) => {
+    try {
+      const { userId, email } = req.body;
+      if (!userId || !email) {
+        return res.status(400).json({ error: "Missing userId or email" });
+      }
+
+      const token = uuidv4();
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + 24); // 24h expiration
+
+      await firestore.collection('email_verifications').doc(token).set({
+        user_id: userId,
+        email: email,
+        token: token,
+        expires_at: Timestamp.fromDate(expiresAt),
+        used: false,
+        created_at: FieldValue.serverTimestamp()
+      });
+
+      const smtp = await getSmtpSettings();
+      if (!smtp) {
+        console.warn("SMTP not configured, skipping email but token created.");
+        return res.json({ success: true, token, message: "Token criado, mas SMTP não configurado." });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: smtp.host,
+        port: smtp.port,
+        secure: smtp.port === 465,
+        auth: {
+          user: smtp.user,
+          pass: smtp.pass
+        }
+      });
+
+      const confirmUrl = `${req.body.baseUrl || 'https://arenacomp.com.br'}/confirm-email?token=${token}`;
+      
+      await transporter.sendMail({
+        from: `"${smtp.fromName}" <${smtp.fromEmail}>`,
+        to: email,
+        subject: "Confirme seu e-mail na ArenaComp",
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <img src="https://arenacomp.com.br/logo-arenacomp.jpg" alt="ArenaComp" style="height: 60px;">
+            </div>
+            <h2 style="color: #111827; text-align: center;">Bem-vindo à ArenaComp!</h2>
+            <p style="color: #4b5563; font-size: 16px; line-height: 1.5; text-align: center;">
+              Falta pouco para você liberar todos os recursos da maior plataforma de Jiu-Jitsu do Brasil. Clique no botão abaixo para confirmar seu e-mail:
+            </p>
+            <div style="text-align: center; margin-top: 30px; margin-bottom: 30px;">
+              <a href="${confirmUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block;">
+                Confirmar meu e-mail
+              </a>
+            </div>
+            <p style="color: #9ca3af; font-size: 12px; text-align: center;">
+              Se você não solicitou este e-mail, pode desconsiderá-lo.<br>
+              Este link expira em 24 horas.
+            </p>
+          </div>
+        `
+      });
+
+      res.json({ success: true, message: "E-mail de confirmação enviado." });
+    } catch (error: any) {
+      console.error("[EMAIL-VERIFICATION-REQUEST]", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get("/api/email/confirm", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: "Token inválido." });
+      }
+
+      const verificationDoc = await firestore.collection('email_verifications').doc(token).get();
+      if (!verificationDoc.exists) {
+        return res.status(404).json({ error: "Token não encontrado." });
+      }
+
+      const verification = verificationDoc.data()!;
+      if (verification.used) {
+        return res.status(400).json({ error: "Este link já foi utilizado." });
+      }
+
+      if (verification.expires_at.toDate() < new Date()) {
+        return res.status(400).json({ error: "Este link expirou." });
+      }
+
+      // Mark as verified in users collection
+      await firestore.collection('users').doc(verification.user_id).set({
+        email_verified: true,
+        updated_at: FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // Mark token as used
+      await firestore.collection('email_verifications').doc(token).update({
+        used: true
+      });
+
+      res.json({ success: true, message: "E-mail confirmado com sucesso!" });
+    } catch (error: any) {
+      console.error("[EMAIL-CONFIRMATION]", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // 0.5. CATCH-ALL FOR API - MUST BE AFTER ALL SPECIFIC API ROUTES

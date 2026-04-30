@@ -28,7 +28,9 @@ import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { AdminAds } from './components/Admin/AdminAds';
 import { AdminChallenges } from './components/Admin/AdminChallenges';
+import { AdminEmails } from './components/Admin/AdminEmails';
 import { LandingPage } from './pages/LandingPage';
+import { ConfirmEmail } from './pages/ConfirmEmail';
 import { ResetPassword } from './pages/ResetPassword';
 import { AdLanding } from './pages/AdLanding';
 import { TermsPage } from './pages/Institutional/TermsPage';
@@ -36,10 +38,10 @@ import { PrivacyPage } from './pages/Institutional/PrivacyPage';
 import { CookiesPage } from './pages/Institutional/CookiesPage';
 import { Logo } from './components/Logo';
 import { ArenaProfile } from './types';
-import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
+import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy, Mail, Loader2 } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { ProfileProvider, useProfile } from './context/ProfileContext';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
   const { userId, username, id } = useParams();
@@ -88,9 +90,38 @@ function AppContent() {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
+  const [isRequestingEmail, setIsRequestingEmail] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+
+  const handleRequestVerification = async () => {
+    if (!profile?.id || !profile?.email) return;
+    
+    setIsRequestingEmail(true);
+    try {
+      const response = await fetch('/api/email/request-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userId: profile.id, 
+          email: profile.email,
+          baseUrl: window.location.origin
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        toast.success('E-mail de confirmação enviado! Verifique sua caixa de entrada.');
+      } else {
+        toast.error('Erro ao enviar e-mail: ' + data.error);
+      }
+    } catch (error) {
+      toast.error('Erro de conexão ao solicitar verificação.');
+    } finally {
+      setIsRequestingEmail(false);
+    }
+  };
 
   useEffect(() => {
     // Close profile menu on navigation
@@ -351,6 +382,37 @@ function AppContent() {
             </React.Fragment>
           )}
         </AnimatePresence>
+        
+        {isLoggedIn && profile && !profile.email_verified && profile.role !== 'admin' && (
+          <div className="fixed top-20 left-0 right-0 md:left-24 z-30 px-6 py-2">
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-blue-600 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-white/20"
+            >
+              <div className="flex items-center space-x-3 text-white">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1">Ação Requerida</p>
+                  <p className="text-xs font-bold opacity-90">Confirme seu e-mail para liberar todos os recursos da ArenaComp.</p>
+                </div>
+              </div>
+              <button
+                onClick={handleRequestVerification}
+                disabled={isRequestingEmail}
+                className="w-full sm:w-auto px-6 py-2.5 bg-white text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center justify-center space-x-2 shadow-lg disabled:opacity-50"
+              >
+                {isRequestingEmail ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <span>Confirmar E-mail</span>
+                )}
+              </button>
+            </motion.div>
+          </div>
+        )}
 
         <main className={`w-full ${(tabId === 'clips' || tabId === 'feed') ? 'max-w-none pt-16 pb-20 md:pb-0 md:pt-20 h-screen overflow-hidden' : 'max-w-7xl pt-16 md:pt-20'} mx-auto`}>
           <AnimatePresence mode="wait">
@@ -428,6 +490,7 @@ function AppContent() {
       <Route path="/termos" element={<TermsPage />} />
       <Route path="/privacidade" element={<PrivacyPage />} />
       <Route path="/cookies" element={<CookiesPage />} />
+      <Route path="/confirm-email" element={<ConfirmEmail />} />
       <Route path="/ranking/atleta/:id" element={<Navigate to="/rankings" replace />} />
       <Route path="/ranking/equipe/:id" element={<Navigate to="/rankings" replace />} />
       <Route path="/clips" element={renderLayout(<ArenaClips />, 'clips')} />
@@ -471,6 +534,7 @@ function AppContent() {
                 <Route path="/posts" element={<AdminPosts />} />
                 <Route path="/challenges" element={<AdminChallenges />} />
                 <Route path="/ads" element={<AdminAds />} />
+                <Route path="/emails" element={<AdminEmails />} />
                 <Route path="/logs" element={<AdminLogs />} />
                 <Route path="/export" element={<AdminExport />} />
               </Routes>
