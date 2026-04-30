@@ -95,7 +95,16 @@ export const AdminEmails: React.FC = () => {
         body: JSON.stringify(smtpSettings)
       });
 
-      const result = await response.json();
+      let result;
+      const responseText = await response.text();
+      
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse JSON response:', responseText);
+        throw new Error(`Resposta do servidor não é um JSON válido. Status: ${response.status}`);
+      }
+
       if (result.success) {
         toast.success('Configurações de SMTP salvas com sucesso!');
         fetchSmtpSettings();
@@ -312,6 +321,17 @@ export const AdminEmails: React.FC = () => {
             </div>
 
             <div className="space-y-6">
+              <div className="bg-blue-600/10 border border-blue-500/20 rounded-[2rem] p-8">
+                <h4 className="text-sm font-black uppercase tracking-widest flex items-center space-x-2 mb-4 text-blue-500">
+                  <ShieldCheck size={16} />
+                  <span>Sincronia com Supabase</span>
+                </h4>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Para consistência visual e de entrega, utilize aqui as mesmas credenciais SMTP que você configurou no painel do Supabase (Settings &gt; Auth &gt; SMTP). 
+                  O Supabase gerencia e-mails de autenticação, enquanto este painel gerencia disparos informativos e anúncios.
+                </p>
+              </div>
+
               <div className="bg-blue-600/10 border border-blue-500/20 rounded-[2rem] p-8">
                 <h4 className="text-sm font-black uppercase tracking-widest flex items-center space-x-2 mb-4 text-blue-500">
                   <AlertCircle size={16} />

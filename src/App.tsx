@@ -96,28 +96,22 @@ function AppContent() {
   const { theme, toggleTheme } = useTheme();
 
   const handleRequestVerification = async () => {
-    if (!profile?.id || !profile?.email) return;
+    if (!profile?.email) return;
     
     setIsRequestingEmail(true);
     try {
-      const response = await fetch('/api/email/request-verification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userId: profile.id, 
-          email: profile.email,
-          baseUrl: window.location.origin
-        })
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: profile.email,
+        options: {
+          emailRedirectTo: window.location.origin
+        }
       });
       
-      const data = await response.json();
-      if (data.success) {
-        toast.success('E-mail de confirmação enviado! Verifique sua caixa de entrada.');
-      } else {
-        toast.error('Erro ao enviar e-mail: ' + data.error);
-      }
-    } catch (error) {
-      toast.error('Erro de conexão ao solicitar verificação.');
+      if (error) throw error;
+      toast.success('E-mail de confirmação enviado via Supabase! Verifique sua caixa de entrada.');
+    } catch (error: any) {
+      toast.error('Erro ao solicitar verificação: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setIsRequestingEmail(false);
     }

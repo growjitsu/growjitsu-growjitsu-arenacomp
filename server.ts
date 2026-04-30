@@ -58,43 +58,60 @@ const ARENA_LOGO_IMAGE = '/logo-arenacomp.jpg';
 const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
 
 // Initialize Firebase Admin SDK
+let firestore: any = null;
 try {
-  initializeApp({
+  const app = initializeApp({
     projectId: firebaseConfig.projectId,
   });
-  console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
+  firestore = getFirestore(app);
+  console.log('[FIREBASE-ADMIN] SDK e Firestore inicializados com sucesso.');
 } catch (error) {
   console.error('[FIREBASE-ADMIN] Erro ao inicializar SDK:', error);
 }
 
-const firestore = getFirestore();
 const ENCRYPTION_KEY = process.env.EMAIL_ENCRYPTION_KEY || 'arena-comp-secure-key-2024';
 
 // Helper to encrypt/decrypt SMTP passwords
 const encryptPassword = (password: string) => {
-  return CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+  try {
+    return CryptoJS.AES.encrypt(password, ENCRYPTION_KEY).toString();
+  } catch (err) {
+    console.error('[CRYPTO] Erro ao criptografar:', err);
+    throw new Error('Falha na criptografia dos dados');
+  }
 };
 
 const decryptPassword = (ciphertext: string) => {
-  const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
-  return bytes.toString(CryptoJS.enc.Utf8);
+  try {
+    const bytes = CryptoJS.AES.decrypt(ciphertext, ENCRYPTION_KEY);
+    return bytes.toString(CryptoJS.enc.Utf8);
+  } catch (err) {
+    console.error('[CRYPTO] Erro ao descriptografar:', err);
+    return '';
+  }
 };
 
 // Helper to get SMTP settings from Firestore
 const getSmtpSettings = async () => {
-  const settingsDoc = await firestore.collection('settings').doc('email').get();
-  if (!settingsDoc.exists) return null;
-  const data = settingsDoc.data();
-  if (!data) return null;
-  
-  return {
-    host: data.smtp_host,
-    port: data.smtp_port,
-    user: data.smtp_user,
-    pass: decryptPassword(data.smtp_password),
-    fromEmail: data.smtp_from_email,
-    fromName: data.smtp_from_name
-  };
+  if (!firestore) return null;
+  try {
+    const settingsDoc = await firestore.collection('settings').doc('email').get();
+    if (!settingsDoc.exists) return null;
+    const data = settingsDoc.data();
+    if (!data || !data.smtp_password) return null;
+    
+    return {
+      host: data.smtp_host,
+      port: data.smtp_port,
+      user: data.smtp_user,
+      pass: decryptPassword(data.smtp_password),
+      fromEmail: data.smtp_from_email,
+      fromName: data.smtp_from_name
+    };
+  } catch (err) {
+    console.error('[SMTP-SETTINGS] Erro ao buscar configurações:', err);
+    return null;
+  }
 };
 
 const db = new Database("arenacomp.db");
@@ -1911,27 +1928,36 @@ async function startServer() {
 
   // Helper to check if user is admin via custom claims
   const checkAdmin = async (req: any, res: any, next: any) => {
+    console.log(`[AUTH-ADMIN] Verificando acesso admin para: ${req.url}`);
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.warn('[AUTH-ADMIN] Cabeçalho de autorização inválido ou ausente');
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const token = authHeader.split('Bearer ')[1];
     try {
       const decodedToken = await getAuth().verifyIdToken(token);
+      console.log(`[AUTH-ADMIN] Token verificado. Email: ${decodedToken.email}`);
       if (decodedToken.admin || decodedToken.email === 'carlos.atila001@gmail.com' || decodedToken.email === 'admin@arenacomp.com.br') {
         req.user = decodedToken;
+        console.log('[AUTH-ADMIN] Acesso concedido');
         next();
       } else {
+        console.warn(`[AUTH-ADMIN] Acesso negado para: ${decodedToken.email}`);
         res.status(403).json({ error: 'Forbidden: Admin access required' });
       }
-    } catch (error) {
-      res.status(401).json({ error: 'Unauthorized' });
+    } catch (error: any) {
+      console.error('[AUTH-ADMIN] Erro ao verificar token:', error.message);
+      res.status(401).json({ error: 'Unauthorized', message: error.message });
     }
   };
 
   // 1. SMTP Settings Management
   app.get("/api/admin/email-settings", checkAdmin, async (req, res) => {
     try {
+      if (!firestore) {
+        return res.status(500).json({ success: false, error: "Firestore não inicializado." });
+      }
       const settingsDoc = await firestore.collection('settings').doc('email').get();
       if (!settingsDoc.exists) {
         return res.json({ success: true, data: null });
@@ -1946,12 +1972,26 @@ async function startServer() {
   });
 
   app.post("/api/admin/email-settings", checkAdmin, async (req, res) => {
+    console.log('[API-EMAIL] Recebida solicitação de alteração de SMTP');
     try {
+      if (!firestore) {
+        return res.status(500).json({ success: false, error: "Firestore não inicializado." });
+      }
       const { smtp_host, smtp_port, smtp_user, smtp_password, smtp_from_email, smtp_from_name } = req.body;
       
+      if (!smtp_host || !smtp_port || !smtp_user || !smtp_from_email) {
+        console.warn('[API-EMAIL] Campos obrigatórios ausentes:', { smtp_host, smtp_port, smtp_user, smtp_from_email });
+        return res.status(400).json({ success: false, error: "Campos obrigatórios ausentes." });
+      }
+
+      const port = Number(smtp_port);
+      if (isNaN(port)) {
+        return res.status(400).json({ success: false, error: "Porta SMTP inválida." });
+      }
+
       const updateData: any = {
         smtp_host,
-        smtp_port: Number(smtp_port),
+        smtp_port: port,
         smtp_user,
         smtp_from_email,
         smtp_from_name,
@@ -1960,13 +2000,17 @@ async function startServer() {
 
       // Only update password if provided
       if (smtp_password) {
+        console.log('[API-EMAIL] Criptografando nova senha SMTP');
         updateData.smtp_password = encryptPassword(smtp_password);
       }
 
+      console.log('[API-EMAIL] Salvando no Firestore...');
       await firestore.collection('settings').doc('email').set(updateData, { merge: true });
+      console.log('[API-EMAIL] Configurações salvas com sucesso');
       res.json({ success: true, message: "Configurações de e-mail atualizadas." });
     } catch (error: any) {
-      res.status(500).json({ success: false, error: error.message });
+      console.error('[API-EMAIL] Erro ao salvar configurações:', error);
+      res.status(500).json({ success: false, error: error.message || "Erro interno ao salvar configurações." });
     }
   });
 

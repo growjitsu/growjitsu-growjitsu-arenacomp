@@ -324,23 +324,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             console.log('[LOG] Equipe criada com sucesso:', finalTeamId);
           }
 
-          // Trigger Email Verification Request (Silent fail for now as user shouldn't be blocked)
-          try {
-            console.log('[LOG] Solicitando e-mail de confirmação para:', email);
-            fetch('/api/email/request-verification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
-                userId: user.id, 
-                email: email.toLowerCase(),
-                baseUrl: window.location.origin
-              })
-            }).catch(e => console.error('[EMAIL] Erro silencioso ao solicitar verificação:', e));
-          } catch (emailErr) {
-            console.error('[EMAIL] Erro ao iniciar processo de verificação:', emailErr);
-          }
-
-          // Insert Profile
+          // Profiles insertion happens here
           console.log('[LOG] Inserindo perfil para o usuário:', user.id);
           const { error: profileError } = await supabase
             .from('profiles')
