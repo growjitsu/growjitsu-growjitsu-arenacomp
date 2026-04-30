@@ -146,6 +146,143 @@ async function startServer() {
     });
   }
 
+  // ===========================================================================
+  // 📧 ADMIN SYSTEM ENDPOINTS (PRODUCTION FIX - MUST BE FIRST)
+  // ===========================================================================
+  
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    credentials: true,
+    maxAge: 86400
+  }));
+
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // EMAIL DISPATCHER HANDLER
+  const emailDispatchHandler = async (req: any, res: any) => {
+    const { recipients, subject, htmlBody } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ success: false, error: "Token de autorização ausente." });
+    }
+
+    try {
+      const token = authHeader.split(' ')[1];
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        return res.status(401).json({ success: false, error: "Usuário não autenticado." });
+      }
+
+      const client = supabaseAdmin || supabase;
+      const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).single();
+
+      if (profile?.role !== 'admin') {
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
+      }
+
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ success: false, error: "Lista de destinatários inválida." });
+      }
+      if (!subject || !htmlBody) {
+        return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
+      }
+
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+
+      if (!smtpUser || !smtpPass) {
+        return res.status(500).json({ success: false, error: "Configuração de SMTP incompleta." });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: (process.env.SMTP_PORT || '465') === '465', 
+        auth: { user: smtpUser, pass: smtpPass },
+      });
+
+      const batchSize = 20;
+      const delayBetweenBatches = 2000;
+      const results = { success: 0, failed: 0, errors: [] as string[] };
+
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const currentBatch = recipients.slice(i, i + batchSize);
+        await Promise.all(currentBatch.map(async (email: string) => {
+          try {
+            await transporter.sendMail({
+              from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${smtpUser}>`,
+              to: email,
+              subject: subject,
+              html: htmlBody,
+            });
+            results.success++;
+          } catch (err: any) {
+            results.failed++;
+            results.errors.push(`${email}: ${err.message}`);
+          }
+        }));
+        if (i + batchSize < recipients.length) await new Promise(r => setTimeout(r, delayBetweenBatches));
+      }
+
+      return res.status(200).json({ success: true, message: `Enviados: ${results.success}, Falhas: ${results.failed}`, results });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
+  // Dispatch Email Route (Explicit POST)
+  app.post('/api/admin/dispatch-email', emailDispatchHandler);
+
+  // BLOCK other methods for this route
+  app.all('/api/admin/dispatch-email', (req, res, next) => {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    next();
+  });
+
+  // Admin Reset Password Handler
+  const handleAdminResetPassword = async (req: any, res: any) => {
+    const uid = req.body.uid || req.body.userId || req.body.athleteId;
+    const password = req.body.password || req.body.newPassword;
+    
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
+    if (!uid || !password) return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
+
+    try {
+      if (!supabaseAdmin) return res.status(500).json({ success: false, error: "Supabase Admin não disponível." });
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
+      if (updateError) return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
+      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
+  app.post('/api/admin/reset-password', handleAdminResetPassword);
+  app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
+
+  // SANITY TEST ENDPOINT
+  app.get('/api/admin/ping-email', (req, res) => {
+    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
+  // Global logging for admin requests (Moved diagnostic here)
+  app.use('/api/admin', (req, res, next) => {
+    console.log(`[ADMIN API HIT] ${req.method} ${req.url}`);
+    next();
+  });
+
+  // Legacy/Alternative path support
+  app.post('/api/admin-email-dispatch', emailDispatchHandler);
+  app.all('/api/admin-email-dispatch', (req, res) => {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  });
+
   // 🚀 GLOBAL DEBUG LOGGER
   app.use((req, res, next) => {
     if (req.url.startsWith('/api')) {
@@ -668,153 +805,6 @@ async function startServer() {
     next();
   });
   // --- END OF SHARE LOGIC ---
-
-  // 1. CORS Middleware
-  app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    exposedHeaders: ["X-API-Route"],
-    credentials: true,
-    maxAge: 86400
-  }));
-
-  // Handle OPTIONS preflight explicitly for all routes
-  app.options("*", (req, res) => {
-    res.sendStatus(200);
-  });
-
-  // 3. Body Parsing
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // ===========================================================================
-  // 📧 ADMIN SYSTEM ENDPOINTS (PRODUCTION FIX)
-  // ===========================================================================
-  
-  // Diagnóstico Global para Admin
-  app.use('/api/admin', (req, res, next) => {
-    if (req.url === '/dispatch-email') {
-      console.log('[EMAIL API HIT]', req.method, req.url);
-    } else {
-      console.log(`[ADMIN API] DEBUG: ${req.method} ${req.url}`);
-    }
-    next();
-  });
-
-  // TEST ENDPOINT
-  app.get('/api/admin/ping-email', (req, res) => {
-    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  // EMAIL DISPATCHER HANDLER
-  const emailDispatchHandler = async (req: any, res: any) => {
-    const { recipients, subject, htmlBody } = req.body;
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-      return res.status(401).json({ success: false, error: "Token de autorização ausente." });
-    }
-
-    try {
-      const token = authHeader.split(' ')[1];
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !user) {
-        return res.status(401).json({ success: false, error: "Usuário não autenticado." });
-      }
-
-      const client = supabaseAdmin || supabase;
-      const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).single();
-
-      if (profile?.role !== 'admin') {
-        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
-      }
-
-      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
-        return res.status(400).json({ success: false, error: "Lista de destinatários inválida." });
-      }
-      if (!subject || !htmlBody) {
-        return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
-      }
-
-      const smtpUser = process.env.SMTP_USER;
-      const smtpPass = process.env.SMTP_PASS;
-
-      if (!smtpUser || !smtpPass) {
-        return res.status(500).json({ success: false, error: "Configuração de SMTP incompleta." });
-      }
-
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: (process.env.SMTP_PORT || '465') === '465', 
-        auth: { user: smtpUser, pass: smtpPass },
-      });
-
-      const batchSize = 20;
-      const delayBetweenBatches = 2000;
-      const results = { success: 0, failed: 0, errors: [] as string[] };
-
-      for (let i = 0; i < recipients.length; i += batchSize) {
-        const currentBatch = recipients.slice(i, i + batchSize);
-        await Promise.all(currentBatch.map(async (email: string) => {
-          try {
-            await transporter.sendMail({
-              from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${smtpUser}>`,
-              to: email,
-              subject: subject,
-              html: htmlBody,
-            });
-            results.success++;
-          } catch (err: any) {
-            results.failed++;
-            results.errors.push(`${email}: ${err.message}`);
-          }
-        }));
-        if (i + batchSize < recipients.length) await new Promise(r => setTimeout(r, delayBetweenBatches));
-      }
-
-      return res.status(200).json({ success: true, message: `Enviados: ${results.success}, Falhas: ${results.failed}`, results });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  };
-
-  // Dispatch Email Rote
-  app.post('/api/admin/dispatch-email', emailDispatchHandler);
-  app.all('/api/admin/dispatch-email', (req, res, next) => {
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-    next();
-  });
-
-  // Admin Reset Password Handler
-  const handleAdminResetPassword = async (req: any, res: any) => {
-    const uid = req.body.uid || req.body.userId || req.body.athleteId;
-    const password = req.body.password || req.body.newPassword;
-    
-    if (req.method === 'OPTIONS') return res.sendStatus(200);
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
-    if (!uid || !password) return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
-
-    try {
-      if (!supabaseAdmin) return res.status(500).json({ success: false, error: "Supabase Admin não disponível." });
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
-      if (updateError) return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
-      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
-    } catch (error: any) {
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  };
-
-  app.post('/api/admin/reset-password', handleAdminResetPassword);
-  app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
-  
-  // Legacy paths
-  app.post('/api/admin-email-dispatch', emailDispatchHandler);
-  app.all('/api/admin-email-dispatch', (req, res) => {
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-  });
 
 
 
