@@ -985,30 +985,30 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
-                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-6 flex flex-col md:flex-row items-center gap-6 group/promo overflow-hidden shadow-2xl relative"
+                        className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-5 md:p-6 flex flex-col md:flex-row items-center gap-5 md:gap-6 group/promo overflow-hidden shadow-2xl relative"
                       >
                         {/* Manual Navigation Arrows */}
                         {topAds.length > 1 && (
-                          <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
+                          <div className="absolute top-[35%] md:top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-2 md:px-4 z-20 pointer-events-none opacity-100 md:opacity-0 md:group-hover/promo:opacity-100 transition-opacity duration-300">
                             <button
                               onClick={(e) => handlePrevTopAd(e, topAds)}
-                              className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
+                              className="p-2.5 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                               aria-label="Anúncio anterior"
                             >
-                              <ChevronLeft size={20} className="md:w-[18px] md:h-[18px]" />
+                              <ChevronLeft size={18} className="md:w-[18px] md:h-[18px]" />
                             </button>
                             <button
                               onClick={(e) => handleNextTopAd(e, topAds)}
-                              className="p-3 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
+                              className="p-2.5 md:p-2 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-blue-600 transition-all pointer-events-auto shadow-lg active:scale-95"
                               aria-label="Próximo anúncio"
                             >
-                              <ChevronRight size={20} className="md:w-[18px] md:h-[18px]" />
+                              <ChevronRight size={18} className="md:w-[18px] md:h-[18px]" />
                             </button>
                           </div>
                         )}
 
                         {adMediaUrl && (
-                          <div className="w-full md:w-64 aspect-[4/1] md:aspect-[12/3] rounded-xl overflow-hidden flex-shrink-0 bg-black border border-white/5">
+                          <div className="w-full md:w-64 aspect-[21/9] md:aspect-[12/3] rounded-2xl overflow-hidden flex-shrink-0 bg-black border border-white/5">
                             {isVideo ? (
                               <video src={adMediaUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
                             ) : (
@@ -1035,9 +1035,9 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                               <Share2 size={14} className="drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                             </button>
                           </div>
-                          <h4 className="text-lg font-black uppercase tracking-tight text-white mb-2 italic leading-tight">{ad.title}</h4>
+                          <h4 className="text-base md:text-lg font-black uppercase tracking-tight text-white mb-2 italic leading-tight">{ad.title}</h4>
                           <p className="text-xs text-gray-400 mb-4 line-clamp-2 leading-relaxed">{ad.content}</p>
-                          <div className="flex items-center justify-center md:justify-start">
+                          <div className="flex items-center justify-center md:justify-start space-x-6">
                             <a 
                               href={ad.link_url} 
                               target="_blank" 
