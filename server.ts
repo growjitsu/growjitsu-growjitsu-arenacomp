@@ -146,6 +146,14 @@ async function startServer() {
     });
   }
 
+  // 🚀 GLOBAL DEBUG LOGGER
+  app.use((req, res, next) => {
+    if (req.url.startsWith('/api')) {
+      console.log(`[GLOBAL DEBUG] ${req.method} ${req.url} | Headers: ${req.headers['x-forwarded-proto'] || 'unknown'}`);
+    }
+    next();
+  });
+
   // --- START OF SHARE LOGIC ---
   const handleShareRequest = async (req: any, res: any, next: any) => {
     const userAgent = req.get('User-Agent') || '';
@@ -686,7 +694,7 @@ async function startServer() {
   
   // Diagnóstico Global para Admin
   app.use('/api/admin', (req, res, next) => {
-    console.log(`[EMAIL API] DEBUG: ${req.method} ${req.url}`);
+    console.log(`[EMAIL API] DEBUG: ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
     next();
   });
 
@@ -764,7 +772,7 @@ async function startServer() {
   // 📧 ADMIN EMAIL DISPATCHER (BETA)
   // ===========================================================================
   
-  app.all('/api/admin/dispatch-email', async (req: any, res: any) => {
+  app.all('/api/admin-email-dispatch', async (req: any, res: any) => {
     // 1. Explicitly allow OPTIONS for CORS (pre-flight)
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -772,11 +780,11 @@ async function startServer() {
 
     // 2. Block anything that is not POST
     if (req.method !== 'POST') {
-      console.warn(`[EMAIL API] 405 Blocked: ${req.method} on dispatch-email`);
+      console.warn(`[EMAIL API] 405 Blocked: ${req.method} on ${req.url}`);
       return res.status(405).json({ 
         success: false, 
         error: 'Method Not Allowed',
-        message: 'This endpoint only accepts POST requests.'
+        message: `Este endpoint aceita apenas POST. Recebido: ${req.method}. Verifique se não há redirecionamentos de HTTP para HTTPS mudando o método.`
       });
     }
 

@@ -88,7 +88,8 @@ export const AdminEmails: React.FC = () => {
 
       const recipients = users.filter(u => u.selected).map(u => u.email);
 
-      const response = await fetch('/api/admin/dispatch-email', {
+      console.log('[EMAIL API] Calling:', '/api/admin-email-dispatch');
+      const response = await fetch('/api/admin-email-dispatch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,17 +102,18 @@ export const AdminEmails: React.FC = () => {
         })
       });
 
-      let result;
+      console.log('[EMAIL API] Response Status:', response.status);
       const contentType = response.headers.get("content-type");
-      
+      console.log('[EMAIL API] Content-Type:', contentType);
+
+      let result;
       if (contentType && contentType.toLowerCase().includes("application/json")) {
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error('[EMAIL API] Non-JSON response:', text);
-        // Special case for 405 which might be returned by infra
+        console.error('[EMAIL API] Body (non-JSON):', text);
         if (response.status === 405) {
-          throw new Error('Erro 405: Método não permitido. O servidor bloqueou este envio. Verifique a configuração de rotas.');
+          throw new Error('Erro 405: Método não permitido. Verifique se o servidor aceita POST neste endpoint.');
         }
         throw new Error(`Resposta inválida do servidor (${response.status}): ${text.slice(0, 100)}`);
       }
