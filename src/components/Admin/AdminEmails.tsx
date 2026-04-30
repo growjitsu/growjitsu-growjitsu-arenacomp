@@ -88,8 +88,8 @@ export const AdminEmails: React.FC = () => {
 
       const recipients = users.filter(u => u.selected).map(u => u.email);
 
-      console.log('[EMAIL API] Calling:', '/api/admin-email-dispatch');
-      const response = await fetch('/api/admin-email-dispatch', {
+      console.log('[EMAIL API HIT]', 'POST', '/api/admin/dispatch-email');
+      const response = await fetch('/api/admin/dispatch-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -113,9 +113,9 @@ export const AdminEmails: React.FC = () => {
         const text = await response.text();
         console.error('[EMAIL API] Body (non-JSON):', text);
         if (response.status === 405) {
-          throw new Error('Erro 405: Método não permitido. Verifique se o servidor aceita POST neste endpoint.');
+          throw new Error('Erro 405: Método não permitido. O servidor redirecionou ou bloqueou o método POST.');
         }
-        throw new Error(`Resposta inválida do servidor (${response.status}): ${text.slice(0, 100)}`);
+        throw new Error(`Resposta inesperada (${response.status}): ${text.slice(0, 200)}`);
       }
 
       if (result && result.success) {

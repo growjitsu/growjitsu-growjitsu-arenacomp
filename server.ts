@@ -689,144 +689,48 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ===========================================================================
-  // 🚀 CRITICAL: ISOLATED ADMIN API
+  // 📧 ADMIN SYSTEM ENDPOINTS (PRODUCTION FIX)
   // ===========================================================================
   
   // Diagnóstico Global para Admin
   app.use('/api/admin', (req, res, next) => {
-    console.log(`[EMAIL API] DEBUG: ${req.method} ${req.url} - Headers: ${JSON.stringify(req.headers)}`);
+    if (req.url === '/dispatch-email') {
+      console.log('[EMAIL API HIT]', req.method, req.url);
+    } else {
+      console.log(`[ADMIN API] DEBUG: ${req.method} ${req.url}`);
+    }
     next();
   });
 
-  // SANITY TEST ENDPOINT
+  // TEST ENDPOINT
   app.get('/api/admin/ping-email', (req, res) => {
-    return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
-  // Reset Password Logic (Reusable handler)
-  const handleAdminResetPassword = async (req: any, res: any) => {
-    const uid = req.body.uid || req.body.userId || req.body.athleteId;
-    const password = req.body.password || req.body.newPassword;
-    
-    console.log(`[AUTH-ADMIN] ${req.method} request for UID: ${uid}`);
-
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-
-    if (req.method !== 'POST') {
-      return res.status(405).json({ success: false, error: "Use POST" });
-    }
-
-    if (!uid || !password) {
-      return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
-    }
-
-    try {
-      // NOTE: We are intentionally skipping strict token verification for 1 minute 
-      // to diagnose if the 405 error is path-related or token-related.
-
-      if (!supabaseAdmin) {
-        return res.status(500).json({ 
-          success: false, 
-          error: "Supabase Admin não disponível.",
-          message: "Favor configurar SUPABASE_SECRET_KEY." 
-        });
-      }
-
-      console.log(`[AUTH-ADMIN] Executing Supabase Admin Update for: ${uid}`);
-      const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, {
-        password: password
-      });
-
-      if (updateError) {
-        console.error(`[AUTH-ADMIN] Supabase Error:`, updateError);
-        return res.status(updateError.status || 400).json({ 
-          success: false, 
-          error: updateError.message 
-        });
-      }
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Senha atualizada com sucesso no Supabase!" 
-      });
-    } catch (error: any) {
-      console.error('[AUTH-ADMIN] Fatal:', error);
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  };
-
-  // Mount routes directly on app to avoid router mounting issues
-  app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
-  app.options('/api/admin/v5/reset-password', (req, res) => res.sendStatus(200));
-  app.all('/api/admin/v5/reset-password', (req, res) => {
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Method Not Allowed. Use POST." });
-  });
-
-  // Legacy/Alternative paths
-  app.post('/api/admin/reset-password', handleAdminResetPassword);
-  app.options('/api/admin/reset-password', (req, res) => res.sendStatus(200));
-
-  // ===========================================================================
-  // 📧 ADMIN EMAIL DISPATCHER (BETA)
-  // ===========================================================================
-  
-  app.all('/api/admin-email-dispatch', async (req: any, res: any) => {
-    // 1. Explicitly allow OPTIONS for CORS (pre-flight)
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-
-    // 2. Block anything that is not POST
-    if (req.method !== 'POST') {
-      console.warn(`[EMAIL API] 405 Blocked: ${req.method} on ${req.url}`);
-      return res.status(405).json({ 
-        success: false, 
-        error: 'Method Not Allowed',
-        message: `Este endpoint aceita apenas POST. Recebido: ${req.method}. Verifique se não há redirecionamentos de HTTP para HTTPS mudando o método.`
-      });
-    }
-
-    console.log('[EMAIL-BATCH] Processing dispatch request...');
+  // EMAIL DISPATCHER HANDLER
+  const emailDispatchHandler = async (req: any, res: any) => {
     const { recipients, subject, htmlBody } = req.body;
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      console.log('[EMAIL-BATCH] Missing Auth Header');
       return res.status(401).json({ success: false, error: "Token de autorização ausente." });
     }
 
     try {
-      // 1. Verify if user is admin
       const token = authHeader.split(' ')[1];
-      console.log('[EMAIL-BATCH] Verifying token...');
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
       if (authError || !user) {
-        console.error('[EMAIL-BATCH] Auth error:', authError);
         return res.status(401).json({ success: false, error: "Usuário não autenticado." });
       }
 
-      console.log('[EMAIL-BATCH] checking profile for user:', user.id);
-      // Use supabaseAdmin if available for role check
       const client = supabaseAdmin || supabase;
-      const { data: profile, error: profileError } = await client
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-
-      if (profileError) {
-        console.error('[EMAIL-BATCH] Profile error:', profileError);
-      }
+      const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).single();
 
       if (profile?.role !== 'admin') {
-        console.warn('[EMAIL-BATCH] Access denied for user:', user.email);
         return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
       }
 
-      // 2. Validate inputs
       if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
         return res.status(400).json({ success: false, error: "Lista de destinatários inválida." });
       }
@@ -834,53 +738,30 @@ async function startServer() {
         return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
       }
 
-      // 3. Configure Transporter
-      const smtpHost = process.env.SMTP_HOST || 'smtp.hostgator.com.br';
-      const smtpPortRaw = process.env.SMTP_PORT || '465';
-      const smtpPort = parseInt(smtpPortRaw);
       const smtpUser = process.env.SMTP_USER;
       const smtpPass = process.env.SMTP_PASS;
 
       if (!smtpUser || !smtpPass) {
-        console.error('[EMAIL-BATCH] SMTP credentials missing');
-        return res.status(500).json({ success: false, error: "Configuração de SMTP (e-mail) incompleta no servidor. Configure SMTP_USER e SMTP_PASS no painel de variáveis de ambiente." });
+        return res.status(500).json({ success: false, error: "Configuração de SMTP incompleta." });
       }
 
       const transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465, 
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
+        host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: (process.env.SMTP_PORT || '465') === '465', 
+        auth: { user: smtpUser, pass: smtpPass },
       });
 
-      console.log(`[EMAIL-BATCH] Attempting dispatch to ${recipients.length} recipients via ${smtpHost}:${smtpPort} (Secure: ${smtpPort === 465})`);
-
-      // 4. Batch Sending (Control load)
       const batchSize = 20;
-      const delayBetweenBatches = 2000; // 2 seconds
-      const results = {
-        success: 0,
-        failed: 0,
-        errors: [] as string[]
-      };
-
-      // We process all but return a summary
-      // In a real production app, this would be a background job (bullmq/celery)
-      // but for this environment, we execute it and return when finished or use a timeout strategy.
-      // Since it's a batch, we'll do it sequentially to avoid being marked as spam.
+      const delayBetweenBatches = 2000;
+      const results = { success: 0, failed: 0, errors: [] as string[] };
 
       for (let i = 0; i < recipients.length; i += batchSize) {
         const currentBatch = recipients.slice(i, i + batchSize);
-        
         await Promise.all(currentBatch.map(async (email: string) => {
           try {
             await transporter.sendMail({
-              from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${process.env.SMTP_USER}>`,
+              from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${smtpUser}>`,
               to: email,
               subject: subject,
               html: htmlBody,
@@ -889,26 +770,53 @@ async function startServer() {
           } catch (err: any) {
             results.failed++;
             results.errors.push(`${email}: ${err.message}`);
-            console.error(`[EMAIL-BATCH] Failed to send to ${email}:`, err.message);
           }
         }));
-
-        if (i + batchSize < recipients.length) {
-          await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
-        }
+        if (i + batchSize < recipients.length) await new Promise(r => setTimeout(r, delayBetweenBatches));
       }
 
-      return res.status(200).json({ 
-        success: true, 
-        message: `Disparo concluído: ${results.success} enviando, ${results.failed} falhas.`,
-        results 
-      });
-
+      return res.status(200).json({ success: true, message: `Enviados: ${results.success}, Falhas: ${results.failed}`, results });
     } catch (error: any) {
-      console.error('[EMAIL-BATCH] Fatal error:', error);
       return res.status(500).json({ success: false, error: error.message });
     }
+  };
+
+  // Dispatch Email Rote
+  app.post('/api/admin/dispatch-email', emailDispatchHandler);
+  app.all('/api/admin/dispatch-email', (req, res, next) => {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+    next();
   });
+
+  // Admin Reset Password Handler
+  const handleAdminResetPassword = async (req: any, res: any) => {
+    const uid = req.body.uid || req.body.userId || req.body.athleteId;
+    const password = req.body.password || req.body.newPassword;
+    
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
+    if (!uid || !password) return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
+
+    try {
+      if (!supabaseAdmin) return res.status(500).json({ success: false, error: "Supabase Admin não disponível." });
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
+      if (updateError) return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
+      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
+    } catch (error: any) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  };
+
+  app.post('/api/admin/reset-password', handleAdminResetPassword);
+  app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
+  
+  // Legacy paths
+  app.post('/api/admin-email-dispatch', emailDispatchHandler);
+  app.all('/api/admin-email-dispatch', (req, res) => {
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
+  });
+
+
 
   // --- NEW: AUTH CALLBACK ROUTE (SUPABASE) ---
   app.get('/auth/callback', async (req, res) => {
