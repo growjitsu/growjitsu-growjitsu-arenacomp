@@ -45,8 +45,6 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "email": { "type": "string" },
-        "email_verified": { "type": "boolean" },
         "modalidades": { "type": "array", "items": { "type": "string" } },
         "equipe": { "type": "string" },
         "genero": { "type": "string" },
@@ -83,34 +81,6 @@
         "landing_cta_url": { "type": "string" },
         "landing_layout": { "type": "string", "enum": ["simple", "highlight", "premium"] }
       }
-    },
-    "email_settings": {
-      "title": "Email Settings",
-      "description": "SMTP configuration for the admin panel.",
-      "type": "object",
-      "properties": {
-        "smtp_host": { "type": "string" },
-        "smtp_port": { "type": "number" },
-        "smtp_user": { "type": "string" },
-        "smtp_password": { "type": "string" },
-        "smtp_from_email": { "type": "string" },
-        "smtp_from_name": { "type": "string" },
-        "updated_at": { "type": "string", "format": "date-time" }
-      }
-    },
-    "email_verification": {
-      "title": "Email Verification",
-      "description": "Token for email verification.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "user_id": { "type": "string" },
-        "email": { "type": "string" },
-        "token": { "type": "string" },
-        "expires_at": { "type": "string", "format": "date-time" },
-        "used": { "type": "boolean" },
-        "created_at": { "type": "string", "format": "date-time" }
-      }
     }
   },
   "firestore": {
@@ -129,14 +99,6 @@
     "/arena_ads/{adId}": {
       "schema": "arena_ad",
       "description": "Collection of advertisements and landing pages."
-    },
-    "/settings/email": {
-      "schema": "email_settings",
-      "description": "Global SMTP settings singleton."
-    },
-    "/email_verifications/{token}": {
-      "schema": "email_verification",
-      "description": "Collection of verification tokens."
     }
   }
 }

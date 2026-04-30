@@ -324,7 +324,7 @@ export const ArenaAuth: React.FC<ArenaAuthProps> = ({ isAdminLogin = false }) =>
             console.log('[LOG] Equipe criada com sucesso:', finalTeamId);
           }
 
-          // Profiles insertion happens here
+          // Insert Profile
           console.log('[LOG] Inserindo perfil para o usuário:', user.id);
           const { error: profileError } = await supabase
             .from('profiles')

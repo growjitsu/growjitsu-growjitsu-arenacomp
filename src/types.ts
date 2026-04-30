@@ -49,28 +49,7 @@ export interface ArenaProfile {
   win_rate: number;
   created_at: string;
   updated_at: string;
-  email?: string;
-  email_verified?: boolean;
   modalities?: UserModality[];
-}
-
-export interface SmtpSettings {
-  smtp_host: string;
-  smtp_port: number;
-  smtp_user: string;
-  smtp_password?: string;
-  smtp_from_email: string;
-  smtp_from_name: string;
-}
-
-export interface EmailVerification {
-  id: string;
-  user_id: string;
-  email: string;
-  token: string;
-  expires_at: any;
-  used: boolean;
-  created_at: any;
 }
 
 export interface UserModality {

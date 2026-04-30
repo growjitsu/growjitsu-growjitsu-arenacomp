@@ -74,14 +74,5 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update, delete: if false;
     }
-
-    match /settings/email {
-      allow read, write: if isAdmin();
-    }
-
-    match /email_verifications/{token} {
-      allow read: if true;
-      allow write: if false;
-    }
   }
 }

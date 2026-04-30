@@ -83,9 +83,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const isValid = missingFields.length === 0;
       const completeProfile = {
         ...profileData,
-        modalities: modalities || [],
-        email: user.email,
-        email_verified: !!user.email_confirmed_at
+        modalities: modalities || []
       };
 
       // Update cache
