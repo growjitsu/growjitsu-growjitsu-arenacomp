@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import cors from "cors";
+import nodemailer from "nodemailer";
 import { createClient } from '@supabase/supabase-js';
 import { CardGenerator, CardData } from "./src/services/cardGenerator";
 import puppeteer from 'puppeteer-core';
@@ -762,6 +763,125 @@ async function startServer() {
   // Legacy/Alternative paths
   app.post('/api/admin/reset-password', handleAdminResetPassword);
   app.options('/api/admin/reset-password', (req, res) => res.sendStatus(200));
+
+  // ===========================================================================
+  // 📧 ADMIN EMAIL DISPATCHER (BETA)
+  // ===========================================================================
+  
+  app.post('/api/admin/send-email', async (req: any, res: any) => {
+    const { recipients, subject, htmlBody } = req.body;
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ success: false, error: "Token de autorização ausente." });
+    }
+
+    try {
+      // 1. Verify if user is admin
+      const token = authHeader.split(' ')[1];
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        return res.status(401).json({ success: false, error: "Usuário não autenticado." });
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.role !== 'admin') {
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
+      }
+
+      // 2. Validate inputs
+      if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+        return res.status(400).json({ success: false, error: "Lista de destinatários inválida." });
+      }
+      if (!subject || !htmlBody) {
+        return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
+      }
+
+      // 3. Configure Transporter
+      // Using environment variables for SMTP
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
+        port: parseInt(process.env.SMTP_PORT || '465'),
+        secure: process.env.SMTP_PORT === '465', 
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      console.log(`[EMAIL-BATCH] Starting dispatch for ${recipients.length} recipients...`);
+
+      // 4. Batch Sending (Control load)
+      const batchSize = 20;
+      const delayBetweenBatches = 2000; // 2 seconds
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[]
+      };
+
+      // We process all but return a summary
+      // In a real production app, this would be a background job (bullmq/celery)
+      // but for this environment, we execute it and return when finished or use a timeout strategy.
+      // Since it's a batch, we'll do it sequentially to avoid being marked as spam.
+
+      for (let i = 0; i < recipients.length; i += batchSize) {
+        const currentBatch = recipients.slice(i, i + batchSize);
+        
+        await Promise.all(currentBatch.map(async (email: string) => {
+          try {
+            await transporter.sendMail({
+              from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${process.env.SMTP_USER}>`,
+              to: email,
+              subject: subject,
+              html: htmlBody,
+            });
+            results.success++;
+          } catch (err: any) {
+            results.failed++;
+            results.errors.push(`${email}: ${err.message}`);
+            console.error(`[EMAIL-BATCH] Failed to send to ${email}:`, err.message);
+          }
+        }));
+
+        if (i + batchSize < recipients.length) {
+          await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+        }
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: `Disparo concluído: ${results.success} enviando, ${results.failed} falhas.`,
+        results 
+      });
+
+    } catch (error: any) {
+      console.error('[EMAIL-BATCH] Fatal error:', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // --- NEW: AUTH CALLBACK ROUTE (SUPABASE) ---
+  app.get('/auth/callback', async (req, res) => {
+    const code = req.query.code as string;
+    const next = (req.query.next as string) || '/';
+
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (!error) {
+        return res.redirect(next);
+      }
+    }
+
+    // Return the user to an error page with some instructions
+    return res.redirect('/login?error=auth_callback_failed');
+  });
 
   // --- NEW: SHORT LINK CREATION API ---
   app.post("/api/share/create", (req, res) => {

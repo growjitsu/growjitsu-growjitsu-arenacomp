@@ -8,7 +8,8 @@ interface ProfileContextType {
   isLoggedIn: boolean;
   checkProfile: () => Promise<boolean>;
   isLoading: boolean;
-  profile: ArenaProfile | null;
+  profile: (ArenaProfile & { email_confirmed_at?: string }) | null;
+  user: any | null;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
@@ -33,6 +34,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!localStorage.getItem('arenacomp_profile_cache'));
   const [isLoading, setIsLoading] = useState(() => !localStorage.getItem('arenacomp_profile_cache'));
+  const [user, setUser] = useState<any | null>(null);
 
   const checkProfile = useCallback(async () => {
     try {
@@ -53,6 +55,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
 
       setIsLoggedIn(true);
+      setUser(user);
       console.log('[PROFILE CONTEXT] Checking profile for user:', user.id);
 
       // Fetch profile from Supabase
@@ -83,7 +86,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const isValid = missingFields.length === 0;
       const completeProfile = {
         ...profileData,
-        modalities: modalities || []
+        modalities: modalities || [],
+        email_confirmed_at: user.email_confirmed_at
       };
 
       // Update cache
@@ -117,7 +121,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [checkProfile]);
 
   return (
-    <ProfileContext.Provider value={{ isProfileValid, isLoggedIn, checkProfile, isLoading, profile }}>
+    <ProfileContext.Provider value={{ isProfileValid, isLoggedIn, checkProfile, isLoading, profile, user }}>
       {children}
     </ProfileContext.Provider>
   );

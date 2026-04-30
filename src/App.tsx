@@ -28,6 +28,7 @@ import { AdminLogs } from './components/Admin/AdminLogs';
 import { AdminExport } from './components/Admin/AdminExport';
 import { AdminAds } from './components/Admin/AdminAds';
 import { AdminChallenges } from './components/Admin/AdminChallenges';
+import { AdminEmails } from './components/Admin/AdminEmails';
 import { LandingPage } from './pages/LandingPage';
 import { ResetPassword } from './pages/ResetPassword';
 import { AdLanding } from './pages/AdLanding';
@@ -35,6 +36,7 @@ import { TermsPage } from './pages/Institutional/TermsPage';
 import { PrivacyPage } from './pages/Institutional/PrivacyPage';
 import { CookiesPage } from './pages/Institutional/CookiesPage';
 import { Logo } from './components/Logo';
+import { EmailConfirmationBanner } from './components/EmailConfirmationBanner';
 import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
@@ -78,7 +80,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading, profile } = useProfile();
+  const { isProfileValid, isLoggedIn, isLoading: isProfileLoading, profile, user } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
   const [isInitializing, setIsInitializing] = useState(() => {
     // If we have a cached profile, we can skip the initial full-screen block
@@ -414,6 +416,9 @@ function AppContent() {
     <>
       <Toaster position="top-center" theme="dark" />
       
+      {/* Email Confirmation Banner */}
+      <EmailConfirmationBanner user={user} />
+
       {/* User Type Selection Onboarding */}
       {isLoggedIn && profile && !profile.tipo && profile.role !== 'admin' && (
         <UserTypeSelection onComplete={() => {}} />
@@ -471,6 +476,7 @@ function AppContent() {
                 <Route path="/posts" element={<AdminPosts />} />
                 <Route path="/challenges" element={<AdminChallenges />} />
                 <Route path="/ads" element={<AdminAds />} />
+                <Route path="/emails" element={<AdminEmails />} />
                 <Route path="/logs" element={<AdminLogs />} />
                 <Route path="/export" element={<AdminExport />} />
               </Routes>
