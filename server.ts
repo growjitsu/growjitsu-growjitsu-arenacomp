@@ -684,6 +684,17 @@ async function startServer() {
   // 🚀 CRITICAL: ISOLATED ADMIN API
   // ===========================================================================
   
+  // Diagnóstico Global para Admin
+  app.use('/api/admin', (req, res, next) => {
+    console.log(`[EMAIL API] DEBUG: ${req.method} ${req.url}`);
+    next();
+  });
+
+  // SANITY TEST ENDPOINT
+  app.get('/api/admin/ping-email', (req, res) => {
+    return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // Reset Password Logic (Reusable handler)
   const handleAdminResetPassword = async (req: any, res: any) => {
     const uid = req.body.uid || req.body.userId || req.body.athleteId;
@@ -754,10 +765,22 @@ async function startServer() {
   // ===========================================================================
   
   app.all('/api/admin/dispatch-email', async (req: any, res: any) => {
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
+    // 1. Explicitly allow OPTIONS for CORS (pre-flight)
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
 
-    console.log('[EMAIL-BATCH] Received dispatch request');
+    // 2. Block anything that is not POST
+    if (req.method !== 'POST') {
+      console.warn(`[EMAIL API] 405 Blocked: ${req.method} on dispatch-email`);
+      return res.status(405).json({ 
+        success: false, 
+        error: 'Method Not Allowed',
+        message: 'This endpoint only accepts POST requests.'
+      });
+    }
+
+    console.log('[EMAIL-BATCH] Processing dispatch request...');
     const { recipients, subject, htmlBody } = req.body;
     const authHeader = req.headers.authorization;
 

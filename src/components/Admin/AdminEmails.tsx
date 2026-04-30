@@ -104,15 +104,16 @@ export const AdminEmails: React.FC = () => {
       let result;
       const contentType = response.headers.get("content-type");
       
-      console.log('[DEBUG] Response status:', response.status);
-      console.log('[DEBUG] Response content-type:', contentType);
-
       if (contentType && contentType.toLowerCase().includes("application/json")) {
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error('[DEBUG] Non-JSON response text:', text);
-        throw new Error(`O servidor retornou um formato inesperado (${response.status}). Verifique se as credenciais SMTP estão configuradas.`);
+        console.error('[EMAIL API] Non-JSON response:', text);
+        // Special case for 405 which might be returned by infra
+        if (response.status === 405) {
+          throw new Error('Erro 405: Método não permitido. O servidor bloqueou este envio. Verifique a configuração de rotas.');
+        }
+        throw new Error(`Resposta inválida do servidor (${response.status}): ${text.slice(0, 100)}`);
       }
 
       if (result && result.success) {
