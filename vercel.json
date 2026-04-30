@@ -2,6 +2,22 @@
   "version": 2,
   "routes": [
     {
+      "src": "/api/admin/dispatch-email",
+      "dest": "/api/admin/dispatch-email.ts"
+    },
+    {
+      "src": "/api/admin/ping-email",
+      "dest": "/api/admin/ping-email.ts"
+    },
+    {
+      "src": "/api/admin/reset-password",
+      "dest": "/api/admin/reset-password.ts"
+    },
+    {
+      "src": "/api/admin/v5/reset-password",
+      "dest": "/api/admin/reset-password.ts"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },

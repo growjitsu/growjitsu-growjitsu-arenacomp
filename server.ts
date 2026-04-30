@@ -136,20 +136,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-
-  // Initialize Vite variable at the top of the scope
-  let vite: any = null;
-  if (process.env.NODE_ENV !== "production") {
-    vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-  }
-
-  // ===========================================================================
-  // 📧 ADMIN SYSTEM ENDPOINTS (PRODUCTION FIX - MUST BE FIRST)
-  // ===========================================================================
-  
+  // 1. CORS & Body Parser (ABSOLUTE TOP)
   app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -161,43 +148,36 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // EMAIL DISPATCHER HANDLER
+  // 2. ADMIN API (ABSOLUTE TOP - BEFORE ANYTHING ELSE)
   const emailDispatchHandler = async (req: any, res: any) => {
+    console.log('[ADMIN EMAIL] HIT', req.method, req.path);
+    res.setHeader('X-Admin-Action', 'dispatch-email');
+    res.setHeader('X-Backend-Server', 'Express-Custom-Server');
+
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Standard POST required' });
+
     const { recipients, subject, htmlBody } = req.body;
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-      return res.status(401).json({ success: false, error: "Token de autorização ausente." });
-    }
+    if (!authHeader) return res.status(401).json({ success: false, error: "Token ausente." });
 
     try {
       const token = authHeader.split(' ')[1];
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !user) {
-        return res.status(401).json({ success: false, error: "Usuário não autenticado." });
-      }
+      if (authError || !user) return res.status(401).json({ success: false, error: "Auth fail" });
 
       const client = supabaseAdmin || supabase;
       const { data: profile } = await client.from('profiles').select('role').eq('id', user.id).single();
-
-      if (profile?.role !== 'admin') {
-        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
-      }
+      if (profile?.role !== 'admin') return res.status(403).json({ success: false, error: "Admin only" });
 
       if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
-        return res.status(400).json({ success: false, error: "Lista de destinatários inválida." });
-      }
-      if (!subject || !htmlBody) {
-        return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
+        return res.status(400).json({ success: false, error: "Empty recipients" });
       }
 
       const smtpUser = process.env.SMTP_USER;
       const smtpPass = process.env.SMTP_PASS;
-
-      if (!smtpUser || !smtpPass) {
-        return res.status(500).json({ success: false, error: "Configuração de SMTP incompleta." });
-      }
+      if (!smtpUser || !smtpPass) return res.status(500).json({ success: false, error: "SMTP config missing" });
 
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
@@ -206,13 +186,11 @@ async function startServer() {
         auth: { user: smtpUser, pass: smtpPass },
       });
 
-      const batchSize = 20;
-      const delayBetweenBatches = 2000;
-      const results = { success: 0, failed: 0, errors: [] as string[] };
-
+      const results = { success: 0, failed: 0 };
+      const batchSize = 25;
       for (let i = 0; i < recipients.length; i += batchSize) {
         const currentBatch = recipients.slice(i, i + batchSize);
-        await Promise.all(currentBatch.map(async (email: string) => {
+        await Promise.all(currentBatch.map(async (email) => {
           try {
             await transporter.sendMail({
               from: `"${process.env.SMTP_FROM_NAME || 'ArenaComp'}" <${smtpUser}>`,
@@ -221,30 +199,41 @@ async function startServer() {
               html: htmlBody,
             });
             results.success++;
-          } catch (err: any) {
+          } catch (err) {
             results.failed++;
-            results.errors.push(`${email}: ${err.message}`);
           }
         }));
-        if (i + batchSize < recipients.length) await new Promise(r => setTimeout(r, delayBetweenBatches));
+        if (i + batchSize < recipients.length) await new Promise(r => setTimeout(r, 1000));
       }
 
-      return res.status(200).json({ success: true, message: `Enviados: ${results.success}, Falhas: ${results.failed}`, results });
+      return res.status(200).json({ success: true, message: `Enviados: ${results.success}, Falhas: ${results.failed}` });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: error.message });
     }
   };
 
-  // Dispatch Email Route (Explicit POST)
-  app.post('/api/admin/dispatch-email', emailDispatchHandler);
+  // Multiple path registration for redundancy
+  app.all(['/api/admin/dispatch-email', '/api/admin/dispatch-email/'], emailDispatchHandler);
+  app.all(['/api/admin-email-dispatch', '/api/admin-email-dispatch/'], emailDispatchHandler);
 
-  // BLOCK other methods for this route
-  app.all('/api/admin/dispatch-email', (req, res, next) => {
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-    next();
+  app.get('/api/admin/ping-email', (req, res) => {
+    res.json({ status: 'ok', server: 'express' });
   });
 
-  // Admin Reset Password Handler
+  // End of Admin Critical Block
+  // ===========================================================================
+
+
+  // Initialize Vite variable at the top of the scope
+  let vite: any = null;
+  if (process.env.NODE_ENV !== "production") {
+    vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+  }
+
+  // Admin Reset Password Handler (Redundant but safe for non-Vercel)
   const handleAdminResetPassword = async (req: any, res: any) => {
     const uid = req.body.uid || req.body.userId || req.body.athleteId;
     const password = req.body.password || req.body.newPassword;
@@ -265,31 +254,6 @@ async function startServer() {
 
   app.post('/api/admin/reset-password', handleAdminResetPassword);
   app.post('/api/admin/v5/reset-password', handleAdminResetPassword);
-
-  // SANITY TEST ENDPOINT
-  app.get('/api/admin/ping-email', (req, res) => {
-    return res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
-
-  // Global logging for admin requests (Moved diagnostic here)
-  app.use('/api/admin', (req, res, next) => {
-    console.log(`[ADMIN API HIT] ${req.method} ${req.url}`);
-    next();
-  });
-
-  // Legacy/Alternative path support
-  app.post('/api/admin-email-dispatch', emailDispatchHandler);
-  app.all('/api/admin-email-dispatch', (req, res) => {
-    if (req.method !== 'POST') return res.status(405).json({ success: false, error: 'Method Not Allowed' });
-  });
-
-  // 🚀 GLOBAL DEBUG LOGGER
-  app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      console.log(`[GLOBAL DEBUG] ${req.method} ${req.url} | Headers: ${req.headers['x-forwarded-proto'] || 'unknown'}`);
-    }
-    next();
-  });
 
   // --- START OF SHARE LOGIC ---
   const handleShareRequest = async (req: any, res: any, next: any) => {
@@ -805,7 +769,6 @@ async function startServer() {
     next();
   });
   // --- END OF SHARE LOGIC ---
-
 
 
   // --- NEW: AUTH CALLBACK ROUTE (SUPABASE) ---
