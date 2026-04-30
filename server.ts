@@ -681,21 +681,6 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ===========================================================================
-  // 🛡️ GLOBAL API CONFIGURATION
-  // ===========================================================================
-  app.use("/api", (req, res, next) => {
-    console.log(`[API-CORE] ${req.method} ${req.url}`);
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-API-MID', 'express-core');
-    
-    // Disable caching for API calls
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    next();
-  });
-
-  // ===========================================================================
   // 🚀 CRITICAL: ISOLATED ADMIN API
   // ===========================================================================
   
@@ -768,8 +753,11 @@ async function startServer() {
   // 📧 ADMIN EMAIL DISPATCHER (BETA)
   // ===========================================================================
   
-  app.post('/api/admin/send-email', async (req: any, res: any) => {
-    console.log('[EMAIL-BATCH] Received request');
+  app.all('/api/admin/dispatch-email', async (req: any, res: any) => {
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
+
+    console.log('[EMAIL-BATCH] Received dispatch request');
     const { recipients, subject, htmlBody } = req.body;
     const authHeader = req.headers.authorization;
 

@@ -88,7 +88,7 @@ export const AdminEmails: React.FC = () => {
 
       const recipients = users.filter(u => u.selected).map(u => u.email);
 
-      const response = await fetch('/api/admin/send-email', {
+      const response = await fetch('/api/admin/dispatch-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
