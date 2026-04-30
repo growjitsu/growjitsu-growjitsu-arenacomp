@@ -101,9 +101,21 @@ export const AdminEmails: React.FC = () => {
         })
       });
 
-      const result = await response.json();
+      let result;
+      const contentType = response.headers.get("content-type");
+      
+      console.log('[DEBUG] Response status:', response.status);
+      console.log('[DEBUG] Response content-type:', contentType);
 
-      if (result.success) {
+      if (contentType && contentType.toLowerCase().includes("application/json")) {
+        result = await response.json();
+      } else {
+        const text = await response.text();
+        console.error('[DEBUG] Non-JSON response text:', text);
+        throw new Error(`O servidor retornou um formato inesperado (${response.status}). Verifique se as credenciais SMTP estão configuradas.`);
+      }
+
+      if (result && result.success) {
         toast.success('Disparo concluído!', { description: result.message });
         setSubject('');
         setHtmlBody('');

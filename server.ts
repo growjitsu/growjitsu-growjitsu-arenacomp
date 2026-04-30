@@ -769,29 +769,41 @@ async function startServer() {
   // ===========================================================================
   
   app.post('/api/admin/send-email', async (req: any, res: any) => {
+    console.log('[EMAIL-BATCH] Received request');
     const { recipients, subject, htmlBody } = req.body;
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
+      console.log('[EMAIL-BATCH] Missing Auth Header');
       return res.status(401).json({ success: false, error: "Token de autorização ausente." });
     }
 
     try {
       // 1. Verify if user is admin
       const token = authHeader.split(' ')[1];
+      console.log('[EMAIL-BATCH] Verifying token...');
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       
       if (authError || !user) {
+        console.error('[EMAIL-BATCH] Auth error:', authError);
         return res.status(401).json({ success: false, error: "Usuário não autenticado." });
       }
 
-      const { data: profile } = await supabase
+      console.log('[EMAIL-BATCH] checking profile for user:', user.id);
+      // Use supabaseAdmin if available for role check
+      const client = supabaseAdmin || supabase;
+      const { data: profile, error: profileError } = await client
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
+      if (profileError) {
+        console.error('[EMAIL-BATCH] Profile error:', profileError);
+      }
+
       if (profile?.role !== 'admin') {
+        console.warn('[EMAIL-BATCH] Access denied for user:', user.email);
         return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
       }
 
@@ -804,18 +816,30 @@ async function startServer() {
       }
 
       // 3. Configure Transporter
-      // Using environment variables for SMTP
+      const smtpHost = process.env.SMTP_HOST || 'smtp.hostgator.com.br';
+      const smtpPortRaw = process.env.SMTP_PORT || '465';
+      const smtpPort = parseInt(smtpPortRaw);
+      const smtpUser = process.env.SMTP_USER;
+      const smtpPass = process.env.SMTP_PASS;
+
+      if (!smtpUser || !smtpPass) {
+        console.error('[EMAIL-BATCH] SMTP credentials missing');
+        return res.status(500).json({ success: false, error: "Configuração de SMTP (e-mail) incompleta no servidor. Configure SMTP_USER e SMTP_PASS no painel de variáveis de ambiente." });
+      }
+
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
-        port: parseInt(process.env.SMTP_PORT || '465'),
-        secure: process.env.SMTP_PORT === '465', 
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465, 
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: smtpUser,
+          pass: smtpPass,
         },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
       });
 
-      console.log(`[EMAIL-BATCH] Starting dispatch for ${recipients.length} recipients...`);
+      console.log(`[EMAIL-BATCH] Attempting dispatch to ${recipients.length} recipients via ${smtpHost}:${smtpPort} (Secure: ${smtpPort === 465})`);
 
       // 4. Batch Sending (Control load)
       const batchSize = 20;
