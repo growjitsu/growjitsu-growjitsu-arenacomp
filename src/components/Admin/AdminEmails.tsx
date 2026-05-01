@@ -75,7 +75,7 @@ export const AdminEmails: React.FC = () => {
       // These come from Supabase
       const { data: eventsData, error: eventsError } = await supabase
         .from('eventos')
-        .select('id, nome, data, cidade, uf, modalidade, logo_url, updated_at, status')
+        .select('id, nome, data, cidade, uf, modalidade, logo_url, created_at, status')
         .neq('status', 'rascunho')
         .neq('status', 'finalizado')
         .neq('status', 'cancelado')
@@ -83,6 +83,16 @@ export const AdminEmails: React.FC = () => {
         .limit(50);
 
       if (eventsError) throw eventsError;
+
+      // Also fetch ads from Supabase to ensure we see EVERYTHING
+      const { data: supabaseAds, error: supabaseAdsError } = await supabase
+        .from('arena_ads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (supabaseAdsError) {
+        console.warn('Error fetching Supabase ads:', supabaseAdsError);
+      }
 
       const mappedEvents: ArenaAd[] = (eventsData || []).map(e => ({
         id: e.id,
@@ -96,17 +106,24 @@ export const AdminEmails: React.FC = () => {
         type: 'landing', 
         total_impressions: 0,
         total_clicks: 0,
-        created_at: e.updated_at
+        created_at: e.created_at
       } as ArenaAd));
 
-      // Combine and sort by created_at descending
-      const combined = [...adsData, ...mappedEvents].sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
+      // Combine all sources: Firestore Ads, Supabase Ads, and Supabase Events
+      const combined = [
+        ...adsData, 
+        ...(supabaseAds || []), 
+        ...mappedEvents
+      ].sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
         return dateB - dateA;
       });
 
-      setAds(combined);
+      // Deduplicate by ID just in case
+      const uniqueAds = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+
+      setAds(uniqueAds);
     } catch (error: any) {
       console.error('Error fetching ads/events:', error);
       toast.error('Erro ao buscar conteúdos', { description: error.message });
