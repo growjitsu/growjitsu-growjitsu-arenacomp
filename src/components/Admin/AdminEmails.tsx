@@ -70,12 +70,14 @@ export const AdminEmails: React.FC = () => {
         .from('eventos')
         .select('id, nome, data, cidade, uf, modalidade, logo_url, updated_at, status')
         .neq('status', 'rascunho')
+        .neq('status', 'finalizado')
+        .neq('status', 'cancelado')
         .order('data', { ascending: false })
-        .limit(10);
+        .limit(50);
 
       const mappedEvents: ArenaAd[] = (eventsData || []).map(e => ({
         id: e.id,
-        title: `Campeonato: ${e.nome}`,
+        title: e.nome,
         content: `${e.modalidade} em ${e.cidade}/${e.uf} - Status: ${e.status?.toUpperCase()} - Data: ${new Date(e.data).toLocaleDateString()}`,
         media_url: e.logo_url,
         link_url: `https://arenacomp.com.br/campeonato/${e.id}`,
@@ -97,27 +99,37 @@ export const AdminEmails: React.FC = () => {
     }
   };
 
+  const getPublicUrl = (url: string | undefined): string => {
+    const fallbackLogo = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
+    if (!url) return fallbackLogo;
+    
+    let finalUrl = url;
+    if (finalUrl.startsWith('http')) return finalUrl.replace('http://', 'https://');
+
+    const supabaseUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co';
+
+    if (finalUrl.startsWith('/storage')) {
+      finalUrl = supabaseUrl + finalUrl;
+    } else if (
+      finalUrl.includes('feed_ads') || 
+      finalUrl.includes('logos') || 
+      finalUrl.includes('banners') || 
+      finalUrl.includes('landing_pages') ||
+      finalUrl.includes('mobile') || 
+      finalUrl.includes('desktop')
+    ) {
+      const cleanPath = finalUrl.startsWith('/') ? finalUrl.slice(1) : finalUrl;
+      finalUrl = `${supabaseUrl}/storage/v1/object/public/${cleanPath}`;
+    } else {
+      const origin = 'https://arenacomp.com.br';
+      finalUrl = `${origin}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
+    }
+    return finalUrl.replace('http://', 'https://');
+  };
+
   const generateEmailFromAd = (ad: ArenaAd) => {
     const title = ad.landing_title || ad.title;
     const description = ad.landing_description || ad.content || '';
-
-    // Normalize image URL
-    const getPublicUrl = (url: string | undefined): string => {
-      if (!url) return 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
-      
-      let finalUrl = url;
-      if (!finalUrl.startsWith('http')) {
-        // Handle Supabase relative storage paths
-        if (finalUrl.startsWith('/storage')) {
-          finalUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co' + finalUrl;
-        } else {
-          // Absolute path from origin
-          const origin = window.location.origin;
-          finalUrl = `${origin}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
-        }
-      }
-      return finalUrl.replace('http://', 'https://');
-    };
 
     const imageUrl = getPublicUrl(ad.landing_image || ad.media_url);
 
@@ -137,10 +149,10 @@ export const AdminEmails: React.FC = () => {
         <tr>
             <td align="center" style="padding: 40px 0;">
                 <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #111111; border-radius: 24px; overflow: hidden; border: 1px solid #222222;">
-                    <!-- Logo/Header -->
+                      <!-- Logo/Header -->
                     <tr>
                         <td align="center" style="padding: 30px 0;">
-                            <img src="https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png" alt="ArenaComp" width="180" style="display: block;">
+                            <img src="https://arenacomp.com.br/logo-arenacomp.jpg" alt="ArenaComp" width="180" style="display: block;">
                         </td>
                     </tr>
 
@@ -636,8 +648,12 @@ export const AdminEmails: React.FC = () => {
                       className="group w-full flex items-center gap-6 p-4 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/[0.08] hover:border-blue-500/20 transition-all text-left"
                     >
                       <div className="w-24 h-16 rounded-xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0">
-                        {ad.media_url ? (
-                          <img src={ad.media_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        { (ad.landing_image || ad.media_url) ? (
+                          <img 
+                            src={getPublicUrl(ad.landing_image || ad.media_url)} 
+                            alt="" 
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-700">
                             <Layout size={24} />
