@@ -184,8 +184,8 @@ export const AdminEmails: React.FC = () => {
                 <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #111111; border-radius: 24px; overflow: hidden; border: 1px solid #222222;">
                       <!-- Logo/Header -->
                     <tr>
-                        <td align="center" style="padding: 30px 0;">
-                            <img src="https://arenacomp.com.br/logo-arenacomp.jpg" alt="ArenaComp" width="180" style="display: block;">
+                        <td align="center" style="padding: 30px 0; color: #ffffff; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold;">
+                            <img src="https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png" alt="ArenaComp" width="180" style="display: block; color: #ffffff; border: 0;">
                         </td>
                     </tr>
 
