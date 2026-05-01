@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Send, Users, CheckSquare, Square, Search, Filter, Loader2, AlertCircle, CheckCircle2, ChevronRight, Layout, Type, Palette, Sparkles, X, ExternalLink, Eye } from 'lucide-react';
+import { collection, query, where, getDocs, orderBy as firestoreOrderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
 import { ArenaAd } from '../../types';
@@ -56,16 +58,21 @@ export const AdminEmails: React.FC = () => {
       setIsFetchingAds(true);
       setShowAdSelector(true);
       
-      // Fetch from arena_ads
-      const { data: adsData, error: adsError } = await supabase
-        .from('arena_ads')
-        .select('*')
-        .eq('active', true)
-        .order('created_at', { ascending: false });
-
-      if (adsError) throw adsError;
+      // Fetch from Firestore (arena_ads) - MATCHING AdminAds management
+      // We fetch ALL ads (not just active) so admin can see everything in the system
+      const adsSnapshot = await getDocs(query(collection(db, 'arena_ads')));
+      const adsData: ArenaAd[] = adsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          // Convert Firestore timestamps if they exist
+          created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at || new Date().toISOString()
+        } as ArenaAd;
+      });
 
       // Fetch from eventos (championships) - mapping to ArenaAd shape
+      // These come from Supabase
       const { data: eventsData, error: eventsError } = await supabase
         .from('eventos')
         .select('id, nome, data, cidade, uf, modalidade, logo_url, updated_at, status')
@@ -74,6 +81,8 @@ export const AdminEmails: React.FC = () => {
         .neq('status', 'cancelado')
         .order('data', { ascending: false })
         .limit(50);
+
+      if (eventsError) throw eventsError;
 
       const mappedEvents: ArenaAd[] = (eventsData || []).map(e => ({
         id: e.id,
@@ -90,7 +99,14 @@ export const AdminEmails: React.FC = () => {
         created_at: e.updated_at
       } as ArenaAd));
 
-      setAds([...(adsData || []), ...mappedEvents]);
+      // Combine and sort by created_at descending
+      const combined = [...adsData, ...mappedEvents].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
+
+      setAds(combined);
     } catch (error: any) {
       console.error('Error fetching ads/events:', error);
       toast.error('Erro ao buscar conteúdos', { description: error.message });
