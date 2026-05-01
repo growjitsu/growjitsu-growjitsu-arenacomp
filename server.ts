@@ -273,37 +273,40 @@ async function startServer() {
         
         if (!sbAuthError && authData?.user) {
           const authUserId = authData.user.id;
-          console.log(`[ADMIN-AUTH] Usuário autenticado Supabase: ${authUserId}`);
+          const authUserEmail = authData.user.email;
+          console.log(`[ADMIN-AUTH] Usuário autenticado Supabase: ${authUserId} (${authUserEmail})`);
 
-          // Verificar role nos metadados do usuário (Supabase costuma guardar aqui)
+          // 1a. Verificar role nos metadados do usuário
           const metadataRole = authData.user.app_metadata?.role || authData.user.user_metadata?.role;
-          console.log(`[ADMIN-AUTH] Metadata Role: ${metadataRole}`);
-          
           if (metadataRole && String(metadataRole).toLowerCase() === 'admin') {
             isAdmin = true;
             adminInfo = { id: authUserId, provider: 'supabase-metadata' };
-            console.log('[ADMIN-AUTH] Sucesso: Admin verificado via Metadados do Supabase');
+          }
+
+          // 1b. Verificar se é o e-mail do proprietário ou admin conhecido
+          const adminEmails = ['carlos.atila001@gmail.com', 'admin@arenacomp.com.br'];
+          if (!isAdmin && authUserEmail && adminEmails.includes(authUserEmail.toLowerCase())) {
+            isAdmin = true;
+            adminInfo = { id: authUserId, provider: 'supabase-email-list' };
+            console.log('[ADMIN-AUTH] Sucesso: Admin verificado via Lista de E-mails');
           }
 
           if (!isAdmin) {
-            // Tentar buscar o perfil para verificar a role se não encontrou nos metadados
-            const authClient = supabaseAdmin || createClient(supabaseUrl, supabaseAnonKey, {
-              global: { headers: { Authorization: `Bearer ${token}` } }
-            });
+            // 1c. Tentar buscar o perfil para verificar a role
+            const authClient = supabaseAdmin || supabase; // Usar o admin se possível para ignorar RLS
             
             const { data: profile, error: profileError } = await authClient
               .from('profiles')
-              .select('*') // Buscar tudo para garantir compatibilidade com o que funciona no front
+              .select('role, email')
               .eq('id', authUserId)
               .single();
             
             if (profile?.role && String(profile.role).toLowerCase() === 'admin') {
               isAdmin = true;
               adminInfo = { id: authUserId, provider: 'supabase-profile' };
-              console.log('[ADMIN-AUTH] Sucesso: Usuário é administrador no perfil do Supabase');
-            } else {
-              console.warn(`[ADMIN-AUTH] Perfil encontrado mas role é: ${profile?.role || 'null'}`);
-              if (profileError) console.error('[ADMIN-AUTH] Erro na busca de perfil Supabase:', profileError.message);
+            } else if (profile?.email && adminEmails.includes(profile.email.toLowerCase())) {
+              isAdmin = true;
+              adminInfo = { id: authUserId, provider: 'supabase-profile-email' };
             }
           }
         }

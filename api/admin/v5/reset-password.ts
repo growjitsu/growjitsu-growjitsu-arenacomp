@@ -74,12 +74,14 @@ export default async function handler(req: any, res: any) {
     // 1. Verify if the caller is an admin
     let isAdmin = false;
     let adminInfo = null;
+    const adminEmails = ['carlos.atila001@gmail.com', 'admin@arenacomp.com.br'];
     
     // Try Supabase Auth token first
     try {
       const { data: authData, error: sbAuthError } = await supabase.auth.getUser(token);
       if (!sbAuthError && authData?.user) {
         const authUserId = authData.user.id;
+        const authUserEmail = authData.user.email;
         
         // Check Metadata Role
         const metadataRole = authData.user.app_metadata?.role || authData.user.user_metadata?.role;
@@ -88,18 +90,25 @@ export default async function handler(req: any, res: any) {
           adminInfo = { id: authUserId, provider: 'supabase-metadata' };
         }
 
+        // Check Email List
+        if (!isAdmin && authUserEmail && adminEmails.includes(authUserEmail.toLowerCase())) {
+          isAdmin = true;
+          adminInfo = { id: authUserId, provider: 'supabase-email-list' };
+        }
+
         if (!isAdmin) {
           // Check Profile Role
-          const authClient = supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : createClient(supabaseUrl, supabaseAnonKey, {
-            global: { headers: { Authorization: `Bearer ${token}` } }
-          });
+          const authClient = supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase;
           
           const { data: profile } = await authClient
-            .from('profiles').select('*').eq('id', authUserId).single();
+            .from('profiles').select('role, email').eq('id', authUserId).single();
             
           if (profile?.role && String(profile.role).toLowerCase() === 'admin') {
             isAdmin = true;
             adminInfo = { id: authUserId, provider: 'supabase-profile' };
+          } else if (profile?.email && adminEmails.includes(profile.email.toLowerCase())) {
+            isAdmin = true;
+            adminInfo = { id: authUserId, provider: 'supabase-profile-email' };
           }
         }
       }
