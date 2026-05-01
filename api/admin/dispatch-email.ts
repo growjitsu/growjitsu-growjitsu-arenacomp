@@ -64,17 +64,19 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ success: false, error: "Assunto e corpo do e-mail são obrigatórios." });
     }
 
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const smtpUser = process.env.SMTP_USER || 'contato@arenacomp.com.br';
+    const smtpPass = process.env.SMTP_PASS || 'C@rlucya@7625';
+    const smtpHost = process.env.SMTP_HOST || 'smtp.titan.email';
+    const smtpPort = parseInt(process.env.SMTP_PORT || '465');
 
     if (!smtpUser || !smtpPass) {
       return res.status(500).json({ success: false, error: "Configuração de SMTP incompleta no servidor." });
     }
 
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.hostgator.com.br',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: (process.env.SMTP_PORT || '465') === '465', 
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465, 
       auth: {
         user: smtpUser,
         pass: smtpPass,
