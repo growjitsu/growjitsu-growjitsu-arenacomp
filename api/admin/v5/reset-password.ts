@@ -79,8 +79,14 @@ export default async function handler(req: any, res: any) {
     try {
       const { data: authData, error: sbAuthError } = await supabase.auth.getUser(token);
       if (!sbAuthError && authData?.user) {
-        const { data: profile } = await (supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase)
+        // Use a client with the user's token or the secret key if available
+        const authClient = supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } }
+        });
+        
+        const { data: profile } = await authClient
           .from('profiles').select('role').eq('id', authData.user.id).single();
+          
         if (profile?.role === 'admin') {
           isAdmin = true;
           adminInfo = { id: authData.user.id, provider: 'supabase' };
@@ -97,8 +103,10 @@ export default async function handler(req: any, res: any) {
         const decodedToken = await firebaseAuth.verifyIdToken(token);
         if (decodedToken) {
           // Check role in Supabase profiles (source of truth for roles)
-          const { data: profile } = await (supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase)
+          const authClient = supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase;
+          const { data: profile } = await authClient
             .from('profiles').select('role').eq('id', decodedToken.uid).single();
+            
           if (profile?.role === 'admin' || decodedToken.admin === true) {
             isAdmin = true;
             adminInfo = { id: decodedToken.uid, provider: 'firebase' };

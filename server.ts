@@ -271,11 +271,20 @@ async function startServer() {
       try {
         const { data: authData, error: sbAuthError } = await supabase.auth.getUser(token);
         if (!sbAuthError && authData?.user) {
-          const { data: profile } = await (supabaseAdmin || supabase).from('profiles').select('role').eq('id', authData.user.id).single();
+          // Use admin client if available, otherwise use a temporary client with the provided token
+          const authClient = supabaseAdmin || createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: `Bearer ${token}` } }
+          });
+          
+          const { data: profile, error: profileError } = await authClient
+            .from('profiles').select('role').eq('id', authData.user.id).single();
+          
           if (profile?.role === 'admin') {
             isAdmin = true;
             adminInfo = { id: authData.user.id, provider: 'supabase' };
-            console.log('[ADMIN-AUTH] Admin verificado via Supabase');
+            console.log('[ADMIN-AUTH] Admin verificado via Supabase Role');
+          } else {
+            console.log(`[ADMIN-AUTH] Usuário Supabase não é admin. Role: ${profile?.role || 'N/A'}`);
           }
         }
       } catch (e) {
@@ -288,11 +297,16 @@ async function startServer() {
           const auth = getAuth();
           const decodedToken = await auth.verifyIdToken(token);
           if (decodedToken) {
-            const { data: profile } = await (supabaseAdmin || supabase).from('profiles').select('role').eq('id', decodedToken.uid).single();
+            // Use admin client if available to check profiles
+            const authClient = supabaseAdmin || createClient(supabaseUrl, supabaseAnonKey);
+            const { data: profile } = await authClient.from('profiles').select('role').eq('id', decodedToken.uid).single();
+            
             if (profile?.role === 'admin' || decodedToken.admin === true) {
               isAdmin = true;
               adminInfo = { id: decodedToken.uid, provider: 'firebase' };
               console.log('[ADMIN-AUTH] Admin verificado via Firebase');
+            } else {
+              console.log(`[ADMIN-AUTH] Usuário Firebase não é admin. Role Supabase: ${profile?.role || 'N/A'} | Admin Claim: ${decodedToken.admin}`);
             }
           }
         } catch (e) {
