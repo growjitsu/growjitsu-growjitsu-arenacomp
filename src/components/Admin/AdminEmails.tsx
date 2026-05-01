@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Send, Users, CheckSquare, Square, Search, Filter, Loader2, AlertCircle, CheckCircle2, ChevronRight, Layout, Type, Palette, Sparkles, X, ExternalLink } from 'lucide-react';
+import { Mail, Send, Users, CheckSquare, Square, Search, Filter, Loader2, AlertCircle, CheckCircle2, ChevronRight, Layout, Type, Palette, Sparkles, X, ExternalLink, Eye } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
 import { ArenaAd } from '../../types';
@@ -22,6 +22,7 @@ export const AdminEmails: React.FC = () => {
   const [htmlBody, setHtmlBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState<{ current: number; total: number } | null>(null);
+  const [activeEditorTab, setActiveEditorTab] = useState<'edit' | 'preview'>('edit');
 
   // New states for Ad Generation
   const [ads, setAds] = useState<ArenaAd[]>([]);
@@ -57,6 +58,8 @@ export const AdminEmails: React.FC = () => {
       const { data, error } = await supabase
         .from('arena_ads')
         .select('*')
+        .eq('active', true)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -70,8 +73,25 @@ export const AdminEmails: React.FC = () => {
 
   const generateEmailFromAd = (ad: ArenaAd) => {
     const title = ad.landing_title || ad.title;
-    const description = ad.landing_description || ad.content;
-    const imageUrl = ad.landing_image || ad.media_url;
+    const description = ad.landing_description || ad.content || '';
+    let imageUrl = ad.landing_image || ad.media_url;
+
+    // Normalize image URL
+    if (imageUrl) {
+      if (!imageUrl.startsWith('http')) {
+        // Handle Supabase relative storage paths vs local relative paths
+        if (imageUrl.startsWith('/storage')) {
+          imageUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co' + imageUrl;
+        } else {
+          imageUrl = window.location.origin + (imageUrl.startsWith('/') ? '' : '/') + imageUrl;
+        }
+      }
+      imageUrl = imageUrl.replace('http://', 'https://');
+    } else {
+      // Fallback institucional
+      imageUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
+    }
+
     const ctaText = ad.landing_cta_text || 'Ver Mais';
     const ctaUrl = ad.landing_cta_url || ad.link_url || 'https://arenacomp.com.br';
 
@@ -96,7 +116,6 @@ export const AdminEmails: React.FC = () => {
                     </tr>
 
                     <!-- Banner Image -->
-                    ${imageUrl ? `
                     <tr>
                         <td align="center">
                             <a href="${ctaUrl}" target="_blank">
@@ -104,7 +123,6 @@ export const AdminEmails: React.FC = () => {
                             </a>
                         </td>
                     </tr>
-                    ` : ''}
 
                     <!-- Content Section -->
                     <tr>
@@ -379,6 +397,31 @@ export const AdminEmails: React.FC = () => {
             </div>
 
             <div className="p-6 space-y-6">
+              <div className="flex items-center gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit">
+                <button
+                  onClick={() => setActiveEditorTab('edit')}
+                  className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeEditorTab === 'edit' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <Type size={14} />
+                  <span>Editor HTML</span>
+                </button>
+                <button
+                  onClick={() => setActiveEditorTab('preview')}
+                  className={`flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                    activeEditorTab === 'preview' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' 
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <Eye size={14} />
+                  <span>Visualizar Preview</span>
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 block">Assunto do E-mail</label>
                 <div className="relative">
@@ -393,15 +436,50 @@ export const AdminEmails: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 block">Corpo do E-mail (HTML)</label>
-                <textarea
-                  value={htmlBody}
-                  onChange={(e) => setHtmlBody(e.target.value)}
-                  placeholder="<h1>Olá!</h1><p>Confira as novidades...</p>"
-                  className="w-full h-[400px] bg-white/5 border border-white/10 rounded-2xl p-6 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition-colors resize-none"
-                />
-              </div>
+              <AnimatePresence mode="wait">
+                {activeEditorTab === 'edit' ? (
+                  <motion.div
+                    key="edit"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    className="space-y-2"
+                  >
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 block">Corpo do E-mail (HTML)</label>
+                    <textarea
+                      value={htmlBody}
+                      onChange={(e) => setHtmlBody(e.target.value)}
+                      placeholder="<h1>Olá!</h1><p>Confira as novidades...</p>"
+                      className="w-full h-[450px] bg-white/5 border border-white/10 rounded-2xl p-6 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition-colors resize-none custom-scrollbar"
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="preview"
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    className="space-y-2"
+                  >
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 block">Preview em Tempo Real</label>
+                    <div className="w-full h-[450px] bg-white border border-white/10 rounded-2xl overflow-hidden">
+                      {htmlBody ? (
+                        <iframe 
+                          srcDoc={htmlBody} 
+                          title="Email Preview"
+                          className="w-full h-full border-none"
+                          sandbox="allow-popups allow-popups-to-escape-sandbox"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-gray-400 bg-[#0a0a0a]">
+                          <AlertCircle size={32} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Nenhum conteúdo para visualizar</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
@@ -539,9 +617,16 @@ export const AdminEmails: React.FC = () => {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-[14px] font-black uppercase italic tracking-tighter text-white truncate group-hover:text-blue-400 transition-colors">
-                          {ad.title}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-[14px] font-black uppercase italic tracking-tighter text-white truncate group-hover:text-blue-400 transition-colors">
+                            {ad.title}
+                          </h4>
+                          {ad.type && (
+                            <span className="px-2 py-0.5 rounded bg-blue-500/20 text-[7px] font-black uppercase text-blue-400 border border-blue-500/30">
+                              {ad.type}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-gray-500 line-clamp-1 mt-1 font-medium">
                           {ad.content}
                         </p>
