@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, Users, ChevronRight, ChevronLeft, Star, TrendingUp, Shield, Zap, Search, ArrowRight, User } from 'lucide-react';
+import { Trophy, Users, ChevronRight, ChevronLeft, Star, TrendingUp, Shield, Zap, Search, ArrowRight, User, Share2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { trackAdEvent } from '../services/adService';
 import { PublicHeader } from '../components/PublicHeader';
 import { PublicFooter } from '../components/PublicFooter';
+import { ShareModal } from '../components/ShareModal';
+import { AchievementCard } from '../components/AchievementCard';
+import { CardData } from '../services/arenaService';
 import { ArenaProfile, ArenaAd } from '../types';
 
 interface Banner {
@@ -37,6 +40,55 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
   const [topAthletes, setTopAthletes] = useState<ArenaProfile[]>([]);
   const [featuredProfiles, setFeaturedProfiles] = useState<ArenaProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    subtitle?: string;
+    url: string;
+    imageUrl?: string;
+    onGenerate?: () => void;
+  }>({ title: '', url: '' });
+  const [achievementData, setAchievementData] = useState<CardData>({
+    title: '',
+    athleteName: '',
+    achievement: '',
+    modality: '',
+    date: '',
+    profileUrl: ''
+  });
+
+  const handleShareAd = (e: React.MouseEvent, ad: ArenaAd) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const shareUrl = `${window.location.origin}/ad/${ad.id}`;
+    const mainImg = ad.media_url_landing_highlights || ad.media_url;
+    
+    setShareModalData({
+      title: 'Destaque: ' + ad.title,
+      subtitle: ad.content || 'Confira este destaque na ArenaComp!',
+      url: shareUrl,
+      imageUrl: mainImg,
+      onGenerate: () => {
+        const cardData: CardData = {
+          title: ad.title,
+          description: ad.content || 'Confira este destaque na ArenaComp!',
+          image: mainImg,
+          type: 'post', 
+          athleteName: 'ArenaComp',
+          achievement: 'Destaque da Arena',
+          modality: 'Arena',
+          date: new Date().toLocaleDateString(),
+          realId: ad.id,
+          mainImageUrl: mainImg
+        };
+        setAchievementData(cardData);
+        setIsAchievementCardOpen(true);
+      }
+    });
+    setIsShareModalOpen(true);
+  };
 
   useEffect(() => {
     // Fetch Banners from Firebase
@@ -455,8 +507,16 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                         </p>
                       </div>
 
-                      <div className="absolute top-4 left-4 p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl">
-                        <Zap size={14} className="text-amber-500" />
+                      <div className="absolute top-4 left-4 flex items-center gap-2">
+                        <div className="p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl">
+                          <Zap size={14} className="text-amber-500" />
+                        </div>
+                        <button 
+                          onClick={(e) => handleShareAd(e, ad)}
+                          className="p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl hover:bg-blue-600 transition-all group/share"
+                        >
+                          <Share2 size={14} className="text-white group-hover/share:scale-110 transition-transform" />
+                        </button>
                       </div>
                     </div>
 
@@ -572,6 +632,23 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
       </main>
 
       <PublicFooter />
+
+      <ShareModal 
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        onGenerate={shareModalData.onGenerate || (() => {})}
+        url={shareModalData.url}
+        title={shareModalData.title}
+        subtitle={shareModalData.subtitle}
+        imageUrl={shareModalData.imageUrl}
+        followerCount={0}
+      />
+
+      <AchievementCard 
+        isOpen={isAchievementCardOpen}
+        onClose={() => setIsAchievementCardOpen(false)}
+        data={achievementData}
+      />
     </div>
   );
 };

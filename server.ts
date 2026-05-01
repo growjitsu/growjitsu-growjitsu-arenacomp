@@ -266,6 +266,7 @@ async function startServer() {
       const token = authHeader.split(' ')[1];
       let isAdmin = false;
       let adminInfo = null;
+      const adminEmails = ['carlos.atila001@gmail.com', 'admin@arenacomp.com.br'];
 
       // 1. Verify Admin Status (Supabase)
       try {
@@ -284,7 +285,6 @@ async function startServer() {
           }
 
           // 1b. Verificar se é o e-mail do proprietário ou admin conhecido
-          const adminEmails = ['carlos.atila001@gmail.com', 'admin@arenacomp.com.br'];
           if (!isAdmin && authUserEmail && adminEmails.includes(authUserEmail.toLowerCase())) {
             isAdmin = true;
             adminInfo = { id: authUserId, provider: 'supabase-email-list' };
@@ -320,10 +320,18 @@ async function startServer() {
           const auth = getAuth();
           const decodedToken = await auth.verifyIdToken(token);
           if (decodedToken) {
+            const authUserEmail = decodedToken.email;
             const authClient = supabaseAdmin || supabase;
-            const { data: profile } = await authClient.from('profiles').select('role').eq('id', decodedToken.uid).single();
+            const { data: profile } = await authClient
+              .from('profiles')
+              .select('role, email')
+              .eq('id', decodedToken.uid)
+              .single();
             
-            if (profile?.role === 'admin' || decodedToken.admin === true) {
+            if (profile?.role === 'admin' || 
+                decodedToken.admin === true || 
+                (authUserEmail && adminEmails.includes(authUserEmail.toLowerCase())) ||
+                (profile?.email && adminEmails.includes(profile.email.toLowerCase()))) {
               isAdmin = true;
               adminInfo = { id: decodedToken.uid, provider: 'firebase' };
               console.log('[ADMIN-AUTH] Sucesso: Usuário é administrador via Firebase');

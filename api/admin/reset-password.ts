@@ -122,12 +122,17 @@ export default async function handler(req: any, res: any) {
         const firebaseAuth = await getFirebaseAdmin();
         const decodedToken = await firebaseAuth.verifyIdToken(token);
         if (decodedToken) {
+          const authUserEmail = decodedToken.email;
+          
           // Check role in Supabase profiles (source of truth for roles)
           const authClient = supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase;
           const { data: profile } = await authClient
-            .from('profiles').select('*').eq('id', decodedToken.uid).single();
+            .from('profiles').select('role, email').eq('id', decodedToken.uid).single();
             
-          if ((profile?.role && String(profile.role).toLowerCase() === 'admin') || decodedToken.admin === true) {
+          if ((profile?.role && String(profile.role).toLowerCase() === 'admin') || 
+              decodedToken.admin === true || 
+              (authUserEmail && adminEmails.includes(authUserEmail.toLowerCase())) ||
+              (profile?.email && adminEmails.includes(profile.email.toLowerCase()))) {
             isAdmin = true;
             adminInfo = { id: decodedToken.uid, provider: 'firebase' };
           }
