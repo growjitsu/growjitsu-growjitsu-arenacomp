@@ -10,9 +10,17 @@ import { CardGenerator, CardData } from "./src/services/cardGenerator";
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium-min';
 import dotenv from "dotenv";
-import { initializeApp } from 'firebase-admin/app';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import firebaseConfig from './firebase-applet-config.json';
+let firebaseConfig: any = {};
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  }
+} catch (e) {
+  console.warn('[SERVER] Could not load firebase-applet-config.json');
+}
 
 // Load environment variables
 dotenv.config();
@@ -56,10 +64,16 @@ const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexter
 
 // Initialize Firebase Admin SDK
 try {
-  initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
-  console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
+  if (firebaseConfig && firebaseConfig.projectId) {
+    if (getApps().length === 0) {
+      initializeApp({
+        projectId: firebaseConfig.projectId,
+      });
+      console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
+    }
+  } else {
+    console.warn('[FIREBASE-ADMIN] Configuração do Firebase incompleta ou ausente.');
+  }
 } catch (error) {
   console.error('[FIREBASE-ADMIN] Erro ao inicializar SDK:', error);
 }
@@ -271,7 +285,8 @@ async function startServer() {
       // 2. Verify Admin Status (Firebase)
       if (!isAdmin) {
         try {
-          const decodedToken = await getAuth().verifyIdToken(token);
+          const auth = getAuth();
+          const decodedToken = await auth.verifyIdToken(token);
           if (decodedToken) {
             const { data: profile } = await (supabaseAdmin || supabase).from('profiles').select('role').eq('id', decodedToken.uid).single();
             if (profile?.role === 'admin' || decodedToken.admin === true) {
@@ -281,7 +296,7 @@ async function startServer() {
             }
           }
         } catch (e) {
-          console.warn('[ADMIN-AUTH] Falha ao verificar token via Firebase');
+          console.warn('[ADMIN-AUTH] Falha ao verificar token via Firebase ou SDK não inicializado');
         }
       }
 
@@ -319,17 +334,18 @@ async function startServer() {
 
       // 4. Try Firebase Update
       try {
+        const auth = getAuth();
         console.log(`[ADMIN-AUTH] Tentando atualizar Firebase para UID: ${uid}`);
-        await getAuth().updateUser(uid, { password: password });
+        await auth.updateUser(uid, { password: password });
         fbSuccess = true;
         successMessage += "Senha atualizada no Firebase. ";
         console.log('[ADMIN-AUTH] Sucesso no Firebase');
       } catch (e: any) {
-        if (e.code === 'auth/user-not-found') {
+        if (e && e.code === 'auth/user-not-found') {
           console.log('[ADMIN-AUTH] Usuário não encontrado no Firebase (normal se o usuário for apenas Supabase)');
         } else {
           console.error('[SERVER] Firebase update fail:', e);
-          errorDetails += `Firebase: ${e.message}. `;
+          errorDetails += `Firebase: ${e?.message || 'Erro desconhecido'}. `;
         }
       }
 

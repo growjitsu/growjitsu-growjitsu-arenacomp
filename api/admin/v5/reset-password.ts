@@ -28,10 +28,10 @@ async function getFirebaseAdmin() {
         initializeApp({
           projectId: configData.projectId,
         });
-        console.log('[API] Firebase Admin initialized lazily');
+        console.log('[API-V5] Firebase Admin initialized lazily');
       }
     } catch (e) {
-      console.error('[API] Lazy Firebase Admin init failed:', e);
+      console.error('[API-V5] Lazy Firebase Admin init failed:', e);
     }
   }
   return getFirebaseAuth();
@@ -134,7 +134,7 @@ export default async function handler(req: any, res: any) {
           errorDetails += `Supabase: ${sbUpdateError.message}. `;
         }
       } catch (e: any) {
-        console.error('[API] Supabase admin update failed:', e);
+        console.error('[API-V5] Supabase admin update failed:', e);
         errorDetails += `Supabase crash: ${e.message}. `;
       }
     } else {
@@ -154,7 +154,7 @@ export default async function handler(req: any, res: any) {
       if (e && e.code === 'auth/user-not-found') {
         // Normal if user is only in Supabase
       } else {
-        console.error('[API] Firebase admin update failed:', e);
+        console.error('[API-V5] Firebase admin update failed:', e);
         errorDetails += `Firebase: ${e?.message || 'Erro desconhecido'}. `;
       }
     }
