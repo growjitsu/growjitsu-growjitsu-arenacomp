@@ -55,17 +55,43 @@ export const AdminEmails: React.FC = () => {
     try {
       setIsFetchingAds(true);
       setShowAdSelector(true);
-      const { data, error } = await supabase
+      
+      // Fetch from arena_ads
+      const { data: adsData, error: adsError } = await supabase
         .from('arena_ads')
         .select('*')
         .eq('active', true)
-        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setAds(data || []);
+      if (adsError) throw adsError;
+
+      // Fetch from eventos (championships) - mapping to ArenaAd shape
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('eventos')
+        .select('id, nome, data, cidade, uf, modalidade, logo_url, updated_at, status')
+        .neq('status', 'rascunho')
+        .order('data', { ascending: false })
+        .limit(10);
+
+      const mappedEvents: ArenaAd[] = (eventsData || []).map(e => ({
+        id: e.id,
+        title: `Campeonato: ${e.nome}`,
+        content: `${e.modalidade} em ${e.cidade}/${e.uf} - Status: ${e.status?.toUpperCase()} - Data: ${new Date(e.data).toLocaleDateString()}`,
+        media_url: e.logo_url,
+        link_url: `https://arenacomp.com.br/campeonato/${e.id}`,
+        placement: 'external',
+        active: true,
+        order: 0,
+        type: 'landing', 
+        total_impressions: 0,
+        total_clicks: 0,
+        created_at: e.updated_at
+      } as ArenaAd));
+
+      setAds([...(adsData || []), ...mappedEvents]);
     } catch (error: any) {
-      toast.error('Erro ao buscar anúncios', { description: error.message });
+      console.error('Error fetching ads/events:', error);
+      toast.error('Erro ao buscar conteúdos', { description: error.message });
     } finally {
       setIsFetchingAds(false);
     }
@@ -74,23 +100,26 @@ export const AdminEmails: React.FC = () => {
   const generateEmailFromAd = (ad: ArenaAd) => {
     const title = ad.landing_title || ad.title;
     const description = ad.landing_description || ad.content || '';
-    let imageUrl = ad.landing_image || ad.media_url;
 
     // Normalize image URL
-    if (imageUrl) {
-      if (!imageUrl.startsWith('http')) {
-        // Handle Supabase relative storage paths vs local relative paths
-        if (imageUrl.startsWith('/storage')) {
-          imageUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co' + imageUrl;
+    const getPublicUrl = (url: string | undefined): string => {
+      if (!url) return 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
+      
+      let finalUrl = url;
+      if (!finalUrl.startsWith('http')) {
+        // Handle Supabase relative storage paths
+        if (finalUrl.startsWith('/storage')) {
+          finalUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co' + finalUrl;
         } else {
-          imageUrl = window.location.origin + (imageUrl.startsWith('/') ? '' : '/') + imageUrl;
+          // Absolute path from origin
+          const origin = window.location.origin;
+          finalUrl = `${origin}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
         }
       }
-      imageUrl = imageUrl.replace('http://', 'https://');
-    } else {
-      // Fallback institucional
-      imageUrl = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
-    }
+      return finalUrl.replace('http://', 'https://');
+    };
+
+    const imageUrl = getPublicUrl(ad.landing_image || ad.media_url);
 
     const ctaText = ad.landing_cta_text || 'Ver Mais';
     const ctaUrl = ad.landing_cta_url || ad.link_url || 'https://arenacomp.com.br';
