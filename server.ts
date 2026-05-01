@@ -248,14 +248,24 @@ async function startServer() {
     if (!authHeader) return res.status(401).json({ success: false, error: "Token ausente." });
 
     try {
+      console.log(`[ADMIN-AUTH] Iniciando reset de senha para UID: ${uid}`);
       const token = authHeader.split(' ')[1];
       let isAdmin = false;
+      let adminInfo = null;
 
       // 1. Verify Admin Status (Supabase)
-      const { data: { user: sbUser }, error: sbAuthError } = await supabase.auth.getUser(token);
-      if (!sbAuthError && sbUser) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', sbUser.id).single();
-        if (profile?.role === 'admin') isAdmin = true;
+      try {
+        const { data: authData, error: sbAuthError } = await supabase.auth.getUser(token);
+        if (!sbAuthError && authData?.user) {
+          const { data: profile } = await (supabaseAdmin || supabase).from('profiles').select('role').eq('id', authData.user.id).single();
+          if (profile?.role === 'admin') {
+            isAdmin = true;
+            adminInfo = { id: authData.user.id, provider: 'supabase' };
+            console.log('[ADMIN-AUTH] Admin verificado via Supabase');
+          }
+        }
+      } catch (e) {
+        console.warn('[ADMIN-AUTH] Falha ao verificar token via Supabase (pode ser um token Firebase)');
       }
 
       // 2. Verify Admin Status (Firebase)
@@ -263,39 +273,63 @@ async function startServer() {
         try {
           const decodedToken = await getAuth().verifyIdToken(token);
           if (decodedToken) {
-            const { data: profile } = await supabase.from('profiles').select('role').eq('id', decodedToken.uid).single();
-            if (profile?.role === 'admin' || decodedToken.admin === true) isAdmin = true;
+            const { data: profile } = await (supabaseAdmin || supabase).from('profiles').select('role').eq('id', decodedToken.uid).single();
+            if (profile?.role === 'admin' || decodedToken.admin === true) {
+              isAdmin = true;
+              adminInfo = { id: decodedToken.uid, provider: 'firebase' };
+              console.log('[ADMIN-AUTH] Admin verificado via Firebase');
+            }
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[ADMIN-AUTH] Falha ao verificar token via Firebase');
+        }
       }
 
-      if (!isAdmin) return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
+      if (!isAdmin) {
+        console.warn('[ADMIN-AUTH] Tentativa de acesso negado - Não é administrador');
+        return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
+      }
 
       let successMessage = "";
       let sbSuccess = false;
       let fbSuccess = false;
+      let errorDetails = "";
 
       // 3. Try Supabase Update
       if (supabaseAdmin) {
         try {
+          console.log(`[ADMIN-AUTH] Tentando atualizar Supabase para UID: ${uid}`);
           const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
           if (!updateError) {
             sbSuccess = true;
             successMessage += "Senha atualizada no Supabase. ";
+            console.log('[ADMIN-AUTH] Sucesso no Supabase');
+          } else {
+            console.error('[ADMIN-AUTH] Erro Supabase Auth:', updateError);
+            errorDetails += `Supabase: ${updateError.message}. `;
           }
-        } catch (e) {
-          console.error('[SERVER] Supabase update fail:', e);
+        } catch (e: any) {
+          console.error('[SERVER] Supabase update crash:', e);
+          errorDetails += `Supabase crash: ${e.message}. `;
         }
+      } else {
+        console.warn('[ADMIN-AUTH] supabaseAdmin não disponível (chave secreta ausente)');
+        errorDetails += "Supabase Admin não disponível (SUPABASE_SECRET_KEY ausente). ";
       }
 
       // 4. Try Firebase Update
       try {
+        console.log(`[ADMIN-AUTH] Tentando atualizar Firebase para UID: ${uid}`);
         await getAuth().updateUser(uid, { password: password });
         fbSuccess = true;
         successMessage += "Senha atualizada no Firebase. ";
+        console.log('[ADMIN-AUTH] Sucesso no Firebase');
       } catch (e: any) {
-        if (e.code !== 'auth/user-not-found') {
+        if (e.code === 'auth/user-not-found') {
+          console.log('[ADMIN-AUTH] Usuário não encontrado no Firebase (normal se o usuário for apenas Supabase)');
+        } else {
           console.error('[SERVER] Firebase update fail:', e);
+          errorDetails += `Firebase: ${e.message}. `;
         }
       }
 
@@ -306,11 +340,14 @@ async function startServer() {
         });
       }
 
+      console.error('[ADMIN-AUTH] Falha total no reset de senha:', errorDetails);
       return res.status(500).json({ 
         success: false, 
-        error: "Não foi possível atualizar a senha em nenhum serviço de autenticação. Verifique se o SUPABASE_SECRET_KEY está configurado." 
+        error: `Não foi possível atualizar a senha: ${errorDetails}`,
+        message: "Verifique se o SUPABASE_SECRET_KEY está configurado corretamente no painel de controle."
       });
     } catch (error: any) {
+      console.error('[ADMIN-AUTH] Erro crítico não tratado:', error);
       return res.status(500).json({ success: false, error: error.message });
     }
   };

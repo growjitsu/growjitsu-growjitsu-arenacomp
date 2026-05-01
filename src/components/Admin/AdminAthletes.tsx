@@ -274,10 +274,16 @@ export const AdminAthletes: React.FC = () => {
         result = await response.json();
       } else {
         const text = await response.text();
-        console.error('[ADMIN-AUTH] Resposta não-JSON:', text);
+        console.error('[ADMIN-AUTH] Resposta não-JSON recebida do servidor:', text);
         
-        // Handle the specific 405 error message if it's in the text (though usually it's JSON now with my server change)
-        throw new Error(`Erro do servidor (${response.status}). Verifique a rota da API.`);
+        let errorMessage = `Erro do servidor (${response.status})`;
+        if (text.includes('<!DOCTYPE html>')) {
+          errorMessage += ". O servidor retornou uma página de erro HTML. Verifique os logs do servidor.";
+        } else if (text.length > 0) {
+          errorMessage += `: ${text.substring(0, 100)}`;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       if (result.success) {
@@ -287,7 +293,8 @@ export const AdminAthletes: React.FC = () => {
         setConfirmPassword('');
       } else {
         console.error('[ADMIN-AUTH] API Error Result:', result);
-        throw new Error(result.message || result.error || 'Erro ao processar alteração de senha.');
+        const errorMessage = result.message || result.error || 'Erro ao processar alteração de senha.';
+        alert(`Erro ao alterar senha: ${errorMessage}`);
       }
     } catch (error: any) {
       console.error('[ADMIN-AUTH] Erro no reset de senha:', error);

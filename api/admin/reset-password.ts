@@ -51,12 +51,21 @@ export default async function handler(req: any, res: any) {
     
     // 1. Verify if the caller is an admin
     let isAdmin = false;
+    let adminInfo = null;
     
     // Try Supabase Auth token first
-    const { data: { user: sbUser }, error: sbAuthError } = await supabase.auth.getUser(token);
-    if (!sbAuthError && sbUser) {
-      const { data: profile } = await supabase.from('profiles').select('role').eq('id', sbUser.id).single();
-      if (profile?.role === 'admin') isAdmin = true;
+    try {
+      const { data: authData, error: sbAuthError } = await supabase.auth.getUser(token);
+      if (!sbAuthError && authData?.user) {
+        const { data: profile } = await (supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase)
+          .from('profiles').select('role').eq('id', authData.user.id).single();
+        if (profile?.role === 'admin') {
+          isAdmin = true;
+          adminInfo = { id: authData.user.id, provider: 'supabase' };
+        }
+      }
+    } catch (e) {
+      // Token might be Firebase
     }
 
     // Try Firebase Auth token if not admin yet
@@ -65,8 +74,12 @@ export default async function handler(req: any, res: any) {
         const decodedToken = await getFirebaseAuth().verifyIdToken(token);
         if (decodedToken) {
           // Check role in Supabase profiles (source of truth for roles)
-          const { data: profile } = await supabase.from('profiles').select('role').eq('id', decodedToken.uid).single();
-          if (profile?.role === 'admin' || decodedToken.admin === true) isAdmin = true;
+          const { data: profile } = await (supabaseSecretKey ? createClient(supabaseUrl, supabaseSecretKey) : supabase)
+            .from('profiles').select('role').eq('id', decodedToken.uid).single();
+          if (profile?.role === 'admin' || decodedToken.admin === true) {
+            isAdmin = true;
+            adminInfo = { id: decodedToken.uid, provider: 'firebase' };
+          }
         }
       } catch (e) {
         // Not a valid Firebase token or not an admin
@@ -80,6 +93,7 @@ export default async function handler(req: any, res: any) {
     let successMessage = "";
     let supabaseSuccess = false;
     let firebaseSuccess = false;
+    let errorDetails = "";
 
     // 2. Try to update in Supabase (if secret key is available)
     if (supabaseSecretKey && supabaseSecretKey.length > 20) {
@@ -93,10 +107,15 @@ export default async function handler(req: any, res: any) {
         if (!sbUpdateError) {
           supabaseSuccess = true;
           successMessage += "Senha atualizada no Supabase. ";
+        } else {
+          errorDetails += `Supabase: ${sbUpdateError.message}. `;
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('[API] Supabase admin update failed:', e);
+        errorDetails += `Supabase crash: ${e.message}. `;
       }
+    } else {
+      errorDetails += "Supabase Secret Key ausente. ";
     }
 
     // 3. Try to update in Firebase (as fallback or secondary)
@@ -108,8 +127,11 @@ export default async function handler(req: any, res: any) {
       successMessage += "Senha atualizada no Firebase. ";
     } catch (e: any) {
       // If user doesn't exist in Firebase, it's fine if it worked in Supabase
-      if (e.code !== 'auth/user-not-found') {
+      if (e.code === 'auth/user-not-found') {
+        // Normal if user is only in Supabase
+      } else {
         console.error('[API] Firebase admin update failed:', e);
+        errorDetails += `Firebase: ${e.message}. `;
       }
     }
 
@@ -120,13 +142,11 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // If we reached here, both failed or were unavailable
-    let finalError = "Não foi possível atualizar a senha.";
-    if (!supabaseSecretKey && !firebaseSuccess) {
-      finalError = "Erro: Chave mestra ausente (SUPABASE_SECRET_KEY) e usuário não encontrado no Firebase.";
-    }
-
-    return res.status(500).json({ success: false, error: finalError });
+    return res.status(500).json({ 
+      success: false, 
+      error: `Não foi possível atualizar a senha: ${errorDetails}`,
+      message: "Verifique se a chave SUPABASE_SECRET_KEY está configurada."
+    });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error.message });
   }
