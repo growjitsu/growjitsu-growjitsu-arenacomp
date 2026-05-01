@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, Users, ChevronRight, ChevronLeft, Star, TrendingUp, Shield, Zap, Search, ArrowRight, User, Share2 } from 'lucide-react';
+import { Trophy, Users, ChevronRight, ChevronLeft, Star, TrendingUp, Shield, Zap, Search, ArrowRight, User } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -228,24 +228,6 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
   const nextBanner = () => setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
   const prevBanner = () => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length);
-
-  const handleShare = (ad: ArenaAd) => {
-    const shareUrl = ad.link_url || window.location.href;
-    const shareTitle = ad.title || 'Destaque na Arena Protocol';
-    const shareText = ad.content || 'Confira este destaque na Arena Protocol!';
-
-    if (navigator.share) {
-      navigator.share({
-        title: shareTitle,
-        text: shareText,
-        url: shareUrl,
-      }).catch((error) => console.error('Erro ao compartilhar:', error));
-    } else {
-      navigator.clipboard.writeText(shareUrl).then(() => {
-        alert('Link copiado para a área de transferência!');
-      }).catch((err) => console.error('Erro ao copiar link:', err));
-    }
-  };
 
   return (
     <div className="min-h-screen bg-[#000] text-white selection:bg-blue-500/30 overflow-x-hidden">
@@ -476,18 +458,6 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                       <div className="absolute top-4 left-4 p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl">
                         <Zap size={14} className="text-amber-500" />
                       </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleShare(ad);
-                        }}
-                        className="absolute top-4 right-4 p-2.5 bg-black/60 backdrop-blur-md border border-white/20 rounded-xl text-blue-400 hover:text-white hover:bg-blue-600 transition-all z-20 group/share shadow-[0_0_15px_rgba(37,99,235,0.2)] hover:shadow-[0_0_25px_rgba(37,99,235,0.5)] border-blue-500/30"
-                        title="Compartilhar"
-                      >
-                        <Share2 size={14} className="group-hover/share:rotate-12 transition-transform" />
-                      </button>
                     </div>
 
                     <div className="p-4 flex items-center justify-between">
