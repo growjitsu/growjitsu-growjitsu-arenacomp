@@ -55,7 +55,7 @@ export const AdminEmails: React.FC = () => {
       setIsFetchingAds(true);
       setShowAdSelector(true);
       const { data, error } = await supabase
-        .from('ads')
+        .from('arena_ads')
         .select('*')
         .order('created_at', { ascending: false });
 
