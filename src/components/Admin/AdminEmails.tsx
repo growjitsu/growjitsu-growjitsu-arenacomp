@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Send, Users, CheckSquare, Square, Search, Filter, Loader2, AlertCircle, CheckCircle2, ChevronRight, Layout, Type, Palette } from 'lucide-react';
+import { Mail, Send, Users, CheckSquare, Square, Search, Filter, Loader2, AlertCircle, CheckCircle2, ChevronRight, Layout, Type, Palette, Sparkles, X, ExternalLink } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { toast } from 'sonner';
+import { ArenaAd } from '../../types';
 
 interface UserRecipient {
   id: string;
@@ -21,6 +22,11 @@ export const AdminEmails: React.FC = () => {
   const [htmlBody, setHtmlBody] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState<{ current: number; total: number } | null>(null);
+
+  // New states for Ad Generation
+  const [ads, setAds] = useState<ArenaAd[]>([]);
+  const [showAdSelector, setShowAdSelector] = useState(false);
+  const [isFetchingAds, setIsFetchingAds] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -42,6 +48,113 @@ export const AdminEmails: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchAds = async () => {
+    try {
+      setIsFetchingAds(true);
+      setShowAdSelector(true);
+      const { data, error } = await supabase
+        .from('ads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setAds(data || []);
+    } catch (error: any) {
+      toast.error('Erro ao buscar anúncios', { description: error.message });
+    } finally {
+      setIsFetchingAds(false);
+    }
+  };
+
+  const generateEmailFromAd = (ad: ArenaAd) => {
+    const title = ad.landing_title || ad.title;
+    const description = ad.landing_description || ad.content;
+    const imageUrl = ad.landing_image || ad.media_url;
+    const ctaText = ad.landing_cta_text || 'Ver Mais';
+    const ctaUrl = ad.landing_cta_url || ad.link_url || 'https://arenacomp.com.br';
+
+    // Email Template - Mobile First & Professional
+    const template = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #050505;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #111111; border-radius: 24px; overflow: hidden; border: 1px solid #222222;">
+                    <!-- Logo/Header -->
+                    <tr>
+                        <td align="center" style="padding: 30px 0;">
+                            <img src="https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png" alt="ArenaComp" width="180" style="display: block;">
+                        </td>
+                    </tr>
+
+                    <!-- Banner Image -->
+                    ${imageUrl ? `
+                    <tr>
+                        <td align="center">
+                            <a href="${ctaUrl}" target="_blank">
+                                <img src="${imageUrl}" alt="${title}" width="600" style="width: 100%; max-width: 600px; display: block;">
+                            </a>
+                        </td>
+                    </tr>
+                    ` : ''}
+
+                    <!-- Content Section -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <h1 style="color: #ffffff; font-size: 28px; font-weight: 900; text-transform: uppercase; font-style: italic; letter-spacing: -1px; margin: 0 0 20px 0; font-family: Arial, sans-serif;">
+                                ${title}
+                            </h1>
+                            <div style="color: #a1a1aa; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+                                ${description.replace(/\n/g, '<br>')}
+                            </div>
+                            
+                            <!-- CTA Button -->
+                            <table border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td align="center" bgcolor="#2563eb" style="border-radius: 12px;">
+                                        <a href="${ctaUrl}" target="_blank" style="display: inline-block; padding: 16px 32px; font-size: 14px; font-weight: bold; color: #ffffff; text-decoration: none; text-transform: uppercase; letter-spacing: 1px;">
+                                            ${ctaText}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 40px 30px; background-color: #0a0a0a; border-top: 1px solid #222222;">
+                            <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="color: #71717a; font-size: 12px; line-height: 1.5;">
+                                        <p style="margin: 0 0 10px 0;">© ${new Date().getFullYear()} ArenaComp. Todos os direitos reservados.</p>
+                                        <p style="margin: 0;">Você recebeu este e-mail porque está cadastrado na plataforma ArenaComp.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>`;
+
+    setSubject(`ArenaComp | ${title}`);
+    setHtmlBody(template);
+    setShowAdSelector(false);
+    toast.success('Conteúdo gerado com sucesso!', { 
+      description: 'Você pode revisar e editar o HTML no campo abaixo.' 
+    });
   };
 
   const toggleSelectAll = () => {
@@ -255,6 +368,14 @@ export const AdminEmails: React.FC = () => {
                 </div>
                 <h2 className="text-lg font-black uppercase italic tracking-tighter text-white">Conteúdo do E-mail</h2>
               </div>
+
+              <button
+                onClick={fetchAds}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 border border-blue-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest text-blue-400 hover:bg-blue-600/20 transition-all hover:scale-105 active:scale-95"
+              >
+                <Sparkles size={14} />
+                <span>Gerar por Anúncio</span>
+              </button>
             </div>
 
             <div className="p-6 space-y-6">
@@ -350,6 +471,101 @@ export const AdminEmails: React.FC = () => {
               <p className="text-[9px] text-gray-600 font-mono uppercase">
                 O servidor está processando lotes controlados para máxima entregabilidade.
               </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Ad Selection Modal */}
+      <AnimatePresence>
+        {showAdSelector && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-[#0a0a0a] border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[80vh]"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-400">
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic tracking-tighter text-white">Selecionar Anúncio</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Gere um e-mail profissional automaticamente</p>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setShowAdSelector(false)}
+                  className="p-3 rounded-xl bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar">
+                {isFetchingAds ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4 text-gray-500">
+                    <Loader2 size={32} className="animate-spin text-blue-500" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Buscando anúncios ativos...</span>
+                  </div>
+                ) : ads.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-4 text-gray-500">
+                    <AlertCircle size={32} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Nenhum anúncio encontrado</span>
+                  </div>
+                ) : (
+                  ads.map((ad) => (
+                    <button
+                      key={ad.id}
+                      onClick={() => generateEmailFromAd(ad)}
+                      className="group w-full flex items-center gap-6 p-4 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/[0.08] hover:border-blue-500/20 transition-all text-left"
+                    >
+                      <div className="w-24 h-16 rounded-xl overflow-hidden bg-black/40 border border-white/10 flex-shrink-0">
+                        {ad.media_url ? (
+                          <img src={ad.media_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-700">
+                            <Layout size={24} />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-[14px] font-black uppercase italic tracking-tighter text-white truncate group-hover:text-blue-400 transition-colors">
+                          {ad.title}
+                        </h4>
+                        <p className="text-[11px] text-gray-500 line-clamp-1 mt-1 font-medium">
+                          {ad.content}
+                        </p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${ad.active ? 'bg-green-500/10 text-green-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                            {ad.active ? 'Ativo' : 'Inativo'}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-white/5 text-[8px] font-black uppercase text-gray-500">
+                            {ad.placement}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <ChevronRight size={20} className="text-gray-700 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+                    </button>
+                  ))
+                )}
+              </div>
+              
+              <div className="p-6 border-t border-white/5 bg-white/[0.02]">
+                <p className="text-[9px] text-gray-600 font-medium text-center uppercase tracking-widest leading-relaxed">
+                  O sistema usará as informações e imagens do anúncio selecionado <br /> para construir um layout otimizado para e-mail marketing.
+                </p>
+              </div>
             </motion.div>
           </motion.div>
         )}
