@@ -240,16 +240,76 @@ async function startServer() {
   const handleAdminResetPassword = async (req: any, res: any) => {
     const uid = req.body.uid || req.body.userId || req.body.athleteId;
     const password = req.body.password || req.body.newPassword;
+    const authHeader = req.headers.authorization;
     
     if (req.method === 'OPTIONS') return res.sendStatus(200);
     if (req.method !== 'POST') return res.status(405).json({ success: false, error: "Use POST" });
     if (!uid || !password) return res.status(400).json({ success: false, error: "UID e senha são obrigatórios." });
+    if (!authHeader) return res.status(401).json({ success: false, error: "Token ausente." });
 
     try {
-      if (!supabaseAdmin) return res.status(500).json({ success: false, error: "Supabase Admin não disponível." });
-      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
-      if (updateError) return res.status(updateError.status || 400).json({ success: false, error: updateError.message });
-      return res.status(200).json({ success: true, message: "Senha atualizada com sucesso!" });
+      const token = authHeader.split(' ')[1];
+      let isAdmin = false;
+
+      // 1. Verify Admin Status (Supabase)
+      const { data: { user: sbUser }, error: sbAuthError } = await supabase.auth.getUser(token);
+      if (!sbAuthError && sbUser) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', sbUser.id).single();
+        if (profile?.role === 'admin') isAdmin = true;
+      }
+
+      // 2. Verify Admin Status (Firebase)
+      if (!isAdmin) {
+        try {
+          const decodedToken = await getAuth().verifyIdToken(token);
+          if (decodedToken) {
+            const { data: profile } = await supabase.from('profiles').select('role').eq('id', decodedToken.uid).single();
+            if (profile?.role === 'admin' || decodedToken.admin === true) isAdmin = true;
+          }
+        } catch (e) {}
+      }
+
+      if (!isAdmin) return res.status(403).json({ success: false, error: "Acesso negado. Apenas administradores." });
+
+      let successMessage = "";
+      let sbSuccess = false;
+      let fbSuccess = false;
+
+      // 3. Try Supabase Update
+      if (supabaseAdmin) {
+        try {
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(uid, { password: password });
+          if (!updateError) {
+            sbSuccess = true;
+            successMessage += "Senha atualizada no Supabase. ";
+          }
+        } catch (e) {
+          console.error('[SERVER] Supabase update fail:', e);
+        }
+      }
+
+      // 4. Try Firebase Update
+      try {
+        await getAuth().updateUser(uid, { password: password });
+        fbSuccess = true;
+        successMessage += "Senha atualizada no Firebase. ";
+      } catch (e: any) {
+        if (e.code !== 'auth/user-not-found') {
+          console.error('[SERVER] Firebase update fail:', e);
+        }
+      }
+
+      if (sbSuccess || fbSuccess) {
+        return res.status(200).json({ 
+          success: true, 
+          message: successMessage.trim() || "Senha atualizada com sucesso!" 
+        });
+      }
+
+      return res.status(500).json({ 
+        success: false, 
+        error: "Não foi possível atualizar a senha em nenhum serviço de autenticação. Verifique se o SUPABASE_SECRET_KEY está configurado." 
+      });
     } catch (error: any) {
       return res.status(500).json({ success: false, error: error.message });
     }
