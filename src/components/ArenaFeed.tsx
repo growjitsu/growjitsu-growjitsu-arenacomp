@@ -53,20 +53,34 @@ const MediaCarousel: React.FC<{ urls: string[] }> = ({ urls }) => {
         onScroll={checkScroll}
         className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full"
       >
-        {urls.map((url, i) => (
-          <div key={i} className="flex-shrink-0 w-full aspect-square snap-center relative flex items-center justify-center bg-black/20">
-            <img 
-              src={url} 
-              alt="" 
-              className="w-full h-full object-cover" 
-              referrerPolicy="no-referrer"
-              loading="lazy"
-            />
-            <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white">
-              {i + 1} / {urls.length}
+        {urls.map((url, i) => {
+          const isVideo = url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || url.includes('video');
+          return (
+            <div key={i} className={`flex-shrink-0 w-full ${isVideo ? 'aspect-[9/16] bg-black' : 'aspect-square bg-black/20'} snap-center relative flex items-center justify-center overflow-hidden`}>
+              {isVideo ? (
+                <video 
+                  src={url} 
+                  className="w-full h-full object-contain" 
+                  controls 
+                  playsInline 
+                  muted 
+                  preload="metadata" 
+                />
+              ) : (
+                <img 
+                  src={url} 
+                  alt="" 
+                  className="w-full h-full object-cover" 
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                />
+              )}
+              <div className="absolute bottom-6 right-6 px-3 py-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-full text-[10px] font-black text-white z-10">
+                {i + 1} / {urls.length}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       
       {/* Desktop Navigation Arrows - Improved visibility with hover transition */}
@@ -1309,10 +1323,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                   
                                   if (isVideo) {
                                     return (
-                                      <div className="aspect-square w-full">
+                                      <div className="aspect-[9/16] w-full max-h-[80vh] bg-black mx-auto overflow-hidden">
                                         <video 
                                           src={url} 
-                                          className="w-full h-full object-cover" 
+                                          className="w-full h-full object-contain" 
                                           controls 
                                           playsInline
                                           muted

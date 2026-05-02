@@ -278,26 +278,44 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                 if (urls.length > 1) {
                   return (
                     <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full h-full">
-                      {urls.map((url, i) => (
-                        <div key={i} className="flex-shrink-0 w-full h-full snap-center flex items-center justify-center bg-black">
-                          <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        </div>
-                      ))}
+                      {urls.map((url, i) => {
+                        const isVideoSlide = url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || url.includes('video');
+                        return (
+                          <div key={i} className="flex-shrink-0 w-full h-full snap-center flex items-center justify-center bg-black">
+                            {isVideoSlide ? (
+                              <div className="w-full aspect-[9/16] max-h-full">
+                                <video 
+                                  src={url} 
+                                  controls 
+                                  className="w-full h-full object-contain" 
+                                  muted 
+                                  playsInline 
+                                  preload="metadata" 
+                                />
+                              </div>
+                            ) : (
+                              <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 }
 
                 return post.type === 'video' ? (
-                  <div className="w-full h-full bg-black">
-                    <video 
-                      src={urls[0]} 
-                      controls 
-                      className="w-full h-full object-cover" 
-                      autoPlay 
-                      muted 
-                      playsInline 
-                      preload="metadata" 
-                    />
+                  <div className="w-full h-full bg-black flex items-center justify-center">
+                    <div className="w-full aspect-[9/16] max-h-full">
+                      <video 
+                        src={urls[0]} 
+                        controls 
+                        className="w-full h-full object-contain shadow-2xl" 
+                        autoPlay 
+                        muted 
+                        playsInline 
+                        preload="metadata" 
+                      />
+                    </div>
                   </div>
                 ) : (
                   <div className="w-full h-full bg-black">

@@ -251,7 +251,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
               <div className="p-4 space-y-4">
                 {previewUrls.map((url, index) => (
                   <div key={index} className="space-y-4">
-                    <div className="relative aspect-square rounded-[2rem] overflow-hidden border border-white/10 bg-black group shadow-2xl">
+                    <div className={`relative ${selectedFiles[index]?.type.startsWith('video/') ? 'aspect-[9/16] max-h-[600px] mx-auto' : 'aspect-square'} rounded-[2rem] overflow-hidden border border-white/10 bg-black group shadow-2xl`}>
                     {selectedFiles[index]?.type.startsWith('image/') ? (
                       <motion.div 
                         className="w-full h-full cursor-move"
