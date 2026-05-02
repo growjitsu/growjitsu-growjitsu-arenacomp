@@ -1356,19 +1356,19 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                           </div>
 
                           {/* Post Actions */}
-                          <div className="p-4 md:p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
-                            <div className="flex items-center space-x-4 md:space-x-8">
+                          <div className="p-3 md:p-8 pt-4 flex items-center justify-between border-t border-[var(--border-ui)]/50 bg-[var(--surface)]/20">
+                            <div className="flex items-center space-x-3 md:space-x-8">
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleLike(post.id, post.author_id);
                                 }}
-                                className={`flex items-center space-x-2 md:space-x-4 group/btn transition-all ${
+                                className={`flex items-center space-x-1.5 md:space-x-4 group/btn transition-all ${
                                   post.is_liked ? 'text-rose-500' : 'text-[var(--text-muted)] hover:text-rose-500'
                                 }`}
                               >
                                 <div className={`p-2 md:p-3 rounded-2xl transition-all duration-500 ${post.is_liked ? 'bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]' : 'bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-rose-500/10 group-hover/btn:border-rose-500/30'}`}>
-                                  <Heart size={18} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
+                                  <Heart size={16} className={post.is_liked ? 'fill-current scale-110' : 'group-hover/btn:scale-110 transition-transform'} />
                                 </div>
                                 <div className="flex flex-col">
                                   <span className="text-[10px] md:text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.likes_count}</span>
@@ -1382,10 +1382,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                   setSelectedPost(post);
                                   setIsPostModalOpen(true);
                                 }}
-                                className="flex items-center space-x-2 md:space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
+                                className="flex items-center space-x-1.5 md:space-x-4 group/btn text-[var(--text-muted)] hover:text-[var(--primary)] transition-all"
                               >
                                 <div className="p-2 md:p-3 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] group-hover/btn:bg-[var(--primary)]/10 group-hover/btn:border-[var(--primary)]/30 transition-all duration-500">
-                                  <MessageCircle size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                  <MessageCircle size={16} className="group-hover/btn:scale-110 transition-transform" />
                                 </div>
                                 <div className="flex flex-col">
                                   <span className="text-[10px] md:text-[12px] font-black tracking-tighter text-[var(--text-main)]">{post.comments_count}</span>
@@ -1399,10 +1399,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 e.stopPropagation();
                                 handleShare(post);
                               }}
-                              className="px-6 py-3 md:px-8 md:py-4 rounded-2xl bg-[var(--primary)] text-white shadow-2xl shadow-[var(--primary)]/30 hover:bg-[var(--primary-highlight)] hover:scale-105 transition-all duration-500 flex items-center gap-2 group/share"
+                              className="px-4 py-3 md:px-8 md:py-4 rounded-2xl bg-[var(--primary)] text-white shadow-2xl shadow-[var(--primary)]/30 hover:bg-[var(--primary-highlight)] hover:scale-105 transition-all duration-500 flex items-center gap-2 group/share"
                             >
-                              <Share2 size={18} className="group-hover/share:rotate-12 transition-transform" />
-                              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Compartilhar</span>
+                              <Share2 size={16} className="group-hover/share:rotate-12 transition-transform" />
+                              <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.15em]">Compartilhar</span>
                             </button>
                           </div>
                         </motion.div>
