@@ -1399,10 +1399,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 e.stopPropagation();
                                 handleShare(post);
                               }}
-                              className="px-4 py-3 md:px-8 md:py-4 rounded-2xl bg-[var(--primary)] text-white shadow-2xl shadow-[var(--primary)]/30 hover:bg-[var(--primary-highlight)] hover:scale-105 transition-all duration-500 flex items-center gap-2 group/share"
+                              className="w-11 h-11 md:w-auto md:h-auto px-0 md:px-8 py-0 md:py-4 rounded-full md:rounded-2xl bg-[var(--primary)] text-white shadow-2xl shadow-[var(--primary)]/30 hover:bg-[var(--primary-highlight)] hover:scale-105 active:scale-95 transition-all duration-500 flex items-center justify-center gap-2 group/share shrink-0"
                             >
-                              <Share2 size={16} className="group-hover/share:rotate-12 transition-transform" />
-                              <span className="text-[9px] md:text-xs font-black uppercase tracking-[0.15em]">Compartilhar</span>
+                              <Share2 size={18} className="group-hover/share:rotate-12 transition-transform" />
+                              <span className="hidden md:inline text-[10px] md:text-xs font-black uppercase tracking-widest">Compartilhar</span>
                             </button>
                           </div>
                         </motion.div>

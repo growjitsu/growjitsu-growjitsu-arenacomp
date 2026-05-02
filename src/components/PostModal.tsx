@@ -478,10 +478,10 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                   </div>
                   <button 
                     onClick={handleShare}
-                    className="px-6 py-3 rounded-2xl bg-[var(--primary)] text-white shadow-xl hover:bg-[var(--primary-highlight)] transition-all flex items-center gap-2 group/share"
+                    className="w-11 h-11 md:w-auto md:h-auto px-0 md:px-6 py-0 md:py-3 rounded-full md:rounded-2xl bg-[var(--primary)] text-white shadow-xl hover:bg-[var(--primary-highlight)] transition-all flex items-center justify-center gap-2 group/share shrink-0"
                   >
                     <Share2 size={18} className="group-hover/share:rotate-12 transition-transform" />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Compartilhar</span>
+                    <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Compartilhar</span>
                   </button>
                 </div>
               </div>
