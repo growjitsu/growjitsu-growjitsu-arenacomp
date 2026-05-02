@@ -3,11 +3,14 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Trophy, Shield, Users, Zap, CheckCircle, ArrowRight, 
   Menu, X, Layout, Smartphone, BarChart3, Clock, 
-  Mail, Lock, User as UserIcon, ShieldCheck
+  Mail, Lock, User as UserIcon, ShieldCheck, Share2
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { authService } from '../services/authService';
 import { Logo } from './Logo';
+import { ShareModal } from './ShareModal';
+import { generateCard, CardData } from '../services/arenaService';
+import { AchievementCard } from './AchievementCard';
 
 export default function LandingPage({ onLogin }: { onLogin: (userType?: string) => void }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -20,6 +23,42 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
   const [selectedUserType, setSelectedUserType] = useState<'atleta' | 'coordenador' | 'responsavel'>('atleta');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Share States
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAchievementCardOpen, setIsAchievementCardOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<any>(null);
+  const [achievementData, setAchievementData] = useState<CardData | null>(null);
+
+  const handleShareAthlete = async (profile: any) => {
+    const shareUrl = `${window.location.origin}/share/profile/${profile.id}`;
+    const profileImg = profile.profile_photo || profile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name)}&background=0D8ABC&color=fff`;
+    
+    const cardData: CardData = {
+      title: profile.full_name,
+      description: `Confira o perfil de ${profile.full_name} na ArenaComp!`,
+      image: profileImg,
+      type: 'profile',
+      athleteName: profile.full_name,
+      achievement: 'Destaque da Arena',
+      modality: profile.modality || 'Jiu-Jitsu',
+      date: new Date().toLocaleDateString(),
+      realId: profile.id,
+      mainImageUrl: profileImg
+    };
+
+    setShareModalData({
+      title: 'Compartilhar Atleta',
+      subtitle: `Veja o perfil de ${profile.full_name} na ArenaComp`,
+      url: shareUrl,
+      imageUrl: profileImg,
+      onGenerate: () => {
+        setAchievementData(cardData);
+        setIsAchievementCardOpen(true);
+      }
+    });
+    setIsShareModalOpen(true);
+  };
 
   useEffect(() => {
     setError('');
@@ -320,10 +359,21 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
                   <h3 className="text-sm font-black uppercase text-[var(--text-main)] truncate w-full mb-1">{profile.full_name}</h3>
                   <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mb-4">{profile.team || 'Sem Equipe'}</p>
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
                     <span className="px-3 py-1 bg-blue-600/10 text-blue-600 text-[8px] font-black uppercase rounded-full">
                       {profile.modality || 'Jiu-Jitsu'}
                     </span>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleShareAthlete(profile);
+                      }}
+                      className="p-2 rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-all shadow-sm"
+                      title="Compartilhar Perfil"
+                    >
+                      <Share2 size={12} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -417,6 +467,21 @@ export default function LandingPage({ onLogin }: { onLogin: (userType?: string) 
           © 2026 ArenaComp. Todos os direitos reservados.
         </div>
       </footer>
+
+      {/* Share Modals */}
+      <ShareModal 
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        {...(shareModalData || {})}
+      />
+
+      {achievementData && (
+        <AchievementCard 
+          isOpen={isAchievementCardOpen}
+          onClose={() => setIsAchievementCardOpen(false)}
+          data={achievementData}
+        />
+      )}
 
       {/* Auth Modal */}
       <AnimatePresence>

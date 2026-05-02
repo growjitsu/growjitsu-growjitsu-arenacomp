@@ -176,7 +176,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   const handleShareAd = async (ad: ArenaAd) => {
-    const shareUrl = `${window.location.origin}/ad/${ad.id}`;
+    const shareUrl = `${window.location.origin}/share/ad/${ad.id}`;
     const mainImg = ad.landing_image || ad.media_url_feed_top || ad.media_url_feed_between || ad.media_url_sidebar || ad.media_url;
     
     setShareModalData({

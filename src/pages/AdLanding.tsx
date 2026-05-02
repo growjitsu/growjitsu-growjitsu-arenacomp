@@ -63,7 +63,7 @@ export const AdLanding: React.FC = () => {
   };
 
   const handleShare = (platform: 'whatsapp' | 'instagram' | 'copy') => {
-    const shareUrl = `${window.location.origin}/ad/${id}`;
+    const shareUrl = `${window.location.origin}/share/ad/${id}`;
     const text = ad?.landing_title || ad?.title || 'Confira este anúncio na ArenaComp!';
 
     if (platform === 'whatsapp') {

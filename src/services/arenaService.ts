@@ -292,7 +292,7 @@ export interface CardData {
   date?: string;
   profileUrl?: string;
   mainImageUrl?: string;
-  type?: 'post' | 'certificate' | 'clip' | 'profile' | 'ranking' | 'fight' | 'championship';
+  type?: 'post' | 'certificate' | 'clip' | 'profile' | 'ranking' | 'fight' | 'championship' | 'ad';
   realId?: string;
 }
 
@@ -301,11 +301,7 @@ export const generateShareLink = ({ type, id }: { type: string; id: string }) =>
     throw new Error('Dados inválidos para gerar link');
   }
   
-  // Custom friendly formats for main content types
-  if (type === 'post') return `${window.location.origin}/post/${id}`;
-  if (type === 'clip') return `${window.location.origin}/clip/${id}`;
-  if (type === 'certificate') return `${window.location.origin}/certificate/${id}`;
-  
+  // Requisito Absoluto: Todo compartilhamento DEVE usar /share/:type/:id
   return `${window.location.origin}/share/${type}/${id}`;
 };
 
