@@ -279,8 +279,8 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                   return (
                     <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full h-full">
                       {urls.map((url, i) => (
-                        <div key={i} className="flex-shrink-0 w-full h-full snap-center flex items-center justify-center">
-                          <img src={url} alt="" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" />
+                        <div key={i} className="flex-shrink-0 w-full h-full snap-center flex items-center justify-center bg-black">
+                          <img src={url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         </div>
                       ))}
                     </div>
@@ -288,9 +288,21 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                 }
 
                 return post.type === 'video' ? (
-                  <video src={urls[0]} controls className="max-h-full max-w-full" autoPlay />
+                  <div className="w-full h-full bg-black">
+                    <video 
+                      src={urls[0]} 
+                      controls 
+                      className="w-full h-full object-cover" 
+                      autoPlay 
+                      muted 
+                      playsInline 
+                      preload="metadata" 
+                    />
+                  </div>
                 ) : (
-                  <img src={urls[0]} alt="" className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" />
+                  <div className="w-full h-full bg-black">
+                    <img src={urls[0]} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
                 );
               })()
             ) : (
@@ -446,14 +458,13 @@ export const PostModal: React.FC<PostModalProps> = ({ post, onClose, onLike, onS
                       <span className="text-sm font-bold">{post.comments_count}</span>
                     </div>
                   </div>
-                  <div className="relative">
-                    <button 
-                      onClick={handleShare}
-                      className="text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
-                    >
-                      <Share2 size={20} />
-                    </button>
-                  </div>
+                  <button 
+                    onClick={handleShare}
+                    className="px-6 py-3 rounded-2xl bg-[var(--primary)] text-white shadow-xl hover:bg-[var(--primary-highlight)] transition-all flex items-center gap-2 group/share"
+                  >
+                    <Share2 size={18} className="group-hover/share:rotate-12 transition-transform" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Compartilhar</span>
+                  </button>
                 </div>
               </div>
 

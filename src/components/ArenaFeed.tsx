@@ -54,11 +54,11 @@ const MediaCarousel: React.FC<{ urls: string[] }> = ({ urls }) => {
         className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar w-full"
       >
         {urls.map((url, i) => (
-          <div key={i} className="flex-shrink-0 w-full snap-center relative flex items-center justify-center bg-black/20">
+          <div key={i} className="flex-shrink-0 w-full aspect-square snap-center relative flex items-center justify-center bg-black/20">
             <img 
               src={url} 
               alt="" 
-              className="w-full h-auto block max-h-[70vh] object-contain" 
+              className="w-full h-full object-cover" 
               referrerPolicy="no-referrer"
               loading="lazy"
             />
@@ -841,8 +841,8 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
         if (file.type.startsWith('image/')) {
           try {
-            // Default to 4:5 for feed optimization as requested
-            fileToUpload = await compressImage(file, '4:5');
+            // Default to 1:1 for professional feed as requested
+            fileToUpload = await compressImage(file, '1:1');
           } catch (err) {
             console.error('Compression error:', err);
           }
@@ -1309,24 +1309,32 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                   
                                   if (isVideo) {
                                     return (
-                                      <video 
-                                        src={url} 
-                                        className="w-full h-auto block max-h-[70vh] object-contain" 
-                                        controls 
-                                        playsInline
-                                        preload="metadata"
-                                      />
+                                      <div className="aspect-square w-full">
+                                        <video 
+                                          src={url} 
+                                          className="w-full h-full object-cover" 
+                                          controls 
+                                          playsInline
+                                          muted
+                                          preload="metadata"
+                                        />
+                                      </div>
                                     );
                                   }
 
                                   return (
-                                    <img 
-                                      src={url} 
-                                      alt="" 
-                                      className="w-full h-auto block max-h-[70vh] object-contain" 
-                                      referrerPolicy="no-referrer"
-                                      loading="lazy"
-                                    />
+                                    <div className="aspect-square w-full bg-[var(--bg)] flex items-center justify-center">
+                                      <img 
+                                        src={url} 
+                                        alt="" 
+                                        className="w-full h-full object-cover" 
+                                        referrerPolicy="no-referrer"
+                                        loading="lazy"
+                                        onError={(e) => {
+                                          (e.target as HTMLImageElement).src = 'https://via.placeholder.com/1024x1024?text=ArenaComp+Media';
+                                        }}
+                                      />
+                                    </div>
                                   );
                                 })()}
                               </div>
@@ -1377,9 +1385,10 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                 e.stopPropagation();
                                 handleShare(post);
                               }}
-                              className="p-3 md:p-4 rounded-2xl bg-[var(--bg)]/50 border border-[var(--border-ui)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 hover:border-[var(--primary)]/30 transition-all duration-500"
+                              className="px-6 py-3 md:px-8 md:py-4 rounded-2xl bg-[var(--primary)] text-white shadow-2xl shadow-[var(--primary)]/30 hover:bg-[var(--primary-highlight)] hover:scale-105 transition-all duration-500 flex items-center gap-2 group/share"
                             >
-                              <Share2 size={18} />
+                              <Share2 size={18} className="group-hover/share:rotate-12 transition-transform" />
+                              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest">Compartilhar</span>
                             </button>
                           </div>
                         </motion.div>

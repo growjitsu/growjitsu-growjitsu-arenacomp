@@ -16,8 +16,13 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [fileConfigs, setFileConfigs] = useState<{ x: number, y: number, scale: number }[]>([]);
 
-  const compressImage = (file: File, targetRatio: '4:5' | '1:1' | '1.91:1' | 'original' = 'original'): Promise<Blob> => {
+  const compressImage = (
+    file: File, 
+    targetRatio: '4:5' | '1:1' | '1.91:1' | 'original' = '1:1',
+    cropConfig = { x: 0, y: 0, scale: 1 }
+  ): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -26,21 +31,15 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         img.src = event.target?.result as string;
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
+          let width = 1024;
+          let height = 1024;
 
           if (targetRatio === '4:5') {
             width = 1080;
             height = 1350;
-          } else if (targetRatio === '1:1') {
-            width = 1080;
-            height = 1080;
           } else if (targetRatio === '1.91:1') {
             width = 1080;
             height = 566;
-          } else if (width > 1080) {
-            height *= 1080 / width;
-            width = 1080;
           }
 
           canvas.width = width;
@@ -50,25 +49,33 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = 'high';
             
-            if (targetRatio !== 'original') {
-              const imgRatio = img.width / img.height;
-              const targetRatioNum = width / height;
-              let drawWidth = width;
-              let drawHeight = height;
-              let offsetX = 0;
-              let offsetY = 0;
+            // Fill background
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, width, height);
 
-              if (imgRatio > targetRatioNum) {
-                drawWidth = height * imgRatio;
-                offsetX = (width - drawWidth) / 2;
-              } else {
-                drawHeight = width / imgRatio;
-                offsetY = (height - drawHeight) / 2;
-              }
-              ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+            const imgRatio = img.width / img.height;
+            const canvasRatio = width / height;
+            
+            let drawWidth, drawHeight;
+            
+            // Base cover calculation
+            if (imgRatio > canvasRatio) {
+              drawHeight = height;
+              drawWidth = height * imgRatio;
             } else {
-              ctx.drawImage(img, 0, 0, width, height);
+              drawWidth = width;
+              drawHeight = width / imgRatio;
             }
+
+            // Apply user adjustments
+            drawWidth *= cropConfig.scale;
+            drawHeight *= cropConfig.scale;
+
+            // Center + user offset
+            const offsetX = (width - drawWidth) / 2 + (cropConfig.x * width / 100);
+            const offsetY = (height - drawHeight) / 2 + (cropConfig.y * height / 100);
+
+            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
           }
 
           canvas.toBlob(
@@ -77,7 +84,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
               else reject(new Error('Falha na compressão'));
             },
             'image/jpeg',
-            0.85
+            0.9
           );
         };
         img.onerror = (err) => reject(err);
@@ -89,11 +96,6 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []) as File[];
     if (files.length === 0) return;
-
-    previewUrls.forEach(url => window.URL.revokeObjectURL(url));
-
-    const validFiles: File[] = [];
-    const newPreviews: string[] = [];
 
     files.forEach((file: File) => {
       const isImage = file.type.startsWith('image/') && ['image/jpeg', 'image/jpg', 'image/png'].includes(file.type);
@@ -113,23 +115,21 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         const video = document.createElement('video');
         video.preload = 'metadata';
         video.onloadedmetadata = () => {
-          if (video.duration > 180) {
-            alert(`Vídeo muito longo: ${file.name}. Máximo 3 minutos.`);
+          if (video.duration > 300) {
+            alert(`Vídeo muito longo: ${file.name}. Máximo 5 minutos.`);
           } else {
-            validFiles.push(file);
-            newPreviews.push(URL.createObjectURL(file));
             setSelectedFiles(prev => [...prev, file]);
             setPreviewUrls(prev => [...prev, URL.createObjectURL(file)]);
+            setFileConfigs(prev => [...prev, { x: 0, y: 0, scale: 1 }]);
           }
           window.URL.revokeObjectURL(video.src);
         };
         video.src = URL.createObjectURL(file);
       } else {
-        validFiles.push(file);
         const url = URL.createObjectURL(file);
-        newPreviews.push(url);
         setSelectedFiles(prev => [...prev, file]);
         setPreviewUrls(prev => [...prev, url]);
+        setFileConfigs(prev => [...prev, { x: 0, y: 0, scale: 1 }]);
       }
     });
   };
@@ -148,7 +148,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
       const mediaUrls: string[] = [];
       let mediaType: PostType = 'text';
 
-      for (const file of selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const config = fileConfigs[i];
         let fileToUpload: File | Blob = file;
         const fileExt = file.name.split('.').pop();
         const fileName = `${Math.random()}.${fileExt}`;
@@ -156,7 +158,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
         if (file.type.startsWith('image/')) {
           try {
-            fileToUpload = await compressImage(file, '4:5');
+            fileToUpload = await compressImage(file, '1:1', config);
           } catch (err) {
             console.error('Compression error:', err);
           }
@@ -186,7 +188,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         .from('posts')
         .insert({
           author_id: user.id,
-          content: newPostContent,
+          content: newPostContent.trim().toUpperCase(),
           type: mediaType,
           media_url: mediaUrls.length > 1 ? JSON.stringify(mediaUrls) : (mediaUrls[0] || null)
         });
@@ -196,6 +198,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
       setNewPostContent('');
       setSelectedFiles([]);
       setPreviewUrls([]);
+      setFileConfigs([]);
       onPostCreated();
       onClose();
     } catch (error: any) {
@@ -213,93 +216,205 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-md"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+        initial={{ scale: 0.95, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.9, opacity: 0, y: 20 }}
+        exit={{ scale: 0.95, opacity: 0, y: 20 }}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--surface)] w-full max-w-2xl rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl border border-[var(--border-ui)] p-4 sm:p-8 relative"
+        className="bg-[var(--surface)] w-full max-w-4xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-[3rem] overflow-hidden shadow-2xl border-0 sm:border border-[var(--border-ui)] flex flex-col relative"
       >
-        <button 
-          onClick={onClose}
-          className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:p-3 bg-white/10 text-white rounded-xl hover:bg-rose-500 transition-all z-10"
-        >
-          <X size={20} />
-        </button>
+        {/* Header Profissional */}
+        <div className="flex items-center justify-between p-6 border-b border-[var(--border-ui)]/20">
+          <button 
+            onClick={onClose}
+            className="p-2 text-[var(--text-muted)] hover:text-white transition-all"
+          >
+            <X size={24} />
+          </button>
+          <h2 className="text-sm font-black uppercase tracking-[0.3em] text-[var(--primary)] italic">Novo Relatório</h2>
+          <button
+            onClick={handleCreatePost}
+            disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
+            className="text-[var(--primary)] font-black text-xs uppercase tracking-widest disabled:opacity-30"
+          >
+            {uploading ? '...' : 'Publicar'}
+          </button>
+        </div>
 
-        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-6">
-          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-2xl mx-auto sm:mx-0">
-            {userProfile?.profile_photo || userProfile?.avatar_url ? (
-              <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
-                <User size={28} />
-              </div>
-            )}
-          </div>
-          <div className="flex-1 space-y-4 sm:space-y-6">
-            <h2 className="text-lg sm:text-xl font-black uppercase tracking-widest text-[var(--text-main)] italic text-center sm:text-left">Novo Relatório</h2>
-            <textarea
-              value={newPostContent}
-              onChange={(e) => setNewPostContent(e.target.value)}
-              placeholder="O que aconteceu na Arena hoje?"
-              className="w-full bg-transparent border-none focus:ring-0 text-base sm:text-lg text-[var(--text-main)] placeholder-[var(--text-muted)]/50 resize-none h-24 sm:h-32 font-semibold tracking-tight"
-            />
-            
-            {previewUrls.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-2">
+        <div className="flex-1 overflow-y-auto flex flex-col md:flex-row">
+          {/* Lado Esquerdo: Preview e Ajustes */}
+          <div className="w-full md:w-[500px] bg-black/30 border-r border-[var(--border-ui)]/10">
+            {previewUrls.length > 0 ? (
+              <div className="p-4 space-y-4">
                 {previewUrls.map((url, index) => (
-                  <div key={index} className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-[var(--border-ui)] bg-black/40 aspect-[4/5] group shadow-2xl">
+                  <div key={index} className="space-y-4">
+                    <div className="relative aspect-square rounded-[2rem] overflow-hidden border border-white/10 bg-black group shadow-2xl">
                     {selectedFiles[index]?.type.startsWith('image/') ? (
-                      <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                      <motion.div 
+                        className="w-full h-full cursor-move"
+                        drag
+                        dragConstraints={{ left: -200, right: 200, top: -200, bottom: 200 }}
+                        onDrag={(e, info) => {
+                          const newConfigs = [...fileConfigs];
+                          newConfigs[index] = {
+                            ...newConfigs[index],
+                            x: newConfigs[index].x + info.delta.x / 5,
+                            y: newConfigs[index].y + info.delta.y / 5
+                          };
+                          setFileConfigs(newConfigs);
+                        }}
+                      >
+                        <img 
+                          src={url} 
+                          alt="Preview" 
+                          className="w-full h-full object-cover pointer-events-none select-none" 
+                          style={{
+                            transform: `scale(${fileConfigs[index]?.scale || 1}) translate(${fileConfigs[index]?.x || 0}%, ${fileConfigs[index]?.y || 0}%)`
+                          }}
+                        />
+                      </motion.div>
                     ) : (
-                      <video src={url} className="w-full h-full object-cover" />
+                      <video 
+                        src={url} 
+                        className="w-full h-full object-cover" 
+                        controls={false}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                      />
                     )}
-                    <button 
-                      onClick={() => {
-                        const newFiles = [...selectedFiles];
-                        const newUrls = [...previewUrls];
-                        newFiles.splice(index, 1);
-                        newUrls.splice(index, 1);
-                        setSelectedFiles(newFiles);
-                        setPreviewUrls(newUrls);
-                        window.URL.revokeObjectURL(url);
-                      }}
-                      className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 bg-black/80 text-white rounded-xl sm:rounded-2xl hover:bg-rose-500 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                    >
-                      <X size={16} />
-                    </button>
+                    
+                    {/* Controles de Overlay */}
+                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {selectedFiles[index]?.type.startsWith('image/') && (
+                          <div className="flex items-center bg-black/60 rounded-full px-3 py-1 border border-white/10">
+                            <span className="text-[10px] font-bold text-white/60 mr-2 uppercase">Zoom</span>
+                            <input 
+                              type="range" 
+                              min="1" 
+                              max="3" 
+                              step="0.1" 
+                              value={fileConfigs[index]?.scale || 1}
+                              onChange={(e) => {
+                                const newConfigs = [...fileConfigs];
+                                newConfigs[index] = { ...newConfigs[index], scale: parseFloat(e.target.value) };
+                                setFileConfigs(newConfigs);
+                              }}
+                              className="w-20 accent-[var(--primary)]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const newFiles = [...selectedFiles];
+                          const newUrls = [...previewUrls];
+                          const newConfigs = [...fileConfigs];
+                          newFiles.splice(index, 1);
+                          newUrls.splice(index, 1);
+                          newConfigs.splice(index, 1);
+                          setSelectedFiles(newFiles);
+                          setPreviewUrls(newUrls);
+                          setFileConfigs(newConfigs);
+                          window.URL.revokeObjectURL(url);
+                        }}
+                        className="p-2 bg-rose-500 text-white rounded-full hover:scale-110 transition-all shadow-lg"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  {selectedFiles[index]?.type.startsWith('image/') && (
+                    <p className="text-[8px] font-black uppercase tracking-widest text-center text-[var(--text-muted)] flex items-center justify-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-[var(--primary)] animate-pulse" />
+                      Arraste a imagem e use o zoom para enquadrar
+                    </p>
+                  )}
                   </div>
                 ))}
               </div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center p-12 text-center space-y-6">
+                <div className="w-24 h-24 rounded-[2.5rem] bg-[var(--bg)] flex items-center justify-center text-[var(--text-muted)]/20 border-2 border-dashed border-[var(--border-ui)]">
+                  <ImageIcon size={40} />
+                </div>
+                <div>
+                  <h3 className="text-[var(--text-main)] font-black text-xs uppercase tracking-[0.2em]">Sua Mídia</h3>
+                  <p className="text-[var(--text-muted)] text-[10px] font-semibold mt-2">Formatos 1:1 quadrados são ideais para o feed profissional.</p>
+                </div>
+              </div>
             )}
+          </div>
 
-            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 sm:pt-6 border-t border-[var(--border-ui)]/20 gap-4">
-              <div className="flex space-x-3 w-full sm:w-auto justify-center sm:justify-start">
-                <label className="p-3 sm:p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)] flex items-center justify-center flex-1 sm:flex-none">
+          {/* Lado Direito: Texto e Perfil */}
+          <div className="flex-1 p-6 sm:p-10 flex flex-col">
+            <div className="flex items-center space-x-4 mb-8">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--surface)] to-[var(--bg)] flex-shrink-0 overflow-hidden border border-[var(--border-ui)] shadow-xl">
+                {userProfile?.profile_photo || userProfile?.avatar_url ? (
+                  <img src={userProfile.profile_photo || userProfile.avatar_url} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[var(--text-muted)]">
+                    <User size={24} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1">
+                <h4 className="text-xs font-black text-[var(--text-main)] uppercase tracking-wider">{userProfile?.full_name}</h4>
+                <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">@{userProfile?.username}</p>
+              </div>
+            </div>
+
+            <textarea
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="Descreva o que aconteceu na Arena hoje..."
+              className="flex-1 w-full bg-transparent border-none focus:ring-0 text-base sm:text-lg text-[var(--text-main)] placeholder-[var(--text-muted)]/30 resize-none font-semibold tracking-tight min-h-[150px]"
+            />
+            
+            <div className="mt-8 space-y-4">
+              <div className="flex items-center gap-3">
+                <label className="flex-1 h-16 rounded-[1.2rem] bg-[var(--bg)] border border-[var(--border-ui)] flex items-center justify-center gap-3 text-[var(--text-muted)] hover:text-white hover:border-[var(--primary)]/50 transition-all cursor-pointer group">
                   <input type="file" className="hidden" accept="image/jpeg,image/png" multiple onChange={handleFileChange} />
-                  <ImageIcon size={20} className="sm:w-6 sm:h-6" />
-                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider sm:hidden">Imagem</span>
+                  <div className="p-2 bg-[var(--surface)] rounded-xl group-hover:bg-[var(--primary)]/10 transition-colors">
+                    <ImageIcon size={20} className="group-hover:text-[var(--primary)]" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Fotos</span>
                 </label>
-                <label className="p-3 sm:p-4 rounded-2xl bg-[var(--bg)]/50 text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary)]/10 transition-all cursor-pointer border border-[var(--border-ui)] flex items-center justify-center flex-1 sm:flex-none">
+                <label className="flex-1 h-16 rounded-[1.2rem] bg-[var(--bg)] border border-[var(--border-ui)] flex items-center justify-center gap-3 text-[var(--text-muted)] hover:text-white hover:border-[var(--primary)]/50 transition-all cursor-pointer group">
                   <input type="file" className="hidden" accept="video/mp4,video/quicktime" onChange={handleFileChange} />
-                  <Video size={20} className="sm:w-6 sm:h-6" />
-                  <span className="ml-2 text-[10px] font-bold uppercase tracking-wider sm:hidden">Vídeo</span>
+                  <div className="p-2 bg-[var(--surface)] rounded-xl group-hover:bg-[var(--secondary)]/10 transition-colors">
+                    <Video size={20} className="group-hover:text-amber-500" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Vídeo</span>
                 </label>
               </div>
-              <button
-                onClick={handleCreatePost}
-                disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
-                className="w-full sm:w-auto bg-[var(--primary)] text-white px-8 sm:px-12 py-3 sm:py-4 rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] disabled:opacity-50 hover:bg-[var(--primary-highlight)] transition-all shadow-2xl shadow-[var(--primary)]/30"
-              >
-                {uploading ? 'Processando...' : 'Publicar'}
-              </button>
+
+              <div className="flex items-center gap-2 p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                <p className="text-[9px] font-bold text-amber-500 uppercase tracking-tight">Postagens em alta geram 3x mais seguidores na Arena</p>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Floating Action Button for Mobile Context - Compartilhar mais claro */}
+        {selectedFiles.length > 0 && !uploading && (
+           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-xs sm:hidden z-[110]">
+             <button
+               onClick={handleCreatePost}
+               className="w-full h-14 bg-[var(--primary)] text-white rounded-2xl font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl flex items-center justify-center gap-3 group active:scale-95 transition-all"
+             >
+               <Send size={16} className="group-hover:translate-x-1 transition-transform" />
+               Publicar Post
+             </button>
+           </div>
+        )}
       </motion.div>
     </motion.div>
   );
