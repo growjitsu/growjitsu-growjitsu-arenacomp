@@ -631,9 +631,9 @@ async function startServer() {
               if (ad) {
                 cardData = {
                   athleteName: 'ArenaComp',
-                  achievement: ad.content || 'Confira esta oportunidade na ArenaComp!',
-                  mainImageUrl: ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
-                  title: ad.title || 'Destaque ArenaComp',
+                  achievement: ad.landing_description || ad.content || 'Confira esta oportunidade na ArenaComp!',
+                  mainImageUrl: ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
+                  title: ad.landing_title || ad.title || 'Destaque ArenaComp',
                   modality: 'Patrocinado',
                   type: 'ad',
                   realId: targetId
@@ -728,9 +728,9 @@ async function startServer() {
               if (a) {
                 cardData = {
                   athleteName: 'ArenaComp',
-                  achievement: a.content || 'Destaque ArenaComp',
-                  mainImageUrl: a.media_url || a.media_url_landing_highlights,
-                  title: a.title || 'Oportunidade Arena',
+                  achievement: a.landing_description || a.content || 'Destaque ArenaComp',
+                  mainImageUrl: a.landing_image || a.media_url || a.media_url_landing_highlights,
+                  title: a.landing_title || a.title || 'Oportunidade Arena',
                   modality: 'Anúncio',
                   realId: inferredId,
                   type: 'ad'
@@ -800,6 +800,8 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
+    console.log('[SHARE IMAGE]', ogImageUrl);
+
     // Add cache buster ONLY for local images (starts with baseUrl) to avoid breaking external signed URLs
     if (ogImageUrl && ogImageUrl.startsWith(baseUrl)) {
       const cacheBuster = `v=${Date.now()}`;
@@ -997,6 +999,7 @@ async function startServer() {
     }
 
     const token = generateShortToken(8);
+    console.log('[SHORT TOKEN]', token);
     
     try {
       db.prepare('INSERT INTO share_links (token, title, description, image, type) VALUES (?, ?, ?, ?, ?)')

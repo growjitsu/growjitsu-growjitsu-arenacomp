@@ -84,26 +84,28 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
   };
 
   const handleShareAd = async (ad: ArenaAd) => {
+    const mainImg = ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top || '';
+    
     const cardData: CardData = {
-      title: ad.title || 'Anúncio Arena',
-      athleteName: ad.title || 'ArenaComp',
-      achievement: ad.content || 'Confira esta oportunidade na ArenaComp!',
-      modality: 'Highlight',
+      title: ad.landing_title || ad.title || 'Anúncio Arena',
+      athleteName: 'ArenaComp',
+      achievement: ad.landing_description || ad.content || 'Confira esta oportunidade na ArenaComp!',
+      modality: 'Patrocinado',
       date: new Date().toLocaleDateString(),
       type: 'ad',
       realId: ad.id,
-      mainImageUrl: ad.media_url,
-      image: ad.media_url,
-      description: ad.content || 'Confira este destaque na ArenaComp!'
+      mainImageUrl: mainImg,
+      image: mainImg,
+      description: ad.landing_description || ad.content || 'Confira este destaque na ArenaComp!'
     };
 
     const shareUrl = await generateCard(cardData);
     
     setShareModalData({
-      title: ad.title || 'Arena Destaque',
-      subtitle: 'Oportunidade ArenaComp',
+      title: ad.landing_title || ad.title || 'Arena Destaque',
+      subtitle: ad.landing_description || ad.content || 'Oportunidade ArenaComp',
       url: shareUrl,
-      imageUrl: ad.media_url,
+      imageUrl: mainImg,
       onGenerate: () => {
         setAchievementData(cardData);
         setIsAchievementCardOpen(true);

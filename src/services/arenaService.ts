@@ -313,15 +313,7 @@ export const generateCard = async (data: CardData) => {
     throw new Error('Dados inválidos para geração do card');
   }
 
-  // Se tivermos o realId e o type, usamos o novo formato curto para evitar URI_TOO_LONG
-  // EXCEÇÃO: 'ad' (anúncios) costumam vir do Firebase, então forçamos Short Token para armazenar os metadados no backend
-  if (data.type && data.realId && data.type !== 'ad') {
-    const shareUrl = generateShareLink({ type: data.type, id: data.realId });
-    console.log('[arenaService] URL direta gerada:', shareUrl);
-    return shareUrl;
-  }
-
-  // --- ARQUITETURA DE TOKEN CURTO (Short Link) ---
+  // --- ARQUITETURA DE TOKEN CURTO (Short Link) - PREFERENCIAL ---
   try {
     const response = await fetch(getApiUrl('/api/share/create'), {
       method: 'POST',
@@ -336,17 +328,26 @@ export const generateCard = async (data: CardData) => {
     
     if (response.ok) {
       const result = await response.json();
-      if (result.success && result.shareUrl) {
-        const fullUrl = `${window.location.origin}${result.shareUrl}`;
+      if (result.success && result.token) {
+        const fullUrl = `${window.location.origin}/share/${data.type || 'post'}/${result.token}`;
+        console.log('[SHORT TOKEN]', result.token);
+        console.log('[SHARE IMAGE]', data.image || data.mainImageUrl);
         console.log('[arenaService] Link curto (Token) gerado via API:', fullUrl);
         return fullUrl;
       }
     }
   } catch (err) {
-    console.warn('[arenaService] Erro ao criar link curto, usando fallback Base64:', err);
+    console.warn('[arenaService] Erro ao criar link curto, tentando fallback:', err);
   }
 
-  // --- FALLBACK: Base64 Decoding (Retro-compatibilidade) ---
+  // Se o token falhar e tivermos realId, usamos o formato direto como segundo fallback
+  if (data.type && data.realId) {
+    const shareUrl = generateShareLink({ type: data.type, id: data.realId });
+    console.log('[arenaService] URL direta gerada como fallback:', shareUrl);
+    return shareUrl;
+  }
+
+  // --- FALLBACK FINAL: Base64 ---
   try {
     // Standardize the payload to { title, description, image, type }
     const standardizedPayload = {

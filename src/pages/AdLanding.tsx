@@ -65,7 +65,7 @@ export const AdLanding: React.FC = () => {
 
   const handleShare = async (platform: 'whatsapp' | 'instagram' | 'copy') => {
     const text = ad?.landing_title || ad?.title || 'Confira este anúncio na ArenaComp!';
-    const mainImg = ad?.landing_image || ad?.media_url || '';
+    const mainImg = ad?.landing_image || ad?.media_url || ad?.media_url_landing_highlights || ad?.media_url_feed_top || '';
     
     // Preparar cardData para o gerador
     const cardData: CardData = {
