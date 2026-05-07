@@ -208,6 +208,9 @@ export const SharePage = () => {
         case 'fight':
           window.location.href = `/fights/${realId}`;
           break;
+        case 'ad':
+          window.location.href = `/ad/${realId}`;
+          break;
         case 'challenge':
           window.location.href = `/profile/${realId}`;
           break;

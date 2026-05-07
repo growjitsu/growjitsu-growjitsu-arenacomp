@@ -460,6 +460,7 @@ function AppContent() {
       <Route path="/curriculo/:userId" element={<AthleteResume />} />
       <Route path="/share/:type/:id" element={<SharePage />} />
       <Route path="/share/:id" element={<SharePage />} />
+      <Route path="/s/:id" element={<SharePage />} />
 
       {/* Admin Routes */}
       <Route 

@@ -132,8 +132,17 @@ db.exec(`
     description TEXT,
     image TEXT,
     type TEXT,
+    real_id TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  
+  // Migration to add real_id if it doesn't exist
+  try {
+    db.prepare("ALTER TABLE share_links ADD COLUMN real_id TEXT").run();
+  } catch (e) {
+    // Column likely exists
+  }
+  
   CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
 `);
 
@@ -475,6 +484,7 @@ async function startServer() {
                 achievement: shareLink.description,
                 mainImageUrl: shareLink.image,
                 type: shareLink.type,
+                realId: shareLink.real_id,
                 athleteName: shareLink.title,
                 modality: 'Arena'
               };
@@ -909,9 +919,13 @@ async function startServer() {
       
       console.log(`[CRAWLER-DETECT] Path: ${req.path} | Parts: ${pathParts.join('/')}`);
 
-      // 1. Handle /share/:type/:id or /share/:id
-      if (pathParts[0] === 'share' && pathParts.length >= 2) {
-        req.params = pathParts.length >= 3 ? { type: pathParts[1], id: pathParts[2] } : { id: pathParts[1] };
+      // 1. Handle /share/:type/:id, /share/:id or /s/:id
+      if ((pathParts[0] === 'share' || pathParts[0] === 's') && pathParts.length >= 2) {
+        if (pathParts[0] === 's') {
+          req.params = { id: pathParts[1] };
+        } else {
+          req.params = pathParts.length >= 3 ? { type: pathParts[1], id: pathParts[2] } : { id: pathParts[1] };
+        }
         return handleShareRequest(req, res, next);
       }
       
@@ -949,6 +963,7 @@ async function startServer() {
     app.get("/api/share/info/:id", handleShareRequest);
     app.get("/share/:type/:id", handleShareRequest);
     app.get("/share/:id", handleShareRequest);
+    app.get("/s/:id", handleShareRequest);
     app.get("/post/:id", handleShareRequest);
     app.get("/clip/:id", handleShareRequest);
     app.get("/certificate/:id", handleShareRequest);
@@ -979,7 +994,7 @@ async function startServer() {
 
   // --- NEW: SHORT LINK CREATION API ---
   app.post("/api/share/create", (req, res) => {
-    const { title, description, image, type } = req.body;
+    const { title, description, image, type, realId } = req.body;
     
     if (!title || !description) {
       return res.status(400).json({ error: "Title and description are required" });
@@ -1002,14 +1017,14 @@ async function startServer() {
     console.log('[SHORT TOKEN]', token);
     
     try {
-      db.prepare('INSERT INTO share_links (token, title, description, image, type) VALUES (?, ?, ?, ?, ?)')
-        .run(token, title, description, imageUrl, type || 'post');
+      db.prepare('INSERT INTO share_links (token, title, description, image, type, real_id) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(token, title, description, imageUrl, type || 'post', realId || null);
       
       console.log(`[API-SHARE] Created short link: ${token} for type: ${type}`);
       res.json({ 
         success: true,
         token, 
-        shareUrl: `/share/${type || 'post'}/${token}` 
+        shareUrl: `/s/${token}` 
       });
     } catch (e) {
       console.error("[API-SHARE] Error creating share link:", e);

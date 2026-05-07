@@ -322,17 +322,18 @@ export const generateCard = async (data: CardData) => {
         title: data.title || data.athleteName || 'ArenaComp',
         description: data.description || data.achievement || 'Confira este conteúdo na ArenaComp!',
         image: data.image || data.mainImageUrl,
-        type: data.type || 'post'
+        type: data.type || 'post',
+        realId: data.realId
       })
     });
     
     if (response.ok) {
       const result = await response.json();
-      if (result.success && result.token) {
-        const fullUrl = `${window.location.origin}/share/${data.type || 'post'}/${result.token}`;
+      if (result.success && result.shareUrl) {
+        const fullUrl = `${window.location.origin}${result.shareUrl}`;
         console.log('[SHORT TOKEN]', result.token);
         console.log('[SHARE IMAGE]', data.image || data.mainImageUrl);
-        console.log('[arenaService] Link curto (Token) gerado via API:', fullUrl);
+        console.log('[arenaService] Link curto gerado via API:', fullUrl);
         return fullUrl;
       }
     }
