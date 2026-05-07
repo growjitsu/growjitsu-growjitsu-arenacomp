@@ -6,6 +6,7 @@ import { ArenaAd } from '../types';
 import { motion } from 'motion/react';
 import { ExternalLink, Share2, MessageCircle, Instagram, Copy, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateCard, CardData } from '../services/arenaService';
 
 export const AdLanding: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -62,9 +63,32 @@ export const AdLanding: React.FC = () => {
     window.open(ad.landing_cta_url, '_blank', 'noreferrer');
   };
 
-  const handleShare = (platform: 'whatsapp' | 'instagram' | 'copy') => {
-    const shareUrl = `${window.location.origin}/share/ad/${id}`;
+  const handleShare = async (platform: 'whatsapp' | 'instagram' | 'copy') => {
     const text = ad?.landing_title || ad?.title || 'Confira este anúncio na ArenaComp!';
+    const mainImg = ad?.landing_image || ad?.media_url || '';
+    
+    // Preparar cardData para o gerador
+    const cardData: CardData = {
+      title: ad?.landing_title || ad?.title || 'Destaque Arena',
+      description: ad?.landing_description || ad?.content || 'Confira esta oportunidade na ArenaComp!',
+      image: mainImg,
+      type: 'ad',
+      athleteName: 'ArenaComp',
+      achievement: 'Patrocinado',
+      modality: 'Parceiro',
+      date: new Date().toLocaleDateString(),
+      realId: ad?.id,
+      mainImageUrl: mainImg
+    };
+
+    let shareUrl = `${window.location.origin}/share/ad/${id}`;
+    
+    try {
+      // Usar generateCard para criar Short Token (necessário para Firebase ads no OG Tags)
+      shareUrl = await generateCard(cardData);
+    } catch (err) {
+      console.warn('[AdLanding] Error generating short card, using direct link fallback');
+    }
 
     if (platform === 'whatsapp') {
       window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text + ' ' + shareUrl)}`, '_blank');
@@ -72,7 +96,6 @@ export const AdLanding: React.FC = () => {
       navigator.clipboard.writeText(shareUrl);
       toast.success('Link copiado para a área de transferência!');
     } else if (platform === 'instagram') {
-      // Instagram doesn't have a direct share URL for feed/stories from web, but we can copy link as fallback
       navigator.clipboard.writeText(shareUrl);
       toast.success('Link copiado! Abra o Instagram e compartilhe.');
     }

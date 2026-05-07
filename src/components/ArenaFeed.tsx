@@ -176,32 +176,53 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
   };
 
   const handleShareAd = async (ad: ArenaAd) => {
-    const shareUrl = `${window.location.origin}/share/ad/${ad.id}`;
-    const mainImg = ad.landing_image || ad.media_url_feed_top || ad.media_url_feed_between || ad.media_url_sidebar || ad.media_url;
+    const mainImg = ad.landing_image || ad.media_url_feed_top || ad.media_url_feed_between || ad.media_url_sidebar || ad.media_url || '';
     
-    setShareModalData({
-      title: 'Patrocinado: ' + ad.title,
-      subtitle: ad.content || 'Confira esta oferta na ArenaComp!',
-      url: shareUrl,
-      imageUrl: mainImg,
-      onGenerate: () => {
-        const cardData: CardData = {
-          title: ad.title,
-          description: ad.content || 'Confira esta oferta na ArenaComp!',
-          image: mainImg,
-          type: 'post', // Reuse post layout for ads
-          athleteName: 'ArenaComp',
-          achievement: 'Patrocinado',
-          modality: 'Parceiro',
-          date: new Date().toLocaleDateString(),
-          realId: ad.id,
-          mainImageUrl: mainImg
-        };
-        setAchievementData(cardData);
-        setIsAchievementCardOpen(true);
-      }
-    });
-    setIsShareModalOpen(true);
+    // Preparar cardData para o gerador
+    const cardData: CardData = {
+      title: ad.title || 'Destaque Arena',
+      description: ad.content || 'Confira esta oportunidade na ArenaComp!',
+      image: mainImg,
+      type: 'ad',
+      athleteName: 'ArenaComp',
+      achievement: 'Patrocinado',
+      modality: 'Parceiro',
+      date: new Date().toLocaleDateString(),
+      realId: ad.id,
+      mainImageUrl: mainImg
+    };
+
+    try {
+      // Usar a lógica centralizada de geração de links (que agora lida com short tokens para ads)
+      const shareUrl = await generateCard(cardData);
+      
+      setShareModalData({
+        title: 'Patrocinado: ' + (ad.title || 'Arena'),
+        subtitle: ad.content || 'Confira esta oferta na ArenaComp!',
+        url: shareUrl,
+        imageUrl: mainImg,
+        onGenerate: () => {
+          setAchievementData(cardData);
+          setIsAchievementCardOpen(true);
+        }
+      });
+      setIsShareModalOpen(true);
+    } catch (err) {
+      console.error('[ArenaFeed] erro ao gerar share link para anúncio:', err);
+      // Fallback para URL direta se falhar
+      const shareUrlFallback = `${window.location.origin}/share/ad/${ad.id}`;
+      setShareModalData({
+        title: 'Patrocinado: ' + (ad.title || 'Arena'),
+        subtitle: ad.content || 'Confira esta oferta na ArenaComp!',
+        url: shareUrlFallback,
+        imageUrl: mainImg,
+        onGenerate: () => {
+          setAchievementData(cardData);
+          setIsAchievementCardOpen(true);
+        }
+      });
+      setIsShareModalOpen(true);
+    }
   };
 
   // Rotation for In-Feed Ads

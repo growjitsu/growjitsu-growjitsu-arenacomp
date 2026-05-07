@@ -620,6 +620,28 @@ async function startServer() {
                  realId: targetId
                };
              }
+          } else if (targetType === 'ad') {
+            try {
+              const { data: ad } = await supabaseAdmin
+                .from('arena_ads')
+                .select('*')
+                .eq('id', targetId)
+                .maybeSingle();
+              
+              if (ad) {
+                cardData = {
+                  athleteName: 'ArenaComp',
+                  achievement: ad.content || 'Confira esta oportunidade na ArenaComp!',
+                  mainImageUrl: ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
+                  title: ad.title || 'Destaque ArenaComp',
+                  modality: 'Patrocinado',
+                  type: 'ad',
+                  realId: targetId
+                };
+              }
+            } catch (e) {
+              console.error(`[OG-TAGS] Error looking up ad ${targetId}:`, e);
+            }
           } else if (targetType === 'profile' || targetType === 'user' || targetType === 'athlete' || targetType === 'auto') {
             const { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', targetId).maybeSingle();
             if (profile) {
@@ -697,6 +719,24 @@ async function startServer() {
                 type: 'certificate'
               };
             }
+          }
+          
+          // Try ad
+          if (!cardData) {
+            try {
+              const { data: a } = await supabaseAdmin.from('arena_ads').select('*').eq('id', inferredId).maybeSingle();
+              if (a) {
+                cardData = {
+                  athleteName: 'ArenaComp',
+                  achievement: a.content || 'Destaque ArenaComp',
+                  mainImageUrl: a.media_url || a.media_url_landing_highlights,
+                  title: a.title || 'Oportunidade Arena',
+                  modality: 'Anúncio',
+                  realId: inferredId,
+                  type: 'ad'
+                };
+              }
+            } catch (e) {}
           }
         }
       }

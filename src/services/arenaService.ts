@@ -314,7 +314,8 @@ export const generateCard = async (data: CardData) => {
   }
 
   // Se tivermos o realId e o type, usamos o novo formato curto para evitar URI_TOO_LONG
-  if (data.type && data.realId) {
+  // EXCEÇÃO: 'ad' (anúncios) costumam vir do Firebase, então forçamos Short Token para armazenar os metadados no backend
+  if (data.type && data.realId && data.type !== 'ad') {
     const shareUrl = generateShareLink({ type: data.type, id: data.realId });
     console.log('[arenaService] URL direta gerada:', shareUrl);
     return shareUrl;
