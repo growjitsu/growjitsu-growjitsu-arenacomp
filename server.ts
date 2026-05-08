@@ -136,15 +136,16 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   
-  // Migration to add real_id if it doesn't exist
-  try {
-    db.prepare("ALTER TABLE share_links ADD COLUMN real_id TEXT").run();
-  } catch (e) {
-    // Column likely exists
-  }
-  
   CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
 `);
+
+// Correctly handle migrations outside of the raw SQL injection
+try {
+  db.prepare("ALTER TABLE share_links ADD COLUMN real_id TEXT").run();
+  console.log("[DATABASE] Migrated share_links: added real_id column");
+} catch (e) {
+  // Column likely exists, which is fine
+}
 
 function generateShortToken(length = 8) {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -478,6 +479,7 @@ async function startServer() {
         if (id && id.length >= 6 && id.length <= 12) {
           try {
             const shareLink = db.prepare('SELECT * FROM share_links WHERE token = ?').get(id) as any;
+            console.log('[SHARE LOOKUP] Token:', id, 'Found:', !!shareLink);
             if (shareLink) {
               cardData = {
                 title: shareLink.title,
@@ -488,6 +490,7 @@ async function startServer() {
                 athleteName: shareLink.title,
                 modality: 'Arena'
               };
+              console.log('[SHARE RESOLVED] CardData:', cardData);
               console.log(`[OG-TAGS] Successfully retrieved short link data for token: ${id}`);
             }
           } catch (e) {
@@ -1037,6 +1040,7 @@ async function startServer() {
     try {
       const shareLink = db.prepare('SELECT * FROM share_links WHERE token = ?').get(token) as any;
       if (shareLink) {
+        console.log('[SHARE LOOKUP] Token API:', token, 'Found:', !!shareLink);
         res.json({
           success: true,
           data: {
@@ -1044,6 +1048,8 @@ async function startServer() {
             description: shareLink.description,
             image: shareLink.image,
             type: shareLink.type,
+            real_id: shareLink.real_id,
+            realId: shareLink.real_id, // Doubling for safety
             created_at: shareLink.created_at
           }
         });

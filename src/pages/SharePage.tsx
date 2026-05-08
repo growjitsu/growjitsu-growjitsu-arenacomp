@@ -41,18 +41,44 @@ export const SharePage = () => {
           ? getApiUrl(`/api/share/info/${type}/${id}`)
           : getApiUrl(`/api/share/info/${id}`);
           
+        console.log(`[SharePage] Chamando API: ${apiUrl}`);
+
         try {
           const apiRes = await fetch(apiUrl);
           if (apiRes.ok) {
             const apiData = await apiRes.json();
-            // Aceita se success for true OU se houver data presente
             if (apiData.data) {
-              console.log('[SharePage] Dados obtidos via API do servidor:', apiData.data);
+              console.log('[SharePage] Dados obtidos via API do servidor (info):', apiData.data);
               data = apiData.data;
             }
           }
         } catch (apiErr) {
-          console.error('[SharePage] Erro ao chamar API do servidor:', apiErr);
+          console.error('[SharePage] Erro ao chamar API do servidor (info):', apiErr);
+        }
+
+        // 1.1 Fallback específico para TOKENS CURTOS se o info falhou
+        if (!data && id.length >= 6 && id.length <= 12) {
+          try {
+            const tokenUrl = getApiUrl(`/api/share/token/${id}`);
+            console.log(`[SharePage] Tentando fallback para token API: ${tokenUrl}`);
+            const tokenRes = await fetch(tokenUrl);
+            if (tokenRes.ok) {
+              const tokenData = await tokenRes.json();
+              if (tokenData.success && tokenData.data) {
+                console.log('[SharePage] Dados obtidos via API de Tokens:', tokenData.data);
+                data = {
+                  athleteName: tokenData.data.title,
+                  achievement: tokenData.data.description,
+                  mainImageUrl: tokenData.data.image,
+                  type: tokenData.data.type,
+                  realId: tokenData.data.realId || tokenData.data.real_id, // Compatibility
+                  modality: 'Arena'
+                };
+              }
+            }
+          } catch (e) {
+            console.error('[SharePage] Erro no fallback de token:', e);
+          }
         }
 
         // 2. Fallback Final: Supabase direto no cliente (Resiliente a falhas de relacionamento)
