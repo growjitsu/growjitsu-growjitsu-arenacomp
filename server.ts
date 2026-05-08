@@ -189,42 +189,27 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // 1. CORS & Body Parser (ABSOLUTE TOP)
-  app.use(cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Route"],
-    exposedHeaders: ["X-API-Route"],
-    credentials: true,
-    maxAge: 86400
-  }));
-
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-  // --- DEBUG LOGGING FOR API ---
+  // --- ABSOLUTE EMERGENCY LOGGING & ROUTE ---
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api')) {
-      console.log(`[API-TRACE] ${req.method} ${req.url}`);
-      // Set a temporary header to track if it at least passed this middleware
-      res.setHeader('X-API-Trace', 'express-api-reached');
+    // This MUST run for every request that hits Express
+    res.setHeader('X-Express-Reached', 'true');
+    if (req.url.includes('ads-stats')) {
+       console.log(`[EMERGENCY-TRACE] ${req.method} ${req.url}`);
     }
     next();
   });
 
-  // --- ANALYTICS API (ABSOLUTE TOP PRIORITY) ---
-  app.all(["/api/ads-stats-v7", "/api/ads-stats-v7/"], async (req, res) => {
+  // NEW PATH: /ads-analytics-v8 (NO /api PREFIX TO BYPASS POTENTIAL FILTERS)
+  app.get("/ads-stats-v8", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ADS-STATS-V7] INVOKED: period=${period}, adId=${adId}`);
+      console.log(`[ADS-STATS-V8] TRIGGERED! period=${period}, adId=${adId}`);
       
-      // Force JSON immediately
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-API-Route', 'ads-analytics-v7');
+      res.setHeader('X-API-Route', 'ads-analytics-v8');
+      res.setHeader('X-API-Trace', 'v8-hit');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       
-      if (req.method === 'OPTIONS') return res.status(200).end();
-
       let dateFilter = "created_at IS NOT NULL";
       if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
       else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
@@ -265,12 +250,24 @@ async function startServer() {
         topAds: topAds || []
       });
     } catch (error: any) {
-      console.error('[ADS-STATS-V7-ERR]', error);
+      console.error('[ADS-STATS-V8-ERR]', error);
       res.setHeader('Content-Type', 'application/json');
       return res.status(500).json({ success: false, error: error.message });
     }
   });
 
+  // 1. CORS & Body Parser (ABSOLUTE TOP)
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Route", "X-API-Trace", "X-Express-Reached"],
+    exposedHeaders: ["X-API-Route", "X-API-Trace", "X-Express-Reached"],
+    credentials: true,
+    maxAge: 86400
+  }));
+
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // 2. ADMIN API (ABSOLUTE TOP - BEFORE ANYTHING ELSE)
   const emailDispatchHandler = async (req: any, res: any) => {

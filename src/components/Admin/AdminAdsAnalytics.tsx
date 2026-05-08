@@ -35,8 +35,8 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Fetching data from /api/ads-stats-v7: period=${period}, adId=${adId}`);
-      const response = await fetch(`/api/ads-stats-v7?period=${period}&adId=${adId}&t=${Date.now()}`, {
+      console.log(`[Analytics] Fetching data from /ads-stats-v8: period=${period}, adId=${adId}`);
+      const response = await fetch(`/ads-stats-v8?period=${period}&adId=${adId}&t=${Date.now()}`, {
         headers: {
           'Accept': 'application/json'
         }
@@ -45,7 +45,10 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
       const contentType = response.headers.get("content-type");
       const apiRouteHeader = response.headers.get("X-API-Route");
       const apiTrace = response.headers.get("X-API-Trace");
-      console.log(`[Analytics] Status: ${response.status}, Content-Type: ${contentType}, Route: ${apiRouteHeader}, Trace: ${apiTrace}`);
+      const expressReached = response.headers.get("X-Express-Reached");
+      
+      console.log(`[Analytics] Status: ${response.status}, Content-Type: ${contentType}`);
+      console.log(`[Analytics] Route: ${apiRouteHeader}, Trace: ${apiTrace}, Express: ${expressReached}`);
       
       if (!response.ok || !contentType || !contentType.includes("application/json")) {
         const errorText = await response.text();
@@ -59,7 +62,7 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
             toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
           }
         } else {
-          toast.error(`O servidor retornou um formato inesperado (${contentType}). Rota: ${apiRouteHeader || 'desconhecida'}. Trace: ${apiTrace || 'null'}`);
+          toast.error(`Formato Inesperado (${contentType}). Route: ${apiRouteHeader || 'null'}, Trace: ${apiTrace || 'null'}, Express: ${expressReached || 'null'}`);
         }
         return;
       }
