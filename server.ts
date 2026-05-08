@@ -201,15 +201,30 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+  // Debug middleware for API routes to identify why HTML might be returned
+  app.use('/api', (req, res, next) => {
+    // Only log if not already handled or for specific debugging
+    if (req.path.includes('ads-stats')) {
+      console.log(`[API-DEBUG] Dynamic call to: ${req.path} | OriginalUrl: ${req.originalUrl} | Method: ${req.method}`);
+    }
+    next();
+  });
+
   // --- ANALYTICS API (PRIORITY 1) ---
-  app.get("/api/internal/ads-analytics-core", async (req, res) => {
+  app.all("/api/ads-stats-v5", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[DASHBOARD-API-CORE] HIT! period=${period}, adId=${adId}`);
+      console.log(`[ADS-STATS-V5] HIT! Method: ${req.method} | period=${period}, adId=${adId}`);
       
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('X-API-Route', 'internal-ads-analytics');
+      // Explicitly force JSON headers
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('X-API-Route', 'ads-analytics-v5');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       
+      if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+      }
+
       let dateFilter = "created_at IS NOT NULL";
       
       if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
@@ -277,6 +292,7 @@ async function startServer() {
         LIMIT 10
       `).all();
 
+      // Ensure we always return an object even if DB is empty
       return res.status(200).json({
         success: true,
         summary: {
@@ -284,16 +300,22 @@ async function startServer() {
           unique_clicks: stats?.unique_clicks || 0,
           total_views: stats?.total_views || 0
         },
-        daily: dailyStats,
-        devices: deviceStats,
-        os: osStats,
-        gender: genderStats,
-        locations: locationStats,
-        topAds: topAds
+        daily: dailyStats || [],
+        devices: deviceStats || [],
+        os: osStats || [],
+        gender: genderStats || [],
+        locations: locationStats || [],
+        topAds: topAds || []
       });
     } catch (error: any) {
-      console.error('[ANALYTICS-CORE-ERR]', error);
-      return res.status(500).json({ success: false, error: error.message });
+      console.error('[ADS-STATS-V5-ERR]', error);
+      // Force JSON even on error
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Internal server error',
+        code: 'SERVER_ERROR_JSON'
+      });
     }
   });
 
