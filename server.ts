@@ -193,7 +193,8 @@ async function startServer() {
   app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Route"],
+    exposedHeaders: ["X-API-Route"],
     credentials: true,
     maxAge: 86400
   }));
@@ -201,32 +202,20 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Debug middleware for API routes to identify why HTML might be returned
-  app.use('/api', (req, res, next) => {
-    // Only log if not already handled or for specific debugging
-    if (req.path.includes('ads-stats')) {
-      console.log(`[API-DEBUG] Dynamic call to: ${req.path} | OriginalUrl: ${req.originalUrl} | Method: ${req.method}`);
-    }
-    next();
-  });
-
-  // --- ANALYTICS API (PRIORITY 1) ---
-  app.all("/api/ads-stats-v5", async (req, res) => {
+  // --- ANALYTICS API (HIGH PRIORITY) ---
+  app.all("/api/ads-stats-v6", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ADS-STATS-V5] HIT! Method: ${req.method} | period=${period}, adId=${adId}`);
+      console.log(`[ADS-STATS-V6] REQUEST: period=${period}, adId=${adId}`);
       
-      // Explicitly force JSON headers
+      // Explicitly force JSON headers immediately
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-API-Route', 'ads-analytics-v5');
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('X-API-Route', 'ads-analytics-v6');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
       
-      if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-      }
+      if (req.method === 'OPTIONS') return res.status(200).end();
 
       let dateFilter = "created_at IS NOT NULL";
-      
       if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
       else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
       else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
@@ -244,55 +233,13 @@ async function startServer() {
       `;
       
       const stats = db.prepare(statsQuery).get() as any;
+      const dailyStats = db.prepare(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`).all();
+      const deviceStats = db.prepare(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY device`).all();
+      const osStats = db.prepare(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY os`).all();
+      const genderStats = db.prepare(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`).all();
+      const locationStats = db.prepare(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`).all();
+      const topAds = db.prepare(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`).all();
 
-      const dailyStats = db.prepare(`
-        SELECT DATE(created_at) as date, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
-        GROUP BY DATE(created_at)
-        ORDER BY date ASC
-      `).all();
-
-      const deviceStats = db.prepare(`
-        SELECT device, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-        GROUP BY device
-      `).all();
-
-      const osStats = db.prepare(`
-        SELECT os, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-        GROUP BY os
-      `).all();
-
-      const genderStats = db.prepare(`
-        SELECT gender, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != ''
-        GROUP BY gender
-      `).all();
-
-      const locationStats = db.prepare(`
-        SELECT city, country, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL
-        GROUP BY city, country
-        ORDER BY count DESC
-        LIMIT 10
-      `).all();
-
-      const topAds = db.prepare(`
-        SELECT ad_id, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
-        GROUP BY ad_id
-        ORDER BY count DESC
-        LIMIT 10
-      `).all();
-
-      // Ensure we always return an object even if DB is empty
       return res.status(200).json({
         success: true,
         summary: {
@@ -308,14 +255,9 @@ async function startServer() {
         topAds: topAds || []
       });
     } catch (error: any) {
-      console.error('[ADS-STATS-V5-ERR]', error);
-      // Force JSON even on error
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      return res.status(500).json({ 
-        success: false, 
-        error: error.message || 'Internal server error',
-        code: 'SERVER_ERROR_JSON'
-      });
+      console.error('[ADS-STATS-V6-ERR]', error);
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(500).json({ success: false, error: error.message });
     }
   });
 
@@ -1118,9 +1060,11 @@ async function startServer() {
     app.get("/clip/:id", handleShareRequest);
     app.get("/certificate/:id", handleShareRequest);
 
-  // 3. Infrastructure Logging
+  // 3. Infrastructure Logging - MOVED BELOW SPECIFIC ROUTES
   app.use((req, res, next) => {
-    res.setHeader('X-API-Route', 'express-server-start');
+    if (!res.get('X-API-Route')) {
+      res.setHeader('X-API-Route', 'express-server-general');
+    }
     next();
   });
   // --- END OF SHARE LOGIC ---
