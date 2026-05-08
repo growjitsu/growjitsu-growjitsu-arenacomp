@@ -7,7 +7,8 @@ import {
   TrendingUp, Users, MousePointer2, Percent, Calendar, 
   Map as MapIcon, Smartphone, Laptop, Globe, Info, 
   Download, Filter, RotateCcw, ChevronRight, PieChart as PieChartIcon,
-  BarChart2, Activity, Globe2, GenderMale as Male, GenderFemale as Female
+  BarChart2, Activity, Globe2, User,
+  Eye, Zap
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';

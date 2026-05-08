@@ -40,8 +40,6 @@ export const AdminAds: React.FC = () => {
   const [editingFeedAd, setEditingFeedAd] = useState<ArenaAd | null>(null);
   
   // Analytics state
-  const [reportData, setReportData] = useState<any>(null);
-  const [loadingReport, setLoadingReport] = useState(false);
   const [selectedAdId, setSelectedAdId] = useState<string>('all');
 
   const [formData, setFormData] = useState({
@@ -195,48 +193,6 @@ export const AdminAds: React.FC = () => {
       unsubscribeFeedAds();
     };
   }, []);
-
-  const fetchFeedAds = async () => {
-    // This is now handled by the onSnapshot listener in useEffect
-    console.log('Feed ads are now synced via Firebase onSnapshot');
-  };
-
-  const fetchAnalytics = async (adId: string = 'all') => {
-    setLoadingReport(true);
-    try {
-      const url = adId === 'all' ? '/api/getAdReports' : `/api/getAdReports?adId=${adId}`;
-      console.log(`[DEBUG] Calling analytics API: ${url}`);
-      const response = await fetch(url);
-      
-      const contentType = response.headers.get("content-type");
-      const apiRouteHeader = response.headers.get("X-API-Route");
-      console.log(`[DEBUG] Response status: ${response.status}, content-type: ${contentType}, X-API-Route: ${apiRouteHeader}`);
-      
-      if (!contentType || !contentType.includes("application/json")) {
-        const text = await response.text();
-        console.error('Non-JSON response received:', text.substring(0, 200));
-        throw new Error(`O servidor retornou um formato inesperado (HTML). Rota identificada: ${apiRouteHeader || 'desconhecida'}`);
-      }
-
-      const data = await response.json();
-      if (response.ok) {
-        setReportData(data);
-      } else {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-    } catch (error: any) {
-      console.error('Error fetching analytics:', error);
-      toast.error(`Erro ao carregar relatórios: ${error.message}`);
-    } finally {
-      setLoadingReport(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'analytics') {
-      fetchAnalytics(selectedAdId);
-    }
-  }, [activeTab, selectedAdId]);
 
   const fetchCountries = async () => {
     const { data } = await supabase.from('countries').select('*').order('name');
