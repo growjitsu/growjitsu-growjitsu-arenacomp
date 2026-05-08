@@ -38,16 +38,23 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
       console.log(`[Analytics] Fetching data from /api/ads-performance: period=${period}, adId=${adId}`);
       const response = await fetch(`/api/ads-performance?period=${period}&adId=${adId}`);
       
-      console.log(`[Analytics] Response status: ${response.status}`);
+      const contentType = response.headers.get("content-type");
+      const apiRouteHeader = response.headers.get("X-API-Route");
+      console.log(`[Analytics] Response status: ${response.status}, Content-Type: ${contentType}, X-API-Route: ${apiRouteHeader}`);
       
-      if (!response.ok) {
+      if (!response.ok || !contentType || !contentType.includes("application/json")) {
         const errorText = await response.text();
-        console.error('[Analytics] Server error response:', errorText);
-        try {
-          const errorJson = JSON.parse(errorText);
-          toast.error(`Erro do servidor: ${errorJson.error || response.statusText}`);
-        } catch (e) {
-          toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
+        console.error('[Analytics] Invalid response body (first 100 chars):', errorText.substring(0, 100));
+        
+        if (!response.ok) {
+          try {
+            const errorJson = JSON.parse(errorText);
+            toast.error(`Erro do servidor: ${errorJson.error || response.statusText}`);
+          } catch (e) {
+            toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
+          }
+        } else {
+          toast.error(`O servidor retornou um formato inesperado (${contentType}). Rota: ${apiRouteHeader || 'desconhecida'}`);
         }
         return;
       }
