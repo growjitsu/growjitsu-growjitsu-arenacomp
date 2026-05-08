@@ -1006,12 +1006,6 @@ async function startServer() {
     
     console.log('[SHARE IMAGE RESOLVED]', ogImageUrl);
 
-    // Add cache buster ONLY for local images (starts with baseUrl) to avoid breaking external signed URLs
-    if (ogImageUrl && ogImageUrl.startsWith(baseUrl)) {
-      const cacheBuster = `v=${Date.now()}`;
-      ogImageUrl = ogImageUrl.includes('?') ? `${ogImageUrl}&${cacheBuster}` : `${ogImageUrl}?${cacheBuster}`;
-    }
-
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
     
@@ -1055,11 +1049,14 @@ async function startServer() {
       htmlTemplate = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>{{TITLE}}</title>{{METAS}}</head><body><div id="root"></div></body></html>`;
     }
 
-    // Prepare tags for injection
+    // Prepare tags for injection - Unbeatable Social Preview Pattern
     const dynamicMetas = `
     <!-- Dynamic Social Preview (SSR-Lite) -->
     <title>${title} | ArenaComp</title>
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
+    <link rel="canonical" href="${shareUrl}">
+    
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
@@ -1072,30 +1069,46 @@ async function startServer() {
     <meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
+    
+    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="${shareUrl}">
     <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
     <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
     <meta name="twitter:image" content="${ogImageUrl}">
-    ${isCrawler ? `<script type="text/javascript">window.location.href = "${redirectUrl}";</script>` : ''}
+    <meta name="twitter:image:src" content="${ogImageUrl}">
+    
+    <!-- WhatsApp / Legacy -->
+    <meta itemprop="name" content="${title.replace(/"/g, '&quot;')}">
+    <meta itemprop="description" content="${description.replace(/"/g, '&quot;')}">
+    <meta itemprop="image" content="${ogImageUrl}">
+    <link rel="image_src" href="${ogImageUrl}">
     `;
 
     let finalHtml = htmlTemplate;
 
-    // 1. Replace Title
-    finalHtml = finalHtml.replace(/<title>.*?<\/title>/i, `<title>${title} | ArenaComp</title>`);
-
-    // 2. Clear out existing generic Meta Tags to avoid confusion/duplicates
+    // 1. Clear out existing generic Meta Tags to avoid confusion/duplicates
+    // Using positive lookahead to ensure we only remove tags within <head>
+    finalHtml = finalHtml.replace(/<title>.*?<\/title>/gi, '');
+    finalHtml = finalHtml.replace(/<meta name="description".*?>/gi, '');
     finalHtml = finalHtml.replace(/<meta property="og:.*?".*?>/gi, '');
     finalHtml = finalHtml.replace(/<meta name="twitter:.*?".*?>/gi, '');
-    finalHtml = finalHtml.replace(/<meta name="description".*?>/gi, '');
     finalHtml = finalHtml.replace(/<link rel="canonical".*?>/gi, '');
 
-    // 3. Inject new tags into <head>
-    if (finalHtml.includes('</head>')) {
+    // 2. Inject new tags into <head> - TOP PRIORITY at START of head
+    if (finalHtml.includes('<head>')) {
+      finalHtml = finalHtml.replace('<head>', `<head>\n${dynamicMetas}`);
+    } else if (finalHtml.includes('</head>')) {
       finalHtml = finalHtml.replace('</head>', `${dynamicMetas}\n</head>`);
     } else {
       finalHtml = finalHtml + dynamicMetas;
+    }
+
+    if (isCrawler) {
+       // Only add redirect script for crawlers if we really want them to follow it, 
+       // but usually standard OG tags are enough and bots ignore JS.
+       // However, we'll prefix it slightly differently to avoid interfering with robots parsing the head.
+       finalHtml = finalHtml.replace('</body>', `<script type="text/javascript">window.location.href = "${redirectUrl}";</script></body>`);
     }
 
     const buffer = Buffer.from(finalHtml, 'utf-8');
@@ -1136,9 +1149,9 @@ async function startServer() {
            return handleShareRequest(req, res, next);
         }
 
-        const type = pathParts[0] === 'user' ? 'profile' : pathParts[0];
+        const type = (pathParts[0] === 'user' || pathParts[0] === 'athlete') ? 'profile' : pathParts[0];
         const id = pathParts[1];
-        const validTypes = ['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championship', 'eventos'];
+        const validTypes = ['profile', 'post', 'clip', 'certificate', 'ranking', 'fights', 'championship', 'eventos', 'ad'];
         
         if (validTypes.includes(type)) {
           req.params = { type, id };
@@ -1163,6 +1176,7 @@ async function startServer() {
     app.get("/share/:id", handleShareRequest);
     app.get("/s/:id", handleShareRequest);
     app.get("/post/:id", handleShareRequest);
+    app.get("/ad/:id", handleShareRequest);
     app.get("/clip/:id", handleShareRequest);
     app.get("/certificate/:id", handleShareRequest);
 
