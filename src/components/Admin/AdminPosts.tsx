@@ -37,23 +37,61 @@ export const AdminPosts: React.FC = () => {
   const fetchPosts = async () => {
     setLoading(true);
     try {
+      // 1. Fetch posts with pagination
       let query = supabase
         .from('posts')
-        .select('*, profiles(full_name, username, avatar_url)', { count: 'exact' });
+        .select('*', { count: 'exact' });
 
       if (search) {
         query = query.ilike('content', `%${search}%`);
       }
 
-      const { data, count, error } = await query
+      const { data: postsData, count, error: postsError } = await query
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
 
-      if (error) throw error;
-      setPosts(data || []);
+      if (postsError) throw postsError;
+
+      if (!postsData || postsData.length === 0) {
+        setPosts([]);
+        setTotalCount(0);
+        return;
+      }
+
+      // 2. Fetch authors (profiles) separately to avoid join issues
+      const authorIds = Array.from(new Set(postsData.map(p => p.author_id))).filter(Boolean);
+      let profilesMap = new Map();
+
+      if (authorIds.length > 0) {
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, username, avatar_url, profile_photo')
+          .in('id', authorIds);
+
+        if (profilesError) {
+          console.warn('Error fetching profiles, mapping might be incomplete:', profilesError);
+        } else if (profilesData) {
+          profilesData.forEach(profile => {
+            profilesMap.set(profile.id, {
+              ...profile,
+              // Normalize avatar/photo
+              avatar_url: profile.avatar_url || profile.profile_photo
+            });
+          });
+        }
+      }
+
+      // 3. Merge data
+      const mergedPosts = postsData.map(post => ({
+        ...post,
+        profiles: profilesMap.get(post.author_id) || null
+      }));
+
+      setPosts(mergedPosts);
       setTotalCount(count || 0);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      alert('Erro ao carregar postagens. Verifique as permissões ou a conexão.');
     } finally {
       setLoading(false);
     }
