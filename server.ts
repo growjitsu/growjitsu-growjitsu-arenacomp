@@ -12,6 +12,7 @@ import chromium from '@sparticuz/chromium-min';
 import dotenv from "dotenv";
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 import { UAParser } from "ua-parser-js";
 import axios from "axios";
 let firebaseConfig: any = {};
@@ -65,13 +66,17 @@ const ARENA_LOGO_IMAGE = '/logo-arenacomp.jpg';
 const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse|MetaInspector|Embedly/i;
 
 // Initialize Firebase Admin SDK
+let firestore: any = null;
 try {
   if (firebaseConfig && firebaseConfig.projectId) {
     if (getApps().length === 0) {
-      initializeApp({
+      const app = initializeApp({
         projectId: firebaseConfig.projectId,
       });
-      console.log('[FIREBASE-ADMIN] SDK inicializado com sucesso.');
+      firestore = getFirestore(app);
+      console.log('[FIREBASE-ADMIN] SDK e Firestore inicializados com sucesso.');
+    } else {
+      firestore = getFirestore();
     }
   } else {
     console.warn('[FIREBASE-ADMIN] Configuração do Firebase incompleta ou ausente.');
@@ -754,22 +759,42 @@ async function startServer() {
              }
           } else if (targetType === 'ad') {
             try {
-              const { data: ad } = await supabaseAdmin
-                .from('arena_ads')
-                .select('*')
-                .eq('id', targetId)
-                .maybeSingle();
-              
-              if (ad) {
-                cardData = {
-                  athleteName: 'ArenaComp',
-                  achievement: ad.landing_description || ad.content || 'Confira esta oportunidade na ArenaComp!',
-                  mainImageUrl: ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
-                  title: ad.landing_title || ad.title || 'Destaque ArenaComp',
-                  modality: 'Patrocinado',
-                  type: 'ad',
-                  realId: targetId
-                };
+              // Priority 1: Firestore (Primary source for new ads)
+              if (firestore) {
+                const adDoc = await firestore.collection('arena_ads').doc(targetId).get();
+                if (adDoc.exists) {
+                  const ad = adDoc.data();
+                  cardData = {
+                    athleteName: 'ArenaComp',
+                    achievement: ad.landing_description || ad.content || 'Confira esta oportunidade na ArenaComp!',
+                    mainImageUrl: ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
+                    title: ad.landing_title || ad.title || 'Destaque ArenaComp',
+                    modality: 'Patrocinado',
+                    type: 'ad',
+                    realId: targetId
+                  };
+                }
+              }
+
+              // Priority 2: Supabase (Fallback for legacy ads)
+              if (!cardData && supabaseAdmin) {
+                const { data: ad } = await supabaseAdmin
+                  .from('arena_ads')
+                  .select('*')
+                  .eq('id', targetId)
+                  .maybeSingle();
+                
+                if (ad) {
+                  cardData = {
+                    athleteName: 'ArenaComp',
+                    achievement: ad.landing_description || ad.content || 'Confira esta oportunidade na ArenaComp!',
+                    mainImageUrl: ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top,
+                    title: ad.landing_title || ad.title || 'Destaque ArenaComp',
+                    modality: 'Patrocinado',
+                    type: 'ad',
+                    realId: targetId
+                  };
+                }
               }
             } catch (e) {
               console.error(`[OG-TAGS] Error looking up ad ${targetId}:`, e);
@@ -856,17 +881,37 @@ async function startServer() {
           // Try ad
           if (!cardData) {
             try {
-              const { data: a } = await supabaseAdmin.from('arena_ads').select('*').eq('id', inferredId).maybeSingle();
-              if (a) {
-                cardData = {
-                  athleteName: 'ArenaComp',
-                  achievement: a.landing_description || a.content || 'Destaque ArenaComp',
-                  mainImageUrl: a.landing_image || a.media_url || a.media_url_landing_highlights,
-                  title: a.landing_title || a.title || 'Oportunidade Arena',
-                  modality: 'Anúncio',
-                  realId: inferredId,
-                  type: 'ad'
-                };
+              // Priority 1: Firestore
+              if (firestore) {
+                const aDoc = await firestore.collection('arena_ads').doc(inferredId).get();
+                if (aDoc.exists) {
+                  const a = aDoc.data();
+                  cardData = {
+                    athleteName: 'ArenaComp',
+                    achievement: a.landing_description || a.content || 'Destaque ArenaComp',
+                    mainImageUrl: a.landing_image || a.media_url || a.media_url_landing_highlights,
+                    title: a.landing_title || a.title || 'Oportunidade Arena',
+                    modality: 'Anúncio',
+                    realId: inferredId,
+                    type: 'ad'
+                  };
+                }
+              }
+
+              // Priority 2: Supabase
+              if (!cardData && supabaseAdmin) {
+                const { data: a } = await supabaseAdmin.from('arena_ads').select('*').eq('id', inferredId).maybeSingle();
+                if (a) {
+                  cardData = {
+                    athleteName: 'ArenaComp',
+                    achievement: a.landing_description || a.content || 'Destaque ArenaComp',
+                    mainImageUrl: a.landing_image || a.media_url || a.media_url_landing_highlights,
+                    title: a.landing_title || a.title || 'Oportunidade Arena',
+                    modality: 'Anúncio',
+                    realId: inferredId,
+                    type: 'ad'
+                  };
+                }
               }
             } catch (e) {}
           }

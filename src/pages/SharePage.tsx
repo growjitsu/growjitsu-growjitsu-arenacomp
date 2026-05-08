@@ -28,11 +28,11 @@ export const SharePage = () => {
   useEffect(() => {
     if (!id) return;
 
-    // NOVO: Redirecionamento definitivo para Destaques da Arena se for um anúncio
+    // NOVO: Redirecionamento definitivo para a Landing Page Dinâmica se for um anúncio
     if (type === 'ad') {
       console.log('[LANDING REDIRECT]', id);
-      console.log('[REDIRECT TARGET]', '/home-public#destaques-da-arena');
-      window.location.replace('/home-public#destaques-da-arena');
+      console.log('[REDIRECT TARGET]', `/ad/${id}`);
+      window.location.replace(`/ad/${id}`);
       return;
     }
 
