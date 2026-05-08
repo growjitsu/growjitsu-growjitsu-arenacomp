@@ -189,27 +189,14 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // --- ABSOLUTE EMERGENCY LOGGING & ROUTE ---
-  app.use((req, res, next) => {
-    // This MUST run for every request that hits Express
-    res.setHeader('X-Express-Reached', 'true');
-    if (req.url.includes('ads-stats')) {
-       console.log(`[EMERGENCY-TRACE] ${req.method} ${req.url}`);
-    }
-    next();
-  });
-
-  // NEW PATH: /ads-analytics-v8 (NO /api PREFIX TO BYPASS POTENTIAL FILTERS)
-  app.get("/ads-stats-v8", async (req, res) => {
+  // 1. ABSOLUTE PRIORITY ANALYTICS V9
+  app.get("/api/v9/analytics", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ADS-STATS-V8] TRIGGERED! period=${period}, adId=${adId}`);
-      
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-API-Route', 'ads-analytics-v8');
-      res.setHeader('X-API-Trace', 'v8-hit');
+      res.setHeader('X-Express-Resolved', 'v9-success');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      
+
       let dateFilter = "created_at IS NOT NULL";
       if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
       else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
@@ -250,18 +237,27 @@ async function startServer() {
         topAds: topAds || []
       });
     } catch (error: any) {
-      console.error('[ADS-STATS-V8-ERR]', error);
+      console.error('[V9-ERR]', error);
       res.setHeader('Content-Type', 'application/json');
       return res.status(500).json({ success: false, error: error.message });
     }
+  });
+
+  // 2. Global Trace Middleware
+  app.use((req, res, next) => {
+    res.setHeader('X-Express-Reached', 'true');
+    if (req.url.includes('analytics')) {
+      console.log(`[TRACE] ${req.method} ${req.url}`);
+    }
+    next();
   });
 
   // 1. CORS & Body Parser (ABSOLUTE TOP)
   app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Route", "X-API-Trace", "X-Express-Reached"],
-    exposedHeaders: ["X-API-Route", "X-API-Trace", "X-Express-Reached"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-API-Route", "X-API-Trace", "X-Express-Reached", "X-Express-Resolved"],
+    exposedHeaders: ["X-API-Route", "X-API-Trace", "X-Express-Reached", "X-Express-Resolved"],
     credentials: true,
     maxAge: 86400
   }));

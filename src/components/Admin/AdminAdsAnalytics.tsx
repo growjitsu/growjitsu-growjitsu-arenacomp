@@ -35,35 +35,22 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Fetching data from /ads-stats-v8: period=${period}, adId=${adId}`);
-      const response = await fetch(`/ads-stats-v8?period=${period}&adId=${adId}&t=${Date.now()}`, {
+      console.log(`[Analytics] Requesting V9 Engine...`);
+      const response = await fetch(`/api/v9/analytics?period=${period}&adId=${adId}&_t=${Date.now()}`, {
         headers: {
-          'Accept': 'application/json'
-        }
+          'Accept': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        cache: 'no-cache'
       });
       
       const contentType = response.headers.get("content-type");
-      const apiRouteHeader = response.headers.get("X-API-Route");
-      const apiTrace = response.headers.get("X-API-Trace");
-      const expressReached = response.headers.get("X-Express-Reached");
+      const expressState = response.headers.get("X-Express-Resolved") || response.headers.get("X-Express-Reached");
       
-      console.log(`[Analytics] Status: ${response.status}, Content-Type: ${contentType}`);
-      console.log(`[Analytics] Route: ${apiRouteHeader}, Trace: ${apiTrace}, Express: ${expressReached}`);
+      console.log(`[Analytics] V9 Status: ${response.status} | Content: ${contentType} | State: ${expressState}`);
       
-      if (!response.ok || !contentType || !contentType.includes("application/json")) {
-        const errorText = await response.text();
-        console.error('[Analytics] Invalid response body (first 100 chars):', errorText.substring(0, 100));
-        
-        if (!response.ok) {
-          try {
-            const errorJson = JSON.parse(errorText);
-            toast.error(`Erro do servidor: ${errorJson.error || response.statusText}`);
-          } catch (e) {
-            toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
-          }
-        } else {
-          toast.error(`Formato Inesperado (${contentType}). Route: ${apiRouteHeader || 'null'}, Trace: ${apiTrace || 'null'}, Express: ${expressReached || 'null'}`);
-        }
+      if (!response.ok || !contentType?.includes("application/json")) {
+        toast.error(`Falha no motor de analytics (V9). Servidor retornou ${contentType || 'nada'}. Express: ${expressState || 'não capturado'}`);
         return;
       }
 
