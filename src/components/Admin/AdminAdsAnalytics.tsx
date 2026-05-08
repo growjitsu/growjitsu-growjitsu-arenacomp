@@ -35,8 +35,8 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Fetching data from /api/ads-stats-v4: period=${period}, adId=${adId}`);
-      const response = await fetch(`/api/ads-stats-v4?period=${period}&adId=${adId}&t=${Date.now()}`);
+      console.log(`[Analytics] Fetching data from /api/internal/ads-analytics-core: period=${period}, adId=${adId}`);
+      const response = await fetch(`/api/internal/ads-analytics-core?period=${period}&adId=${adId}&t=${Date.now()}`);
       
       const contentType = response.headers.get("content-type");
       const apiRouteHeader = response.headers.get("X-API-Route");
