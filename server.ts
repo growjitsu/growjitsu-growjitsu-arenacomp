@@ -210,16 +210,15 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // --- [NÍVEL 2] ANALYTICS V10 (BYPASSING /API PREFIX) ---
-  app.get("/analytics-engine-v10", async (req, res) => {
+  // --- [NÍVEL 2] ANALYTICS V11 (USING /API PREFIX FOR INFRASTRUCTURE COMPATIBILITY) ---
+  app.get("/api/ads-stats-v11", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ANALYTICS-V10] HIT! period=${period}, adId=${adId}`);
+      console.log(`[ANALYTICS-V11] HIT! period=${period}, adId=${adId}`);
       
-      // Forçar JSON via Header e via res.json()
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-API-Route', 'analytics-v10-engine');
-      res.setHeader('X-Express-Resolved', 'service-v10-hit');
+      res.setHeader('X-API-Route', 'analytics-v11-engine');
+      res.setHeader('X-Express-Resolved', 'service-v11-hit');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
       let dateFilter = "created_at IS NOT NULL";
