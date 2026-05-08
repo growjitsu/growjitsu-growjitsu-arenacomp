@@ -2093,7 +2093,7 @@ async function startServer() {
   // --- ARENACOMP CONTENT MODERATION SYSTEM ---
   
   // 1. Secure Post Creation with Automated Moderation
-  const createPostHandler = async (req: any, res: any) => {
+  app.post("/api/posts/create-secure", async (req, res) => {
     res.setHeader('X-API-Route', 'posts-create-secure');
     const { author_id, content, type, media_url, media_urls } = req.body;
 
@@ -2110,23 +2110,28 @@ async function startServer() {
       
       if (urlsToAnalyze.length > 0) {
         // Run AI Analysis
+        // We only analyze the first media item for latency reasons in this secure create flow
+        // The rest can be analyzed in background logic if needed.
         const analysis = await analyzeMedia(urlsToAnalyze[0], type === 'video' ? 'video' : 'image');
         moderationStatus = analysis.status;
         moderationInfo = {
           ai_analysis: analysis,
-          analyzed_at: new Date().toISOString(),
-          source: 'express-server'
+          analyzed_at: new Date().toISOString()
         };
       }
 
+      // If blocked by AI, we can either reject the request OR save it as BLOCKED
+      // The user wants to prevent platform abuse, so we'll save it as BLOCKED/PENDING
+      // so admins can see the attempt if needed, but it won't show in feed.
+      
       const { data, error } = await supabaseAdmin
         .from('posts')
         .insert({
           author_id,
           content: content?.toUpperCase(),
-          type: type || 'post',
-          media_url: media_url || (media_urls && media_urls[0]) || null,
-          media_urls: media_urls || (media_url ? [media_url] : null),
+          type,
+          media_url: media_url || null,
+          media_urls: media_urls || null,
           moderation_status: moderationStatus,
           moderation_info: moderationInfo
         })
@@ -2139,8 +2144,8 @@ async function startServer() {
         return res.json({ 
           success: false, 
           error: "Conteúdo impróprio detectado.", 
-          reason: moderationInfo.ai_analysis?.reasoning,
-          post_id: data?.id 
+          reason: moderationInfo.ai_analysis.reasoning,
+          post_id: data.id 
         });
       }
 
@@ -2155,10 +2160,7 @@ async function startServer() {
       console.error('[MODERATION-API] Error in create-secure:', error);
       return res.status(500).json({ success: false, error: error.message });
     }
-  };
-
-  app.post("/api/posts/create-secure", createPostHandler);
-  app.post("/api/posts/create-secure/", createPostHandler);
+  });
 
   // 2. Moderation Queue for Admin
   app.get("/api/admin/moderation-queue", async (req, res) => {

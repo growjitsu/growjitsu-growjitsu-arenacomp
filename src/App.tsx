@@ -41,8 +41,6 @@ import { ArenaProfile } from './types';
 import { Bell, Plus, Shield, Lock, ArrowLeft, Search, Sun, Moon, Trophy } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 import { ProfileProvider, useProfile } from './context/ProfileContext';
-import { UploadProvider, useUpload } from './context/UploadContext';
-import { UploadStatusBar } from './components/UploadStatusBar';
 import { Toaster } from 'sonner';
 
 const ProfileWrapper = ({ forceEdit }: { forceEdit?: boolean }) => {
@@ -75,12 +73,9 @@ export default function App() {
   }, []);
 
   return (
-    <UploadProvider>
-      <ProfileProvider>
-        <UploadStatusBar />
-        <AppContent />
-      </ProfileProvider>
-    </UploadProvider>
+    <ProfileProvider>
+      <AppContent />
+    </ProfileProvider>
   );
 }
 
@@ -149,7 +144,6 @@ function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { status: uploadStatus } = useUpload();
 
   useEffect(() => {
     // Close profile menu on navigation
@@ -313,13 +307,7 @@ function AppContent() {
           setActiveTab={(tab) => navigate(`/${tab === 'feed' ? '' : tab}`)} 
           userProfile={profile}
           unreadNotifications={unreadNotifications}
-          onCreatePost={() => {
-            if (uploadStatus !== 'idle' && uploadStatus !== 'error' && uploadStatus !== 'completed') {
-              alert('Aguarde a publicação atual ser finalizada antes de criar um novo relatório.');
-              return;
-            }
-            setIsCreatePostModalOpen(true);
-          }}
+          onCreatePost={() => setIsCreatePostModalOpen(true)}
           onToggleMenu={() => setShowProfileMenu(!showProfileMenu)}
         />
         
@@ -437,8 +425,8 @@ function AppContent() {
           onClose={() => setIsCreatePostModalOpen(false)}
           userProfile={profile}
           onPostCreated={() => {
-            // Optional: You could trigger a refetch here if using react-query or similar
-            // For now, let's just let the user know the post was created via the progress bar
+            // Refresh feed if active
+            if (activeTab === 'feed') window.location.reload();
           }}
         />
 
