@@ -27,9 +27,9 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile, onShar
 
   useEffect(() => {
     if (sidebarAds.length > 0 && sidebarAds[currentIndex]) {
-      trackAdEvent(sidebarAds[currentIndex].id, 'impression', userProfile?.id);
+      trackAdEvent(sidebarAds[currentIndex].id, 'impression', userProfile);
     }
-  }, [currentIndex, sidebarAds.length, userProfile?.id]);
+  }, [currentIndex, sidebarAds.length, userProfile]);
 
   if (sidebarAds.length === 0) return null;
 
@@ -84,7 +84,7 @@ export const SidebarAds: React.FC<SidebarAdsProps> = ({ ads, userProfile, onShar
             href={currentAd.link_url} 
             target="_blank" 
             rel="noopener noreferrer"
-            onClick={() => trackAdEvent(currentAd.id, 'click', userProfile?.id)}
+            onClick={() => trackAdEvent(currentAd.id, 'click', userProfile)}
             className="block"
           >
             {adMediaUrl && (

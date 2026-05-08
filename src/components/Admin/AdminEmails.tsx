@@ -166,7 +166,7 @@ export const AdminEmails: React.FC = () => {
     const description = ad.landing_description || ad.content || '';
 
     const imageUrl = getPublicUrl(ad.landing_image || ad.media_url);
-    const logoUrl = getPublicUrl(undefined);
+    const logoUrl = getPublicUrl('/logo-arenacomp.jpg');
 
     const ctaText = ad.landing_cta_text || 'Ver Mais';
     const ctaUrl = ad.landing_cta_url || ad.link_url || 'https://arenacomp.com.br';
@@ -186,9 +186,10 @@ export const AdminEmails: React.FC = () => {
                 <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #111111; border-radius: 24px; overflow: hidden; border: 1px solid #222222;">
                       <!-- Logo/Header -->
                     <tr>
-                        <td align="center" style="padding: 30px 0; color: #ffffff; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold;">
-                            <a href="https://arenacomp.com.br" target="_blank" style="text-decoration: none;">
-                                <img src="${logoUrl}" alt="ArenaComp" width="180" style="display: block; color: #ffffff; border: 0;">
+                        <td align="center" style="padding: 30px 0;">
+                            <a href="https://arenacomp.com.br" target="_blank" style="text-decoration: none; color: #ffffff; font-family: Arial, sans-serif;">
+                                <img src="${logoUrl}" alt="Logo" width="44" style="display: inline-block; vertical-align: middle; border: 0;">
+                                <span style="display: inline-block; vertical-align: middle; margin-left: 12px; font-size: 26px; font-weight: 900; text-transform: uppercase; font-style: italic; letter-spacing: -1px;">ArenaComp</span>
                             </a>
                         </td>
                     </tr>

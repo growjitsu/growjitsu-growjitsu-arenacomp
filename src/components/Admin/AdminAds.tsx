@@ -4,6 +4,7 @@ import { db, auth, handleFirestoreError, OperationType } from '../../firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Trash2, Edit2, Save, X, Image as ImageIcon, Link as LinkIcon, Clock, Check, AlertCircle, ChevronUp, ChevronDown, Upload, Calendar, Lock, BarChart2, Zap, Layout, Eye, MousePointer2, TrendingUp, Download, RotateCcw } from 'lucide-react';
+import { AdminAdsAnalytics } from './AdminAdsAnalytics';
 import { toast } from 'sonner';
 import { supabase } from '../../services/supabase';
 import { ArenaAd } from '../../types';
@@ -1299,9 +1300,8 @@ export const AdminAds: React.FC = () => {
 
       {activeTab === 'analytics' && (
         <div className="space-y-8">
-          {/* Filters */}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white/5 p-6 rounded-[2rem] border border-white/10">
-            <div className="flex items-center space-x-4 w-full md:w-auto">
+          <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center space-x-4 w-full md:w-64">
               <select 
                 value={selectedAdId}
                 onChange={(e) => setSelectedAdId(e.target.value)}
@@ -1325,121 +1325,10 @@ export const AdminAds: React.FC = () => {
                 </optgroup>
               </select>
             </div>
-            
-            <div className="flex items-center space-x-3">
-              <button 
-                onClick={() => fetchAnalytics(selectedAdId)}
-                className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-gray-400"
-              >
-                <RotateCcw size={18} />
-              </button>
-              <button 
-                onClick={() => exportToCSV(reportData?.events)}
-                className="flex items-center space-x-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-emerald-600/20"
-              >
-                <Download size={16} />
-                <span>Exportar CSV</span>
-              </button>
-            </div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 italic">Selecione um item para análise detalhada</p>
           </div>
 
-          {loadingReport ? (
-            <div className="flex justify-center py-20">
-              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : reportData ? (
-            <div className="space-y-8">
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-500">
-                      <Eye size={24} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Impressões Totais</p>
-                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.totalImpressions.toLocaleString()}</h3>
-                </div>
-
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-500">
-                      <MousePointer2 size={24} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Cliques Totais</p>
-                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.totalClicks.toLocaleString()}</h3>
-                </div>
-
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
-                      <TrendingUp size={24} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">CTR Médio</p>
-                  <h3 className="text-3xl font-black tracking-tight">{reportData.stats.ctr.toFixed(2)}%</h3>
-                </div>
-
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-3xl p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500">
-                      <Zap size={24} />
-                    </div>
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">Eventos Recentes</p>
-                  <h3 className="text-3xl font-black tracking-tight">{reportData.events.length.toLocaleString()}</h3>
-                </div>
-              </div>
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] p-8">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Performance por Dispositivo</h4>
-                  <div className="space-y-4">
-                    {Object.entries(reportData.stats.deviceStats).map(([device, count]: any) => (
-                      <div key={device} className="space-y-2">
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                          <span className="text-white">{device}</span>
-                          <span className="text-gray-500">{count} eventos</span>
-                        </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-600 rounded-full" 
-                            style={{ width: `${(count / reportData.events.length) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] p-8">
-                  <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-8">Performance por Navegador</h4>
-                  <div className="space-y-4">
-                    {Object.entries(reportData.stats.browserStats).map(([browser, count]: any) => (
-                      <div key={browser} className="space-y-2">
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                          <span className="text-white">{browser}</span>
-                          <span className="text-gray-500">{count} eventos</span>
-                        </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-emerald-600 rounded-full" 
-                            style={{ width: `${(count / reportData.events.length) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white/5 border border-white/10 rounded-3xl p-20 text-center">
-              <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">Nenhum dado de analytics disponível</p>
-            </div>
-          )}
+          <AdminAdsAnalytics adId={selectedAdId} />
         </div>
       )}
 

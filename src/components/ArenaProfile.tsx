@@ -2976,8 +2976,8 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                               href={ad.link_url} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              onClick={() => trackAdEvent(ad.id, 'click', currentUser?.id)}
-                              onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser?.id)}
+                              onClick={() => trackAdEvent(ad.id, 'click', currentUser)}
+                              onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser)}
                               className="inline-flex items-center space-x-3 px-8 py-3 bg-[var(--primary)] text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[var(--primary-highlight)] transition-all shadow-xl shadow-[var(--primary)]/20 active:scale-95 group/btn"
                             >
                               <span>Saiba Mais</span>
@@ -3343,7 +3343,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="aspect-[9/16] bg-[var(--surface)] rounded-xl overflow-hidden border border-[var(--primary)]/30 relative group shadow-lg shadow-[var(--primary)]/5"
-                            onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser?.id)}
+                            onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser)}
                           >
                             {/* Ad Label */}
                             <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)]/90 backdrop-blur-md rounded-lg shadow-lg">
@@ -3387,7 +3387,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                     href={ad.link_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    onClick={() => trackAdEvent(ad.id, 'click', currentUser?.id)}
+                                    onClick={() => trackAdEvent(ad.id, 'click', currentUser)}
                                     className="w-full flex items-center justify-between px-3 py-2 bg-white text-black rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-[var(--primary)] hover:text-white transition-all group/btn"
                                   >
                                     <span>Saiba Mais</span>

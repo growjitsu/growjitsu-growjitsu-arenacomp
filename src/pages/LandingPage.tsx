@@ -332,11 +332,11 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
     // Track impression for current banner
     if (currentBanner?.id) {
-      trackAdEvent(currentBanner.id, 'impression', userProfile?.id);
+      trackAdEvent(currentBanner.id, 'impression', userProfile);
     }
 
     return () => clearTimeout(timer);
-  }, [banners, currentBannerIndex, userProfile?.id]);
+  }, [banners, currentBannerIndex, userProfile]);
 
   const nextBanner = () => setCurrentBannerIndex((prev) => (prev + 1) % banners.length);
   const prevBanner = () => setCurrentBannerIndex((prev) => (prev - 1 + banners.length) % banners.length);
@@ -355,7 +355,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                 href={banners[currentBannerIndex].link}
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => trackAdEvent(banners[currentBannerIndex].id, 'click', userProfile?.id)}
+                onClick={() => trackAdEvent(banners[currentBannerIndex].id, 'click', userProfile)}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
@@ -534,8 +534,8 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
                     href={ad.link_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
-                    onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
+                    onClick={() => trackAdEvent(ad.id, 'click', userProfile)}
+                    onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile)}
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}

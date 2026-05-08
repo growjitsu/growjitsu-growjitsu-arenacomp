@@ -234,7 +234,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     
     // Track impression
     if (currentAd?.id) {
-      trackAdEvent(currentAd.id, 'impression', userProfile?.id);
+      trackAdEvent(currentAd.id, 'impression', userProfile);
     }
 
     if (inFeedAds.length <= 1) return;
@@ -244,7 +244,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     }, (currentAd?.display_time || 15) * 1000);
 
     return () => clearTimeout(timer);
-  }, [ads.length, currentInFeedAdIndex, userProfile?.id]);
+  }, [ads.length, currentInFeedAdIndex, userProfile]);
 
   // Rotation for Top-of-Feed Ads
   useEffect(() => {
@@ -255,7 +255,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
     // Track impression
     if (currentAd?.id) {
-      trackAdEvent(currentAd.id, 'impression', userProfile?.id);
+      trackAdEvent(currentAd.id, 'impression', userProfile);
     }
 
     if (topAds.length <= 1) return;
@@ -265,7 +265,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     }, (currentAd?.display_time || 12) * 1000);
 
     return () => clearTimeout(timer);
-  }, [ads.length, currentTopAdIndex, userProfile?.id]);
+  }, [ads.length, currentTopAdIndex, userProfile]);
   const [promotedProfiles, setPromotedProfiles] = useState<ArenaProfile[]>([]);
   const [loadingPromoted, setLoadingPromoted] = useState(false);
   const [trackedAds, setTrackedAds] = useState<Set<string>>(new Set());
@@ -1019,7 +1019,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
-                        onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile?.id)}
+                        onViewportEnter={() => trackAdEvent(ad.id, 'impression', userProfile)}
                         className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-[2rem] p-5 md:p-6 flex flex-col md:flex-row items-center gap-5 md:gap-6 group/promo overflow-hidden shadow-2xl relative"
                       >
                         {/* Manual Navigation Arrows */}
@@ -1077,7 +1077,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                               href={ad.link_url} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              onClick={() => trackAdEvent(ad.id, 'click', userProfile?.id)}
+                              onClick={() => trackAdEvent(ad.id, 'click', userProfile)}
                               className="inline-flex items-center space-x-3 px-8 py-2.5 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-600/20"
                             >
                               <span>Saiba Mais</span>

@@ -12,6 +12,8 @@ import chromium from '@sparticuz/chromium-min';
 import dotenv from "dotenv";
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { UAParser } from "ua-parser-js";
+import axios from "axios";
 let firebaseConfig: any = {};
 try {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
@@ -137,15 +139,42 @@ db.exec(`
   );
   
   CREATE INDEX IF NOT EXISTS idx_share_links_token ON share_links(token);
+
+  CREATE TABLE IF NOT EXISTS ad_analytics (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ad_id TEXT NOT NULL,
+    event_type TEXT NOT NULL, -- 'click' or 'view'
+    user_id TEXT,
+    user_role TEXT,
+    gender TEXT,
+    age_range TEXT,
+    ip_address TEXT,
+    country TEXT,
+    region TEXT,
+    city TEXT,
+    device TEXT,
+    os TEXT,
+    browser TEXT,
+    source TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_ad_analytics_ad_id ON ad_analytics(ad_id);
+  CREATE INDEX IF NOT EXISTS idx_ad_analytics_created_at ON ad_analytics(created_at);
 `);
 
 // Correctly handle migrations outside of the raw SQL injection
 try {
   db.prepare("ALTER TABLE share_links ADD COLUMN real_id TEXT").run();
   console.log("[DATABASE] Migrated share_links: added real_id column");
-} catch (e) {
-  // Column likely exists, which is fine
-}
+} catch (e) {}
+
+try {
+  // Add total_clicks to arena_ads if it doesn't exist
+  // Note: Since arena_ads is in Firestore, we usually update it there, 
+  // but we might want a local cache or just use the analytics table.
+  // The prompt asks for a professional dashboard, so we'll query the analytics table.
+} catch (e) {}
 
 function generateShortToken(length = 8) {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -1315,6 +1344,159 @@ async function startServer() {
   });
 
   // 0.1. CRITICAL API ROUTE - ANALYTICS
+  const adLocationCache = new Map<string, any>();
+
+  app.post('/api/ads/track', async (req, res) => {
+    try {
+      const { ad_id, event_type, user_id, user_role, gender, age_range, source } = req.body;
+      
+      if (!ad_id) return res.status(400).json({ error: 'ad_id is required' });
+
+      const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      const ip = Array.isArray(rawIp) ? rawIp[0] : (typeof rawIp === 'string' ? rawIp.split(',')[0].trim() : '');
+      const uaString = req.get('User-Agent') || '';
+      
+      const parser = new UAParser(uaString);
+      const result = parser.getResult();
+      const deviceType = result.device.type || 'desktop';
+      const osName = result.os.name || 'Unknown';
+      const browserName = result.browser.name || 'Unknown';
+
+      // Immediate success response
+      res.json({ success: true });
+
+      // Async ingestion
+      setImmediate(async () => {
+        let country = 'Unknown', region = 'Unknown', city = 'Unknown';
+        
+        if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+          if (adLocationCache.has(ip)) {
+            const cached = adLocationCache.get(ip);
+            country = cached.country;
+            region = cached.region;
+            city = cached.city;
+          } else {
+            try {
+              const geoResponse = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city`, { timeout: 2000 });
+              if (geoResponse.data && geoResponse.data.status === 'success') {
+                country = geoResponse.data.country;
+                region = geoResponse.data.regionName;
+                city = geoResponse.data.city;
+                adLocationCache.set(ip, { country, region, city });
+                if (adLocationCache.size > 2000) adLocationCache.clear();
+              }
+            } catch (e) {}
+          }
+        }
+
+        try {
+          db.prepare(`
+            INSERT INTO ad_analytics (
+              ad_id, event_type, user_id, user_role, gender, age_range, 
+              ip_address, country, region, city, device, os, browser, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            ad_id, event_type || 'click', user_id, user_role, gender, age_range,
+            ip, country, region, city, deviceType, osName, browserName, source
+          );
+        } catch (dbErr) {
+          console.error('[TRACK-DB-ERR]', dbErr);
+        }
+      });
+    } catch (err) {
+      if (!res.headersSent) res.status(500).json({ success: false });
+    }
+  });
+
+  app.get("/api/admin/ads/dashboard", async (req, res) => {
+    try {
+      const { period, adId } = req.query;
+      let dateFilter = "DATETIME(created_at) >= DATETIME('now', '-30 days')";
+      
+      if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
+      else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
+      else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
+      
+      const adFilter = adId && adId !== 'all' ? `AND ad_id = '${adId}'` : "";
+
+      // 1. Overview Stats
+      const stats = db.prepare(`
+        SELECT 
+          COUNT(*) as total_clicks,
+          COUNT(DISTINCT ip_address) as unique_clicks,
+          COUNT(CASE WHEN event_type = 'view' THEN 1 END) as total_views
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+      `).get() as any;
+
+      // 2. Clicks by Day
+      const dailyStats = db.prepare(`
+        SELECT DATE(created_at) as date, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+      `).all();
+
+      // 3. Device Stats
+      const deviceStats = db.prepare(`
+        SELECT device, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY device
+      `).all();
+
+      // 4. OS Stats
+      const osStats = db.prepare(`
+        SELECT os, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY os
+      `).all();
+
+      // 5. Gender Stats
+      const genderStats = db.prepare(`
+        SELECT gender, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL
+        GROUP BY gender
+      `).all();
+
+      // 6. Location Stats (City)
+      const locationStats = db.prepare(`
+        SELECT city, country, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND city != 'Unknown'
+        GROUP BY city, country
+        ORDER BY count DESC
+        LIMIT 10
+      `).all();
+
+      // 7. Top Ads
+      const topAds = db.prepare(`
+        SELECT ad_id, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY ad_id
+        ORDER BY count DESC
+        LIMIT 10
+      `).all();
+
+      res.json({
+        success: true,
+        summary: stats,
+        daily: dailyStats,
+        devices: deviceStats,
+        os: osStats,
+        gender: genderStats,
+        locations: locationStats,
+        topAds: topAds
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
   app.all("/api/getAdReports", async (req, res) => {
     console.log(`[DEBUG-API] Entrou em /api/getAdReports | Método: ${req.method} | URL: ${req.url}`);
     res.setHeader('X-API-Route', 'getAdReports');
