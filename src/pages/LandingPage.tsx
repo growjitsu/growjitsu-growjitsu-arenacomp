@@ -116,15 +116,20 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
   };
 
   useEffect(() => {
-    // Handle scroll to highlights section if requested via hash
-    if (window.location.hash === '#destaques-da-arena') {
-      const element = document.getElementById('destaques-da-arena');
-      if (element) {
-        setTimeout(() => {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }, 800); // Wait for content to load
+    const handleScroll = () => {
+      if (window.location.hash === '#destaques-da-arena') {
+        const element = document.getElementById('destaques-da-arena');
+        if (element) {
+          setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 500);
+        }
       }
-    }
+    };
+
+    handleScroll();
+    window.addEventListener('hashchange', handleScroll);
+    return () => window.removeEventListener('hashchange', handleScroll);
   }, [loading]);
 
   useEffect(() => {
@@ -489,7 +494,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
         {/* 🔥 Destaques da Arena Section */}
         {highlights.length > 0 && (
-          <section className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
+          <section id="destaques-da-arena" className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
             
             <div className="max-w-7xl mx-auto">
