@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Image as ImageIcon, Video, User, Send } from 'lucide-react';
+import axios from 'axios';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, PostType } from '../types';
 
@@ -184,16 +185,22 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         }
       }
 
-      const { error } = await supabase
-        .from('posts')
-        .insert({
-          author_id: user.id,
-          content: newPostContent.trim().toUpperCase(),
-          type: mediaType,
-          media_url: mediaUrls.length > 1 ? JSON.stringify(mediaUrls) : (mediaUrls[0] || null)
-        });
+      const response = await axios.post('/api/posts/create-secure', {
+        author_id: user.id,
+        content: newPostContent.trim().toUpperCase(),
+        type: mediaType,
+        media_url: mediaUrls[0] || null,
+        media_urls: mediaUrls.length > 1 ? mediaUrls : null
+      });
 
-      if (error) throw error;
+      if (!response.data.success) {
+        if (response.data.status === 'blocked') {
+          alert(`CONTEÚDO BLOQUEADO: ${response.data.reason || 'Detectamos conteúdo impróprio nesta mídia.'}`);
+        } else {
+          throw new Error(response.data.error || 'Erro ao criar postagem');
+        }
+        return;
+      }
 
       setNewPostContent('');
       setSelectedFiles([]);
