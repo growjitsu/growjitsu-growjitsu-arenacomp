@@ -35,22 +35,23 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Requesting V9 Engine...`);
-      const response = await fetch(`/api/v9/analytics?period=${period}&adId=${adId}&_t=${Date.now()}`, {
+      console.log(`[Analytics] Requesting Engine V10...`);
+      const response = await fetch(`/analytics-engine-v10?period=${period}&adId=${adId}&_v=10&t=${Date.now()}`, {
         headers: {
           'Accept': 'application/json',
           'X-Requested-With': 'XMLHttpRequest'
         },
-        cache: 'no-cache'
+        cache: 'no-store'
       });
       
       const contentType = response.headers.get("content-type");
-      const expressState = response.headers.get("X-Express-Resolved") || response.headers.get("X-Express-Reached");
+      const expressStatus = response.headers.get("X-Express-Resolved") || response.headers.get("X-Express-Init");
       
-      console.log(`[Analytics] V9 Status: ${response.status} | Content: ${contentType} | State: ${expressState}`);
+      console.log(`[Analytics] V10 Response: ${response.status} | Content: ${contentType} | Express: ${expressStatus}`);
       
       if (!response.ok || !contentType?.includes("application/json")) {
-        toast.error(`Falha no motor de analytics (V9). Servidor retornou ${contentType || 'nada'}. Express: ${expressState || 'não capturado'}`);
+        console.error(`[Analytics] Unexpected Response. Content-Type: ${contentType}. Body length: ${(await response.clone().text()).length}`);
+        toast.error(`Falha Crítica no Motor V10. Servidor retornou: ${contentType || 'formato desconhecido'}. Express: ${expressStatus || 'não alcançado'}`);
         return;
       }
 
