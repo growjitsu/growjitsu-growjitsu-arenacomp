@@ -35,8 +35,8 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Fetching data from /api/ads-performance: period=${period}, adId=${adId}`);
-      const response = await fetch(`/api/ads-performance?period=${period}&adId=${adId}`);
+      console.log(`[Analytics] Fetching data from /api/ads-stats-v4: period=${period}, adId=${adId}`);
+      const response = await fetch(`/api/ads-stats-v4?period=${period}&adId=${adId}&t=${Date.now()}`);
       
       const contentType = response.headers.get("content-type");
       const apiRouteHeader = response.headers.get("X-API-Route");
@@ -54,7 +54,7 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
             toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
           }
         } else {
-          toast.error(`O servidor retornou um formato inesperado (${contentType}). Rota: ${apiRouteHeader || 'desconhecida'}`);
+          toast.error(`O servidor retornou um formato inesperado (${contentType}). Rota identificada: ${apiRouteHeader || 'desconhecida'}`);
         }
         return;
       }
@@ -287,11 +287,14 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
               <div className="grid grid-cols-2 gap-12 w-full max-w-sm">
                 {data.gender.map(g => (
                   <div key={g.gender} className="flex flex-col items-center space-y-4 p-6 bg-white/5 rounded-3xl border border-white/5">
-                    <div className={`p-4 rounded-2xl ${g.gender?.toLowerCase() === 'masculino' ? 'bg-blue-500/20 text-blue-500' : 'bg-pink-500/20 text-pink-500'}`}>
-                      {g.gender?.toLowerCase() === 'masculino' ? <Laptop size={32} /> : <Zap size={32} />}
+                    <div className={`p-4 rounded-2xl ${(g.gender?.toLowerCase() === 'masculino' || g.gender?.toLowerCase() === 'male') ? 'bg-blue-500/20 text-blue-500' : 'bg-pink-500/20 text-pink-500'}`}>
+                      {(g.gender?.toLowerCase() === 'masculino' || g.gender?.toLowerCase() === 'male') ? <Users size={32} /> : <Users size={32} />}
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">{g.gender}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
+                        {g.gender?.toLowerCase() === 'male' ? 'MASCULINO' : 
+                         g.gender?.toLowerCase() === 'female' ? 'FEMININO' : g.gender}
+                      </p>
                       <p className="text-3xl font-black italic text-white">{g.count}</p>
                     </div>
                   </div>

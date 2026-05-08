@@ -202,107 +202,6 @@ async function startServer() {
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // 2. ADMIN API (ABSOLUTE TOP - BEFORE ANYTHING ELSE)
-  app.get("/api/ads-performance", async (req, res) => {
-    try {
-      const { period, adId } = req.query;
-      console.log(`[DASHBOARD-API] HIT! period=${period}, adId=${adId}`);
-      res.setHeader('Content-Type', 'application/json');
-      res.setHeader('X-API-Route', 'ads-performance');
-      
-      let dateFilter = "created_at IS NOT NULL"; // Default to all if not matched
-      
-      if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
-      else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
-      else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
-      else if (period === '30d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-30 days')";
-      
-      const adFilter = adId && adId !== 'all' ? `AND ad_id = '${adId}'` : "";
-
-      // 1. Overview Stats - Count clicks and impressions specifically
-      const statsQuery = `
-        SELECT 
-          COUNT(CASE WHEN event_type = 'click' THEN 1 END) as total_clicks,
-          COUNT(DISTINCT CASE WHEN event_type = 'click' THEN ip_address END) as unique_clicks,
-          COUNT(CASE WHEN event_type = 'impression' THEN 1 END) as total_views
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-      `;
-      
-      console.log(`[DASHBOARD-API] Stats query: ${statsQuery}`);
-      const stats = db.prepare(statsQuery).get() as any;
-
-      // 2. Clicks by Day
-      const dailyStats = db.prepare(`
-        SELECT DATE(created_at) as date, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
-        GROUP BY DATE(created_at)
-        ORDER BY date ASC
-      `).all();
-
-      // 3. Device Stats
-      const deviceStats = db.prepare(`
-        SELECT device, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-        GROUP BY device
-      `).all();
-
-      // 4. OS Stats
-      const osStats = db.prepare(`
-        SELECT os, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-        GROUP BY os
-      `).all();
-
-      // 5. Gender Stats
-      const genderStats = db.prepare(`
-        SELECT gender, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != ''
-        GROUP BY gender
-      `).all();
-
-      // 6. Location Stats (City)
-      const locationStats = db.prepare(`
-        SELECT city, country, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL
-        GROUP BY city, country
-        ORDER BY count DESC
-        LIMIT 10
-      `).all();
-
-      // 7. Top Ads
-      const topAds = db.prepare(`
-        SELECT ad_id, COUNT(*) as count
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
-        GROUP BY ad_id
-        ORDER BY count DESC
-        LIMIT 10
-      `).all();
-
-      return res.json({
-        success: true,
-        summary: {
-          total_clicks: stats?.total_clicks || 0,
-          unique_clicks: stats?.unique_clicks || 0,
-          total_views: stats?.total_views || 0
-        },
-        daily: dailyStats,
-        devices: deviceStats,
-        os: osStats,
-        gender: genderStats,
-        locations: locationStats,
-        topAds: topAds
-      });
-    } catch (error: any) {
-      console.error('[DASHBOARD-API-ERR]', error);
-      return res.status(500).json({ success: false, error: error.message });
-    }
-  });
   const emailDispatchHandler = async (req: any, res: any) => {
     console.log('[ADMIN EMAIL] HIT', req.method, req.path);
     res.setHeader('X-Admin-Action', 'dispatch-email');
@@ -2299,6 +2198,109 @@ async function startServer() {
   // POST Ping for connectivity test
   app.post("/api/ping", (req, res) => {
     res.json({ success: true, message: "POST reached server successfully" });
+  });
+
+  // Performance Stats Route
+  app.all("/api/ads-stats-v4", async (req, res) => {
+    try {
+      const { period, adId } = req.query;
+      console.log(`[DASHBOARD-API-V4] HIT! period=${period}, adId=${adId}`);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('X-API-Route', 'ads-performance-v4');
+      
+      let dateFilter = "created_at IS NOT NULL"; // Default to all if not matched
+      
+      if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
+      else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
+      else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
+      else if (period === '30d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-30 days')";
+      
+      const adFilter = adId && adId !== 'all' ? `AND ad_id = '${adId}'` : "";
+
+      // 1. Overview Stats - Count clicks and impressions specifically
+      const statsQuery = `
+        SELECT 
+          COUNT(CASE WHEN event_type = 'click' THEN 1 END) as total_clicks,
+          COUNT(DISTINCT CASE WHEN event_type = 'click' THEN ip_address END) as unique_clicks,
+          COUNT(CASE WHEN event_type = 'impression' THEN 1 END) as total_views
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+      `;
+      
+      console.log(`[DASHBOARD-API-V4] Stats query: ${statsQuery}`);
+      const stats = db.prepare(statsQuery).get() as any;
+
+      // 2. Clicks by Day
+      const dailyStats = db.prepare(`
+        SELECT DATE(created_at) as date, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
+        GROUP BY DATE(created_at)
+        ORDER BY date ASC
+      `).all();
+
+      // 3. Device Stats
+      const deviceStats = db.prepare(`
+        SELECT device, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY device
+      `).all();
+
+      // 4. OS Stats
+      const osStats = db.prepare(`
+        SELECT os, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter}
+        GROUP BY os
+      `).all();
+
+      // 5. Gender Stats
+      const genderStats = db.prepare(`
+        SELECT gender, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != ''
+        GROUP BY gender
+      `).all();
+
+      // 6. Location Stats (City)
+      const locationStats = db.prepare(`
+        SELECT city, country, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL
+        GROUP BY city, country
+        ORDER BY count DESC
+        LIMIT 10
+      `).all();
+
+      // 7. Top Ads
+      const topAds = db.prepare(`
+        SELECT ad_id, COUNT(*) as count
+        FROM ad_analytics 
+        WHERE ${dateFilter} ${adFilter} AND event_type = 'click'
+        GROUP BY ad_id
+        ORDER BY count DESC
+        LIMIT 10
+      `).all();
+
+      return res.json({
+        success: true,
+        summary: {
+          total_clicks: stats?.total_clicks || 0,
+          unique_clicks: stats?.unique_clicks || 0,
+          total_views: stats?.total_views || 0
+        },
+        daily: dailyStats,
+        devices: deviceStats,
+        os: osStats,
+        gender: genderStats,
+        locations: locationStats,
+        topAds: topAds
+      });
+    } catch (error: any) {
+      console.error('[DASHBOARD-API-ERR-V4]', error);
+      return res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // 0.5. CATCH-ALL FOR API - MUST BE AFTER ALL SPECIFIC API ROUTES
