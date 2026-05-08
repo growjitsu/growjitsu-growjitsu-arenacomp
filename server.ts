@@ -1408,10 +1408,10 @@ async function startServer() {
     }
   });
 
-  app.get("/api/admin/ads/dashboard", async (req, res) => {
+  app.get("/api/ads-performance", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[DASHBOARD-API] Fetching stats: period=${period}, adId=${adId}`);
+      console.log(`[DASHBOARD-API] HIT! period=${period}, adId=${adId}`);
       
       let dateFilter = "created_at IS NOT NULL"; // Default to all if not matched
       

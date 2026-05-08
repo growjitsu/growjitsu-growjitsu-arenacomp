@@ -35,8 +35,10 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
-      console.log(`[Analytics] Fetching data for period=${period}, adId=${adId}`);
-      const response = await fetch(`/api/admin/ads/dashboard?period=${period}&adId=${adId}`);
+      console.log(`[Analytics] Fetching data from /api/ads-performance: period=${period}, adId=${adId}`);
+      const response = await fetch(`/api/ads-performance?period=${period}&adId=${adId}`);
+      
+      console.log(`[Analytics] Response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
