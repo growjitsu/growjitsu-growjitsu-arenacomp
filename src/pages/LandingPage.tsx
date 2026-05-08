@@ -115,22 +115,40 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
     setIsShareModalOpen(true);
   };
 
+  // Ref para garantir que o scroll inicial ocorra apenas uma vez por carregamento
+  const hasInitialScrolled = React.useRef(false);
+
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.location.hash === '#destaques-da-arena') {
-        const element = document.getElementById('destaques-da-arena');
-        if (element) {
-          setTimeout(() => {
-            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 500);
-        }
+    const tryScroll = (isRetry = false) => {
+      if (window.location.hash !== '#destaques-da-arena') return;
+      
+      const element = document.getElementById('destaques-da-arena');
+      if (element) {
+        console.log('[LANDING] Executando scroll para Destaques', isRetry ? '(retry)' : '');
+        element.scrollIntoView({ behavior: isRetry ? 'smooth' : 'auto', block: 'start' });
+        hasInitialScrolled.current = true;
       }
     };
 
-    handleScroll();
-    window.addEventListener('hashchange', handleScroll);
-    return () => window.removeEventListener('hashchange', handleScroll);
-  }, [loading]);
+    // Tentar scrolar se as condições forem atendidas
+    if (!loading && highlights.length > 0 && !hasInitialScrolled.current) {
+      // Primeira tentativa imediata após renderização
+      tryScroll();
+      
+      // Segunda tentativa com delay para compensar carregamento de imagens/banners
+      const timer = setTimeout(() => tryScroll(true), 800);
+      return () => clearTimeout(timer);
+    }
+
+    // Monitorar mudança manual na hash
+    const handleHashChange = () => {
+      hasInitialScrolled.current = false; // Permite scroll se o usuário clicar no link novamente
+      tryScroll(true);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [loading, highlights.length]);
 
   useEffect(() => {
     // Fetch Banners from Firebase
@@ -494,7 +512,7 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
 
         {/* 🔥 Destaques da Arena Section */}
         {highlights.length > 0 && (
-          <section id="destaques-da-arena" className="py-24 px-6 md:px-12 bg-black relative overflow-hidden">
+          <section id="destaques-da-arena" className="py-24 px-6 md:px-12 bg-black relative overflow-hidden scroll-mt-20">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
             
             <div className="max-w-7xl mx-auto">

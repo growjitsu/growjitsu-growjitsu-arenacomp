@@ -31,8 +31,8 @@ export const SharePage = () => {
     // NOVO: Redirecionamento definitivo para Destaques da Arena se for um anúncio
     if (type === 'ad') {
       console.log('[LANDING REDIRECT]', id);
-      console.log('[REDIRECT TARGET]', '/#destaques-da-arena');
-      window.location.replace('/#destaques-da-arena');
+      console.log('[REDIRECT TARGET]', '/home-public#destaques-da-arena');
+      window.location.replace('/home-public#destaques-da-arena');
       return;
     }
 
@@ -200,7 +200,7 @@ export const SharePage = () => {
           // Caso os dados resolvidos indiquem que é um anúncio (para links /s/token)
           if (data.type === 'ad' || data.modality === 'Patrocinado') {
             console.log('[LANDING REDIRECT - DATA]', id);
-            window.location.replace('/#destaques-da-arena');
+            window.location.replace('/home-public#destaques-da-arena');
             return;
           }
           setCardData(data);
