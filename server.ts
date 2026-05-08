@@ -61,8 +61,8 @@ const supabaseAdmin = (supabaseSecretKey && supabaseSecretKey.length > 20)
 const ARENA_FALLBACK_IMAGE = '/logo-arenacomp.jpg';
 const ARENA_LOGO_IMAGE = '/logo-arenacomp.jpg';
 
-// Unified Crawler Detection Regex
-const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse/i;
+// Unified Crawler Detection Regex - Added common variations including those found in Desktop apps
+const CRAWLER_REGEX = /bot|googlebot|crawler|spider|robot|crawling|facebookexternalhit|facebookcatalog|WhatsApp|TelegramBot|Slackbot|Discordbot|Twitterbot|LinkedInBot|Pinterest|Bingbot|DuckDuckBot|Baiduspider|YandexBot|facebot|ia_archiver|Lighthouse|Chrome-Lighthouse|MetaInspector|Embedly/i;
 
 // Initialize Firebase Admin SDK
 try {
@@ -952,25 +952,6 @@ async function startServer() {
        ogImageUrl = `${baseUrl}${ogImageUrl}`;
     }
 
-    // If it's NOT a crawler, we can just let the SPA handle it or redirect
-    if (!isCrawler && !req.path.includes('/api/share/info')) {
-      // For shared links, we prefer to stay on the /share/:id or /share/:type/:id path
-      // so the client-side SharePage can render its beautiful preview and "Open in App" button.
-      // Redirecting often takes users to protected routes (like /feed/post/:id) which forces login.
-      
-      if (process.env.NODE_ENV !== "production" && vite) {
-        return vite.middlewares(req, res, next);
-      } else {
-        const distPath = path.join(process.cwd(), 'dist');
-        const indexPath = path.join(distPath, 'index.html');
-        if (fs.existsSync(indexPath)) {
-          return res.sendFile(indexPath);
-        }
-        // Fallback if index.html is missing
-        return res.redirect(redirectUrl);
-      }
-    }
-
     if (req.path.includes('/api/share/info')) {
       return res.json({ 
         success: !!cardData, 
@@ -979,15 +960,38 @@ async function startServer() {
       });
     }
 
-    // FOR CRAWLERS: Return minimal HTML with OG tags
-    const html = `<!DOCTYPE html>
-<html lang="pt-BR" prefix="og: http://ogp.me/ns#">
-<head>
-    <meta charset="UTF-8">
+    // SSR-LITE STRATEGY: 
+    // Always serve a modified index.html for share routes.
+    // This fixed the WhatsApp Desktop issue because the bot receives the correct tags
+    // even if it's not detected as a bot (some Desktop bots use generic UAs).
+
+    let htmlTemplate = "";
+    try {
+      const pathsToTry = [
+        path.join(process.cwd(), 'dist', 'index.html'),
+        path.join(process.cwd(), 'index.html')
+      ];
+      
+      for (const p of pathsToTry) {
+        if (fs.existsSync(p)) {
+          htmlTemplate = fs.readFileSync(p, 'utf8');
+          break;
+        }
+      }
+    } catch (err) {
+      console.error('[OG-TAGS] Failed to read index.html template:', err);
+    }
+
+    if (!htmlTemplate) {
+      // Emergency fallback if template is missing
+      htmlTemplate = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>{{TITLE}}</title>{{METAS}}</head><body><div id="root"></div></body></html>`;
+    }
+
+    // Prepare tags for injection
+    const dynamicMetas = `
+    <!-- Dynamic Social Preview (SSR-Lite) -->
     <title>${title} | ArenaComp</title>
     <meta name="description" content="${description.replace(/"/g, '&quot;')}">
-    
-    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="${shareUrl}">
     <meta property="og:title" content="${title.replace(/"/g, '&quot;')}">
@@ -1000,34 +1004,38 @@ async function startServer() {
     <meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}">
     <meta property="og:site_name" content="ArenaComp">
     <meta property="og:locale" content="pt_BR">
-
-    <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="${shareUrl}">
     <meta name="twitter:title" content="${title.replace(/"/g, '&quot;')}">
     <meta name="twitter:description" content="${description.replace(/"/g, '&quot;')}">
     <meta name="twitter:image" content="${ogImageUrl}">
+    ${isCrawler ? `<script type="text/javascript">window.location.href = "${redirectUrl}";</script>` : ''}
+    `;
 
-    <!-- Redirection for non-bots that might still hit this -->
-    <script type="text/javascript">
-        window.location.href = "${redirectUrl}";
-    </script>
-</head>
-<body>
-    <h1>ArenaComp</h1>
-    <p>${description}</p>
-    <img src="${ogImageUrl}" alt="${title}">
-    <p>Redirecionando para a plataforma...</p>
-</body>
-</html>`;
+    let finalHtml = htmlTemplate;
 
-    const buffer = Buffer.from(html, 'utf-8');
+    // 1. Replace Title
+    finalHtml = finalHtml.replace(/<title>.*?<\/title>/i, `<title>${title} | ArenaComp</title>`);
+
+    // 2. Clear out existing generic Meta Tags to avoid confusion/duplicates
+    finalHtml = finalHtml.replace(/<meta property="og:.*?".*?>/gi, '');
+    finalHtml = finalHtml.replace(/<meta name="twitter:.*?".*?>/gi, '');
+    finalHtml = finalHtml.replace(/<meta name="description".*?>/gi, '');
+    finalHtml = finalHtml.replace(/<link rel="canonical".*?>/gi, '');
+
+    // 3. Inject new tags into <head>
+    if (finalHtml.includes('</head>')) {
+      finalHtml = finalHtml.replace('</head>', `${dynamicMetas}\n</head>`);
+    } else {
+      finalHtml = finalHtml + dynamicMetas;
+    }
+
+    const buffer = Buffer.from(finalHtml, 'utf-8');
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Content-Length', buffer.length);
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('X-Arena-Status', 'crawler-ssr');
+    res.setHeader('X-Arena-Status', isCrawler ? 'crawler-ssr-v2' : 'human-ssr-lite');
+    
     return res.status(200).send(buffer);
   };
 
