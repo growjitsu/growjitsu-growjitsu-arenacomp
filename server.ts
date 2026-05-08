@@ -950,26 +950,53 @@ async function startServer() {
     let ogImageUrl = ARENA_FALLBACK_IMAGE;
 
     if (isHome) {
-      ogImageUrl = ARENA_FALLBACK_IMAGE;
-    } else if (cardData?.mainImageUrl) {
-      ogImageUrl = cardData.mainImageUrl;
-    } else if (cardData?.media_url) {
-      ogImageUrl = cardData.media_url;
-    } else if (cardData?.profilePhoto) {
-      ogImageUrl = cardData.profilePhoto;
-    } else {
-      const name = cardData?.athleteName || 'ArenaComp';
-      ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
+      ogImageUrl = ARENA_LOGO_IMAGE;
+    } else if (cardData) {
+      // 1. Try to find the best image from cardData
+      let rawImage = cardData.mainImageUrl || cardData.media_url || cardData.image || cardData.profilePhoto;
+      
+      // 2. Handle potential JSON string arrays in media_url
+      if (typeof rawImage === 'string' && rawImage.startsWith('[')) {
+        try {
+          const urls = JSON.parse(rawImage);
+          if (Array.isArray(urls) && urls.length > 0) rawImage = urls[0];
+        } catch (e) {}
+      }
+
+      // 3. Special handling for Ads: if the image is missing or is the default logo, try a more exhaustive lookup
+      if ((!rawImage || String(rawImage).includes('logo-arenacomp')) && cardData.type === 'ad' && cardData.realId) {
+         console.log(`[OG-TAGS] Ad image is default/null (${rawImage}), trying fresh lookup for ${cardData.realId}`);
+         try {
+           if (firestore) {
+             const adDoc = await firestore.collection('arena_ads').doc(cardData.realId).get();
+             if (adDoc.exists) {
+               const ad = adDoc.data();
+               rawImage = ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top || ad.media_url_feed_between || rawImage;
+             }
+           }
+           if ((!rawImage || String(rawImage).includes('logo-arenacomp')) && supabaseAdmin) {
+             const { data: ad } = await supabaseAdmin.from('arena_ads').select('*').eq('id', cardData.realId).maybeSingle();
+             if (ad) {
+               rawImage = ad.landing_image || ad.media_url || ad.media_url_landing_highlights || ad.media_url_feed_top || ad.media_url_feed_between || rawImage;
+             }
+           }
+         } catch (e) {
+           console.error('[OG-TAGS] Error during late ad image lookup:', e);
+         }
+      }
+
+      if (rawImage) {
+        ogImageUrl = rawImage;
+      } else {
+        const name = cardData?.athleteName || 'ArenaComp';
+        ogImageUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D8ABC&color=fff&size=512`;
+      }
     }
 
     // Ensure ogImageUrl is absolute and HTTPS
     if (ogImageUrl && !ogImageUrl.startsWith('http') && !ogImageUrl.startsWith('data:')) {
-      if (ogImageUrl.startsWith('/')) {
-        ogImageUrl = `${baseUrl}${ogImageUrl}`;
-      } else {
-        // If it doesn't start with / but is relative, prefix it anyway
-        ogImageUrl = `${baseUrl}/${ogImageUrl}`;
-      }
+      const cleanPath = ogImageUrl.startsWith('/') ? ogImageUrl : `/${ogImageUrl}`;
+      ogImageUrl = `${baseUrl}${cleanPath}`;
     }
     
     // Force HTTPS for all image URLs to ensure WhatsApp compatibility
@@ -977,7 +1004,7 @@ async function startServer() {
       ogImageUrl = ogImageUrl.replace('http:', 'https:');
     }
     
-    console.log('[SHARE IMAGE]', ogImageUrl);
+    console.log('[SHARE IMAGE RESOLVED]', ogImageUrl);
 
     // Add cache buster ONLY for local images (starts with baseUrl) to avoid breaking external signed URLs
     if (ogImageUrl && ogImageUrl.startsWith(baseUrl)) {
@@ -988,11 +1015,7 @@ async function startServer() {
     const shareUrl = isHome ? baseUrl : `${baseUrl}/share/${type ? type + '/' : ''}${id}`;
     const redirectUrl = isHome ? '/' : `/${type ? type + '/' : ''}${id}`;
     
-    // Safety check for ogImageUrl
-    if (isHome) {
-      ogImageUrl = ARENA_LOGO_IMAGE;
-    }
-    
+    // Final absolute URL check for all environments
     if (ogImageUrl && ogImageUrl.startsWith('/')) {
        ogImageUrl = `${baseUrl}${ogImageUrl}`;
     }
@@ -1182,12 +1205,6 @@ async function startServer() {
     if (imageUrl && imageUrl.startsWith('data:image')) {
       console.warn('[API-SHARE] Ignored Base64 image in share creation');
       imageUrl = null; 
-    }
-
-    // Logic for official fallback image if no image provided
-    if (!imageUrl) {
-      const host = (req.get('x-forwarded-host') || req.get('host'));
-      imageUrl = `https://${host}/logo-arenacomp.jpg`;
     }
 
     const token = generateShortToken(8);
