@@ -28,6 +28,14 @@ export const SharePage = () => {
   useEffect(() => {
     if (!id) return;
 
+    // NOVO: Redirecionamento definitivo para Destaques da Arena se for um anúncio
+    if (type === 'ad') {
+      console.log('[LANDING REDIRECT]', id);
+      console.log('[REDIRECT TARGET]', '/#destaques-da-arena');
+      window.location.replace('/#destaques-da-arena');
+      return;
+    }
+
     const loadData = async () => {
       setLoading(true);
       setError(null);
@@ -189,6 +197,12 @@ export const SharePage = () => {
         }
 
         if (data) {
+          // Caso os dados resolvidos indiquem que é um anúncio (para links /s/token)
+          if (data.type === 'ad' || data.modality === 'Patrocinado') {
+            console.log('[LANDING REDIRECT - DATA]', id);
+            window.location.replace('/#destaques-da-arena');
+            return;
+          }
           setCardData(data);
         } else {
           setError('Conteúdo não encontrado ou link inválido.');

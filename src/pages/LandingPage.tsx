@@ -116,6 +116,18 @@ export const LandingPage: React.FC<{ userProfile?: ArenaProfile | null }> = ({ u
   };
 
   useEffect(() => {
+    // Handle scroll to highlights section if requested via hash
+    if (window.location.hash === '#destaques-da-arena') {
+      const element = document.getElementById('destaques-da-arena');
+      if (element) {
+        setTimeout(() => {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }, 800); // Wait for content to load
+      }
+    }
+  }, [loading]);
+
+  useEffect(() => {
     // Fetch Banners from Firebase
     // We use a simpler query without orderBy to avoid composite index requirements
     // and handle sorting/filtering locally for maximum robustness
