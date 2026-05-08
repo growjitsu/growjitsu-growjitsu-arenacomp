@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Image as ImageIcon, Video, User, Send } from 'lucide-react';
+import { X, Image as ImageIcon, Video, User, Send, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { supabase } from '../services/supabase';
 import { ArenaProfile, PostType } from '../types';
+import { useUpload } from '../context/UploadContext';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -15,9 +16,11 @@ interface CreatePostModalProps {
 export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClose, userProfile, onPostCreated }) => {
   const [newPostContent, setNewPostContent] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
+  const [localUploading, setLocalUploading] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [fileConfigs, setFileConfigs] = useState<{ x: number, y: number, scale: number }[]>([]);
+  
+  const { startUpload, updateProgress, updateStatus, setUploadError, resetUpload } = useUpload();
 
   const compressImage = (
     file: File, 
@@ -138,11 +141,16 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
   const handleCreatePost = async () => {
     if (!newPostContent.trim() && selectedFiles.length === 0) return;
     
-    setUploading(true);
+    setLocalUploading(true);
+    startUpload('Iniciando publicação...');
+    
+    // Close modal early for better background experience
+    onClose();
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        alert('Você precisa estar logado para postar');
+        setUploadError('Usuário não autenticado');
         return;
       }
 
@@ -157,6 +165,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         const fileName = `${Math.random()}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
 
+        updateStatus('preparing', `Preparando arquivo ${i + 1} de ${selectedFiles.length}...`);
+
         if (file.type.startsWith('image/')) {
           try {
             fileToUpload = await compressImage(file, '1:1', config);
@@ -164,6 +174,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
             console.error('Compression error:', err);
           }
         }
+
+        const estimatedProgress = (i / selectedFiles.length) * 100 + 10;
+        updateProgress(estimatedProgress, `Enviando mídia ${i + 1} de ${selectedFiles.length}...`);
 
         const { error: uploadError } = await supabase.storage
           .from('posts')
@@ -175,6 +188,8 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
         if (uploadError) throw uploadError;
 
+        updateProgress(((i + 1) / selectedFiles.length) * 100, `Mídia ${i + 1} enviada`);
+
         const { data: { publicUrl } } = supabase.storage
           .from('posts')
           .getPublicUrl(filePath);
@@ -184,6 +199,9 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
           mediaType = file.type.startsWith('image/') ? 'image' : 'video';
         }
       }
+
+      updateProgress(95, 'Segurança: Analisando conteúdo...');
+      updateStatus('processing');
 
       const response = await axios.post('/api/posts/create-secure', {
         author_id: user.id,
@@ -195,24 +213,27 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
 
       if (!response.data.success) {
         if (response.data.status === 'blocked') {
-          alert(`CONTEÚDO BLOQUEADO: ${response.data.reason || 'Detectamos conteúdo impróprio nesta mídia.'}`);
+          setUploadError(`Bloqueado: ${response.data.reason || 'Conteúdo impróprio detectado.'}`);
         } else {
           throw new Error(response.data.error || 'Erro ao criar postagem');
         }
         return;
       }
 
+      updateStatus('completed', 'Publicação realizada com sucesso!');
+      
+      // Cleanup
       setNewPostContent('');
       setSelectedFiles([]);
       setPreviewUrls([]);
       setFileConfigs([]);
       onPostCreated();
-      onClose();
+      resetUpload();
     } catch (error: any) {
       console.error('Error creating post:', error);
-      alert(error.message || 'Erro ao criar postagem');
+      setUploadError(error.message || 'Falha na publicação');
     } finally {
-      setUploading(false);
+      setLocalUploading(false);
     }
   };
 
@@ -224,7 +245,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-md"
-      onClick={onClose}
+      onClick={localUploading ? undefined : onClose}
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -237,17 +258,28 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between p-6 border-b border-[var(--border-ui)]/20">
           <button 
             onClick={onClose}
-            className="p-2 text-[var(--text-muted)] hover:text-white transition-all"
+            disabled={localUploading}
+            className="p-2 text-[var(--text-muted)] hover:text-white transition-all disabled:opacity-20"
           >
             <X size={24} />
           </button>
-          <h2 className="text-sm font-black uppercase tracking-[0.3em] text-[var(--primary)] italic">Novo Relatório</h2>
+          <div className="flex flex-col items-center">
+            <h2 className="text-sm font-black uppercase tracking-[0.3em] text-[var(--primary)] italic">Novo Relatório</h2>
+            {localUploading && (
+              <span className="text-[8px] font-bold text-gray-500 uppercase tracking-widest animate-pulse">Sincronizando...</span>
+            )}
+          </div>
           <button
             onClick={handleCreatePost}
-            disabled={(!newPostContent.trim() && selectedFiles.length === 0) || uploading}
-            className="text-[var(--primary)] font-black text-xs uppercase tracking-widest disabled:opacity-30"
+            disabled={(!newPostContent.trim() && selectedFiles.length === 0) || localUploading}
+            className="text-[var(--primary)] font-black text-xs uppercase tracking-widest disabled:opacity-30 flex items-center gap-2"
           >
-            {uploading ? '...' : 'Publicar'}
+            {localUploading ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                <span>Enviando</span>
+              </>
+            ) : 'Publicar'}
           </button>
         </div>
 
@@ -411,7 +443,7 @@ export const CreatePostModal: React.FC<CreatePostModalProps> = ({ isOpen, onClos
         </div>
 
         {/* Floating Action Button for Mobile Context - Compartilhar mais claro */}
-        {selectedFiles.length > 0 && !uploading && (
+        {selectedFiles.length > 0 && !localUploading && (
            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-xs sm:hidden z-[110]">
              <button
                onClick={handleCreatePost}
