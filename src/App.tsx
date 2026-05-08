@@ -79,57 +79,6 @@ export default function App() {
   );
 }
 
-const AdminRouteWrapper = ({ profile, isLoggedIn }: { profile: any, isLoggedIn: boolean }) => {
-  const navigate = useNavigate();
-
-  if (!isLoggedIn) {
-    return <ArenaAuth isAdminLogin={true} />;
-  }
-
-  if (profile?.role !== 'admin') {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-6 text-center">
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="w-24 h-24 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-center justify-center text-rose-500 mb-8"
-        >
-          <Shield size={48} />
-        </motion.div>
-        <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-4">Acesso Restrito</h1>
-        <p className="text-gray-400 max-w-md mb-10 text-sm leading-relaxed font-medium">
-          Olá <span className="text-white font-bold">{profile?.full_name}</span>, você está autenticado mas não possui as credenciais de administrador necessárias para acessar este protocolo.
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button 
-            onClick={() => navigate('/')}
-            className="px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-white/10 transition-all flex items-center gap-3"
-          >
-            <ArrowLeft size={16} />
-            Voltar para Arena
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <AdminLayout userProfile={profile}>
-      <Routes>
-        <Route index element={<AdminDashboard />} />
-        <Route path="athletes" element={<AdminAthletes />} />
-        <Route path="teams" element={<AdminTeams />} />
-        <Route path="posts" element={<AdminPosts />} />
-        <Route path="challenges" element={<AdminChallenges />} />
-        <Route path="ads" element={<AdminAds />} />
-        <Route path="emails" element={<AdminEmails />} />
-        <Route path="logs" element={<AdminLogs />} />
-        <Route path="export" element={<AdminExport />} />
-      </Routes>
-    </AdminLayout>
-  );
-};
-
 function AppContent() {
   const { isProfileValid, isLoggedIn, isLoading: isProfileLoading, profile, user } = useProfile();
   const [activeTab, setActiveTab] = useState('feed');
@@ -516,8 +465,57 @@ function AppContent() {
       {/* Admin Routes */}
       <Route 
         path="/admin/*" 
-        element={<AdminRouteWrapper profile={profile} isLoggedIn={isLoggedIn} />} 
+        element={
+          !isLoggedIn ? (
+            <ArenaAuth isAdminLogin={true} />
+          ) : profile?.role === 'admin' ? (
+            <AdminLayout userProfile={profile}>
+              <Routes>
+                <Route path="/" element={<AdminDashboard />} />
+                <Route path="/athletes" element={<AdminAthletes />} />
+                <Route path="/teams" element={<AdminTeams />} />
+                <Route path="/posts" element={<AdminPosts />} />
+                <Route path="/challenges" element={<AdminChallenges />} />
+                <Route path="/ads" element={<AdminAds />} />
+                <Route path="/emails" element={<AdminEmails />} />
+                <Route path="/logs" element={<AdminLogs />} />
+                <Route path="/export" element={<AdminExport />} />
+              </Routes>
+            </AdminLayout>
+          ) : (
+            <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center p-6 text-center">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="w-24 h-24 bg-rose-500/10 border border-rose-500/20 rounded-3xl flex items-center justify-center text-rose-500 mb-8"
+              >
+                <Shield size={48} />
+              </motion.div>
+              <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-4">Acesso Restrito</h1>
+              <p className="text-gray-400 max-w-md mb-10 text-sm leading-relaxed font-medium">
+                Olá <span className="text-white font-bold">{profile?.full_name}</span>, você está autenticado mas não possui as credenciais de administrador necessárias para acessar este protocolo.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button 
+                  onClick={() => navigate('/')}
+                  className="px-10 py-4 bg-white/5 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-white/10 transition-all flex items-center justify-center space-x-2"
+                >
+                  <ArrowLeft size={16} />
+                  <span>Voltar ao App</span>
+                </button>
+                <button 
+                  onClick={() => supabase.auth.signOut()}
+                  className="px-10 py-4 bg-rose-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-600/20 hover:bg-rose-700 transition-all flex items-center justify-center space-x-2"
+                >
+                  <Lock size={16} />
+                  <span>Trocar de Conta</span>
+                </button>
+              </div>
+            </div>
+          )
+        } 
       />
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     </>

@@ -463,7 +463,6 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         .from('posts')
         .select('*')
         .eq('is_archived', false)
-        .eq('moderation_status', 'approved')
         .order('created_at', { ascending: false })
         .range(from, to);
 

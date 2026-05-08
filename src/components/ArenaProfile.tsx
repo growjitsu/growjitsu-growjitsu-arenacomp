@@ -753,18 +753,11 @@ export const ArenaProfileView: React.FC<{
       setChallenges(challengesData || []);
 
       // Fetch Posts
-      let postQuery = supabase
+      const { data: postsData } = await supabase
         .from('posts')
         .select('*')
         .eq('author_id', targetId)
         .order('created_at', { ascending: false });
-      
-      // If not own profile, only show approved posts
-      if (!isOwnProfile) {
-        postQuery = postQuery.eq('moderation_status', 'approved');
-      }
-
-      const { data: postsData } = await postQuery;
       
       // Fetch user's likes to mark posts as liked
       let userLikes: Set<string> = new Set();
@@ -1193,45 +1186,8 @@ export const ArenaProfileView: React.FC<{
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="text-center space-y-6">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="w-24 h-24 border-t-2 border-r-2 border-[var(--primary)] rounded-full animate-spin mx-auto"
-          />
-          <h2 className="text-white font-black uppercase tracking-[0.3em] animate-pulse">Carregando Arena...</h2>
-        </div>
-      </div>
-    );
-  }
-
-  // Determine if profile is blocked/suspended
-  const isProfileRestricted = profile && !isOwnProfile && (profile.status === 'blocked' || profile.status === 'suspended');
-
-  if (isProfileRestricted) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-[#0f0f0f] border border-white/10 rounded-[2.5rem] p-12 text-center space-y-6 shadow-2xl">
-          <div className="w-24 h-24 bg-rose-500/10 rounded-3xl flex items-center justify-center mx-auto border border-rose-500/20">
-            <Shield size={48} className="text-rose-500" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-black uppercase tracking-tight text-white">Perfil Indisponível</h2>
-            <p className="text-gray-500 text-sm font-bold uppercase tracking-widest leading-relaxed">
-              Este perfil foi temporariamente suspenso ou bloqueado por violar as diretrizes da ArenaComp.
-            </p>
-          </div>
-          <Link to="/feed" className="inline-block px-8 py-4 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] text-white hover:bg-[var(--primary)] transition-all">
-            Voltar para o Feed
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  if (loading) return <div className="flex justify-center py-24"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--primary)]" /></div>;
+  
   if (!profile) {
     if (error === 'DATABASE_MISSING') {
       return (

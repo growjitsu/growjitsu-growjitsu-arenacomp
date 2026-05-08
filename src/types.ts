@@ -47,7 +47,6 @@ export interface ArenaProfile {
   draws: number;
   total_fights: number;
   win_rate: number;
-  status: 'active' | 'suspended' | 'blocked';
   created_at: string;
   updated_at: string;
   modalities?: UserModality[];
@@ -191,9 +190,6 @@ export interface ArenaPost {
   comments_count: number;
   shares_count?: number;
   is_archived?: boolean;
-  moderation_status?: 'pending' | 'approved' | 'blocked' | 'flagged';
-  moderation_info?: any;
-  moderated_at?: string;
   hashtags?: string;
   created_at: string;
   author?: ArenaProfile;
