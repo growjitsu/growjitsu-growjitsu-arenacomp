@@ -133,7 +133,9 @@ export const AdminEmails: React.FC = () => {
   };
 
   const getPublicUrl = (url: string | undefined): string => {
-    const fallbackLogo = 'https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png';
+    const origin = 'https://arenacomp.com.br';
+    const fallbackLogo = `${origin}/logo-arenacomp.jpg`;
+    
     if (!url) return fallbackLogo;
     
     let finalUrl = url;
@@ -154,7 +156,6 @@ export const AdminEmails: React.FC = () => {
       const cleanPath = finalUrl.startsWith('/') ? finalUrl.slice(1) : finalUrl;
       finalUrl = `${supabaseUrl}/storage/v1/object/public/${cleanPath}`;
     } else {
-      const origin = 'https://arenacomp.com.br';
       finalUrl = `${origin}${finalUrl.startsWith('/') ? '' : '/'}${finalUrl}`;
     }
     return finalUrl.replace('http://', 'https://');
@@ -165,6 +166,7 @@ export const AdminEmails: React.FC = () => {
     const description = ad.landing_description || ad.content || '';
 
     const imageUrl = getPublicUrl(ad.landing_image || ad.media_url);
+    const logoUrl = getPublicUrl(undefined);
 
     const ctaText = ad.landing_cta_text || 'Ver Mais';
     const ctaUrl = ad.landing_cta_url || ad.link_url || 'https://arenacomp.com.br';
@@ -185,7 +187,9 @@ export const AdminEmails: React.FC = () => {
                       <!-- Logo/Header -->
                     <tr>
                         <td align="center" style="padding: 30px 0; color: #ffffff; font-family: Arial, sans-serif; font-size: 24px; font-weight: bold;">
-                            <img src="https://vfefztzaiqhpsfnvpkba.supabase.co/storage/v1/object/public/assets/logo_email.png" alt="ArenaComp" width="180" style="display: block; color: #ffffff; border: 0;">
+                            <a href="https://arenacomp.com.br" target="_blank" style="text-decoration: none;">
+                                <img src="${logoUrl}" alt="ArenaComp" width="180" style="display: block; color: #ffffff; border: 0;">
+                            </a>
                         </td>
                     </tr>
 
