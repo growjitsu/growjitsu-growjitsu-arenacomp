@@ -214,14 +214,14 @@ async function startServer() {
   app.get("/api/ads-stats-v11", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ANALYTICS-V11] HIT! period=${period}, adId=${adId}`);
+      console.log(`[ANALYTICS-V11] Request received: period=${period}, adId=${adId}`);
       
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('X-API-Route', 'analytics-v11-engine');
       res.setHeader('X-Express-Resolved', 'service-v11-hit');
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
-      let dateFilter = "created_at IS NOT NULL";
+      let dateFilter = "1=1"; // Default to all if not matched
       if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
       else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
       else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
@@ -230,24 +230,43 @@ async function startServer() {
       const adIdStr = adId ? String(adId) : '';
       const adFilter = adIdStr && adIdStr !== 'all' ? `AND ad_id = '${adIdStr}'` : "";
 
+      // More robust queries with fallbacks for missing columns
+      const getSafeArr = (query: string) => {
+        try {
+          return db.prepare(query).all();
+        } catch (e) {
+          console.error(`[SQL-SAFE-ERR] Query failed: ${query}`, e);
+          return [];
+        }
+      };
+
+      const getSafeObj = (query: string) => {
+        try {
+          return db.prepare(query).get();
+        } catch (e) {
+          console.error(`[SQL-SAFE-ERR] Query failed: ${query}`, e);
+          return null;
+        }
+      };
+
       const statsQuery = `
         SELECT 
           COUNT(CASE WHEN event_type = 'click' THEN 1 END) as total_clicks,
           COUNT(DISTINCT CASE WHEN event_type = 'click' THEN ip_address END) as unique_clicks,
-          COUNT(CASE WHEN event_type = 'impression' THEN 1 END) as total_views
+          COUNT(CASE WHEN event_type = 'impression' OR event_type = 'view' THEN 1 END) as total_views
         FROM ad_analytics 
         WHERE ${dateFilter} ${adFilter}
       `;
       
-      const stats = db.prepare(statsQuery).get() as any;
-      const dailyStats = db.prepare(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`).all();
-      const deviceStats = db.prepare(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY device`).all();
-      const osStats = db.prepare(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY os`).all();
-      const genderStats = db.prepare(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`).all();
-      const locationStats = db.prepare(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`).all();
-      const topAds = db.prepare(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`).all();
+      const stats = getSafeObj(statsQuery) as any;
+      const dailyStats = getSafeArr(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`);
+      const deviceStats = getSafeArr(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY device`);
+      const osStats = getSafeArr(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY os`);
+      const genderStats = getSafeArr(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`);
+      const locationStats = getSafeArr(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`);
+      const topAds = getSafeArr(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`);
 
-      return res.status(200).json({
+      const responseData = {
         success: true,
         summary: {
           total_clicks: stats?.total_clicks || 0,
@@ -259,10 +278,14 @@ async function startServer() {
         os: osStats || [],
         gender: genderStats || [],
         locations: locationStats || [],
-        topAds: topAds || []
-      });
+        topAds: topAds || [],
+        v: 'v11.1'
+      };
+
+      console.log(`[ANALYTICS-V11] Total clicks found: ${responseData.summary.total_clicks}`);
+      return res.status(200).json(responseData);
     } catch (error: any) {
-      console.error('[V10-ERR]', error);
+      console.error('[V11-FATAL-ERR]', error);
       res.setHeader('Content-Type', 'application/json');
       return res.status(500).json({ success: false, error: error.message });
     }

@@ -56,8 +56,20 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
       }
 
       const json = await response.json();
+      console.log(`[Analytics] Data received: success=${json.success}, v=${json.v}`);
+      
       if (json.success) {
-        setData(json);
+        // Ensure arrays are present to avoid map errors
+        const sanitizedData = {
+          ...json,
+          daily: json.daily || [],
+          devices: json.devices || [],
+          os: json.os || [],
+          gender: json.gender || [],
+          locations: json.locations || [],
+          topAds: json.topAds || []
+        };
+        setData(sanitizedData);
       } else {
         toast.error('Erro ao carregar dados: ' + json.error);
       }
