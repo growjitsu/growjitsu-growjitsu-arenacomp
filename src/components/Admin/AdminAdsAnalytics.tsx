@@ -35,16 +35,30 @@ export const AdminAdsAnalytics: React.FC<{ adId?: string }> = ({ adId = 'all' })
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log(`[Analytics] Fetching data for period=${period}, adId=${adId}`);
       const response = await fetch(`/api/admin/ads/dashboard?period=${period}&adId=${adId}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Analytics] Server error response:', errorText);
+        try {
+          const errorJson = JSON.parse(errorText);
+          toast.error(`Erro do servidor: ${errorJson.error || response.statusText}`);
+        } catch (e) {
+          toast.error(`Erro HTTP ${response.status}: ${response.statusText}`);
+        }
+        return;
+      }
+
       const json = await response.json();
       if (json.success) {
         setData(json);
       } else {
         toast.error('Erro ao carregar dados: ' + json.error);
       }
-    } catch (error) {
-      console.error('Fetch error:', error);
-      toast.error('Erro de conexão com o servidor');
+    } catch (error: any) {
+      console.error('[Analytics] Fetch error:', error);
+      toast.error(`Erro de conexão: ${error.message || 'Verifique sua internet'}`);
     } finally {
       setLoading(false);
     }
