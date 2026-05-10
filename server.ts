@@ -215,83 +215,125 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // --- [NÍVEL 2] ANALYTICS V11 (USING /API PREFIX FOR INFRASTRUCTURE COMPATIBILITY) ---
+  // --- [NÍVEL 2] ANALYTICS V11 (DEFINITIVE FIREBASE ENGINE) ---
   app.get("/api/ads-stats-v11", async (req, res) => {
     try {
       const { period, adId } = req.query;
-      console.log(`[ANALYTICS-V11] Request received: period=${period}, adId=${adId}`);
+      console.log(`[ANALYTICS-V11] Fire-Engine Request: period=${period}, adId=${adId}`);
       
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('X-API-Route', 'analytics-v11-engine');
-      res.setHeader('X-Express-Resolved', 'service-v11-hit');
-      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.setHeader('X-API-Route', 'analytics-v11-fire-engine');
 
-      let dateFilter = "1=1"; // Default to all if not matched
-      if (period === 'today') dateFilter = "DATE(created_at) = DATE('now')";
-      else if (period === 'yesterday') dateFilter = "DATE(created_at) = DATE('now', '-1 day')";
-      else if (period === '7d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-7 days')";
-      else if (period === '30d') dateFilter = "DATETIME(created_at) >= DATETIME('now', '-30 days')";
+      const adIdStr = adId ? String(adId) : 'all';
       
-      const adIdStr = adId ? String(adId) : '';
-      const adFilter = adIdStr && adIdStr !== 'all' ? `AND ad_id = '${adIdStr}'` : "";
+      // Calculate date range
+      const now = new Date();
+      let startDate = new Date(0); // All time
+      if (period === 'today') {
+        startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+      } else if (period === '7d') {
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (period === '30d') {
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }
 
-      // More robust queries with fallbacks for missing columns
+      // 1. Fetch Summary from Firestore if available
+      let total_clicks = 0;
+      let total_views = 0;
+      let unique_clicks = 0;
+
+      if (firestore) {
+        try {
+          if (adIdStr !== 'all') {
+            const adDoc = await firestore.collection('arena_ads').doc(adIdStr).get();
+            if (adDoc.exists) {
+              const data = adDoc.data();
+              total_clicks = data.total_clicks || 0;
+              total_views = data.total_impressions || 0;
+            }
+          } else {
+            // Aggregate totals from all ads in Firestore
+            const adsSnap = await firestore.collection('arena_ads').get();
+            adsSnap.forEach((doc: any) => {
+              const data = doc.data();
+              total_clicks += (data.total_clicks || 0);
+              total_views += (data.total_impressions || 0);
+            });
+          }
+        } catch (e) {
+          console.error('[FIRE-STATS-ERR] Failed to fetch summary from Firestore:', e);
+        }
+      }
+
+      // 2. Fetch Detailed Stats from SQLite (Buffer) or Firestore
+      // For speed and compatibility, we combine SQLite buffers if available
+      const dateFilter = period === 'today' ? "DATE(created_at) = DATE('now')" : 
+                         period === '7d' ? "DATETIME(created_at) >= DATETIME('now', '-7 days')" :
+                         period === '30d' ? "DATETIME(created_at) >= DATETIME('now', '-30 days')" : "1=1";
+      
+      const adFilter = adIdStr !== 'all' ? `AND ad_id = '${adIdStr}'` : "";
+
       const getSafeArr = (query: string) => {
-        try {
-          return db.prepare(query).all();
-        } catch (e) {
-          console.error(`[SQL-SAFE-ERR] Query failed: ${query}`, e);
-          return [];
-        }
+        try { return db.prepare(query).all(); } catch { return []; }
       };
 
-      const getSafeObj = (query: string) => {
-        try {
-          return db.prepare(query).get();
-        } catch (e) {
-          console.error(`[SQL-SAFE-ERR] Query failed: ${query}`, e);
-          return null;
-        }
-      };
-
-      const statsQuery = `
-        SELECT 
-          COUNT(CASE WHEN event_type = 'click' THEN 1 END) as total_clicks,
-          COUNT(DISTINCT CASE WHEN event_type = 'click' THEN ip_address END) as unique_clicks,
-          COUNT(CASE WHEN event_type = 'impression' OR event_type = 'view' THEN 1 END) as total_views
-        FROM ad_analytics 
-        WHERE ${dateFilter} ${adFilter}
-      `;
+      let dailyStats = getSafeArr(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`);
       
-      const stats = getSafeObj(statsQuery) as any;
-      const dailyStats = getSafeArr(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`);
+      // Firestore Fallback for Daily Stats (if SQLite is empty/stateless)
+      if (dailyStats.length === 0 && firestore) {
+        try {
+          let dailyQuery = firestore.collection('ad_analytics_daily');
+          if (adIdStr !== 'all') {
+            dailyQuery = dailyQuery.where('ad_id', '==', adIdStr) as any;
+          }
+          const dailySnap = await dailyQuery.get();
+          const tempDaily: Record<string, number> = {};
+          dailySnap.forEach((doc: any) => {
+            const d = doc.data();
+            tempDaily[d.date] = (tempDaily[d.date] || 0) + (d.clicks || 0);
+          });
+          dailyStats = Object.entries(tempDaily)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+        } catch (e) {
+          console.error('[FIRE-STATS-FALLBACK-ERR]', e);
+        }
+      }
+
       const deviceStats = getSafeArr(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY device`);
       const osStats = getSafeArr(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY os`);
       const genderStats = getSafeArr(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`);
       const locationStats = getSafeArr(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`);
       const topAds = getSafeArr(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`);
 
+      // Fallback unique clicks from SQLite if Firestore doesn't have it
+      if (unique_clicks === 0) {
+        try {
+          const uC = db.prepare(`SELECT COUNT(DISTINCT ip_address) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click'`).get() as any;
+          unique_clicks = uC?.count || 0;
+        } catch {}
+      }
+
       const responseData = {
         success: true,
         summary: {
-          total_clicks: stats?.total_clicks || 0,
-          unique_clicks: stats?.unique_clicks || 0,
-          total_views: stats?.total_views || 0
+          total_clicks,
+          unique_clicks,
+          total_views
         },
-        daily: dailyStats || [],
-        devices: deviceStats || [],
-        os: osStats || [],
-        gender: genderStats || [],
-        locations: locationStats || [],
-        topAds: topAds || [],
-        v: 'v11.1'
+        daily: dailyStats,
+        devices: deviceStats,
+        os: osStats,
+        gender: genderStats,
+        locations: locationStats,
+        topAds: topAds,
+        engine: 'fire-sqlite-hybrid-v11'
       };
 
-      console.log(`[ANALYTICS-V11] Total clicks found: ${responseData.summary.total_clicks}`);
       return res.status(200).json(responseData);
     } catch (error: any) {
       console.error('[V11-FATAL-ERR]', error);
-      res.setHeader('Content-Type', 'application/json');
       return res.status(500).json({ success: false, error: error.message });
     }
   });
@@ -1541,7 +1583,7 @@ async function startServer() {
       // Immediate success response
       res.json({ success: true });
 
-      // Async ingestion
+      // Async ingestion (Definitive Firebase Core)
       setImmediate(async () => {
         let country = 'Unknown', region = 'Unknown', city = 'Unknown';
         
@@ -1566,6 +1608,7 @@ async function startServer() {
         }
 
         try {
+          // 1. Log to SQLite (Buffer for rapid queries)
           db.prepare(`
             INSERT INTO ad_analytics (
               ad_id, event_type, user_id, user_role, gender, age_range, 
@@ -1575,8 +1618,53 @@ async function startServer() {
             ad_id, event_type || 'click', user_id, user_role, gender, age_range,
             ip, country, region, city, deviceType, osName, browserName, source
           );
-        } catch (dbErr) {
-          console.error('[TRACK-DB-ERR]', dbErr);
+
+          // 2. Definitive Sync to Firestore (Persistent Cloud Data)
+          if (firestore) {
+            // Detailed record
+            const eventRef = firestore.collection('ad_analytics_events').doc();
+            await eventRef.set({
+              ad_id,
+              event_type: event_type || 'click',
+              user_id,
+              user_role,
+              gender,
+              age_range,
+              ip_address: ip,
+              country,
+              region,
+              city,
+              device: deviceType,
+              os: osName,
+              browser: browserName,
+              source,
+              created_at: new Date()
+            });
+
+            // Summary update in arena_ads
+            const adRef = firestore.collection('arena_ads').doc(ad_id);
+            const adDoc = await adRef.get();
+            if (adDoc.exists) {
+              const updateData: any = {};
+              if (event_type === 'click') {
+                updateData.total_clicks = (adDoc.data().total_clicks || 0) + 1;
+              } else {
+                updateData.total_impressions = (adDoc.data().total_impressions || 0) + 1;
+              }
+              await adRef.update(updateData);
+            }
+          }
+
+          // 3. Update Supabase (Parallel Redundancy)
+          if (supabaseAdmin) {
+            if (event_type === 'click') {
+              await supabaseAdmin.rpc('increment_ad_clicks', { ad_id_param: ad_id });
+            } else {
+              await supabaseAdmin.rpc('increment_ad_impressions', { ad_id_param: ad_id });
+            }
+          }
+        } catch (err) {
+          console.error('[TRACK-FATAL-ERR]', err);
         }
       });
     } catch (err) {

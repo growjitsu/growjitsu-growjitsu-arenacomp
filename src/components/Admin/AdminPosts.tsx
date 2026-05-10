@@ -50,7 +50,10 @@ export const AdminPosts: React.FC = () => {
         .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
 
-      if (postsError) throw postsError;
+      if (postsError) {
+        console.error('[ADMIN-POSTS] Error fetching posts:', postsError);
+        throw postsError;
+      }
 
       if (!postsData || postsData.length === 0) {
         setPosts([]);
@@ -58,34 +61,46 @@ export const AdminPosts: React.FC = () => {
         return;
       }
 
-      // 2. Fetch authors (profiles) separately to avoid join issues
+      // 2. Fetch authors (profiles) separately to avoid complex join RLS issues
       const authorIds = Array.from(new Set(postsData.map(p => p.author_id))).filter(Boolean);
       let profilesMap = new Map();
 
       if (authorIds.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, username, avatar_url, profile_photo')
-          .in('id', authorIds);
+        try {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, username, avatar_url, profile_photo')
+            .in('id', authorIds);
 
-        if (profilesError) {
-          console.warn('Error fetching profiles, mapping might be incomplete:', profilesError);
-        } else if (profilesData) {
-          profilesData.forEach(profile => {
-            profilesMap.set(profile.id, {
-              ...profile,
-              // Normalize avatar/photo
-              avatar_url: profile.avatar_url || profile.profile_photo
+          if (profilesError) {
+            console.warn('[ADMIN-POSTS] Error fetching profiles:', profilesError);
+          } else if (profilesData) {
+            profilesData.forEach(profile => {
+              profilesMap.set(profile.id, {
+                ...profile,
+                full_name: profile.full_name || 'Usuário Arena',
+                username: profile.username || 'arena_user',
+                avatar_url: profile.avatar_url || profile.profile_photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'UA')}`
+              });
             });
-          });
+          }
+        } catch (err) {
+          console.error('[ADMIN-POSTS] Profiles fetch catch:', err);
         }
       }
 
-      // 3. Merge data
-      const mergedPosts = postsData.map(post => ({
-        ...post,
-        profiles: profilesMap.get(post.author_id) || null
-      }));
+      // 3. Merge data with robust fallbacks
+      const mergedPosts = postsData.map(post => {
+        const authorProfile = profilesMap.get(post.author_id);
+        return {
+          ...post,
+          profiles: authorProfile || {
+            full_name: 'Usuário Arena',
+            username: 'carregando...',
+            avatar_url: 'https://ui-avatars.com/api/?name=Arena'
+          }
+        };
+      });
 
       setPosts(mergedPosts);
       setTotalCount(count || 0);
