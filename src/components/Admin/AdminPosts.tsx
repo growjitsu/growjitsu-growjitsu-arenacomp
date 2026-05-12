@@ -55,14 +55,22 @@ export const AdminPosts: React.FC = () => {
         throw postsError;
       }
 
-      const mergedPosts = (postsData || []).map(post => ({
-        ...post,
-        profiles: post.profiles || {
-          full_name: 'Usuário Arena',
-          username: 'arena_user',
-          avatar_url: `https://ui-avatars.com/api/?name=Arena`
-        }
-      }));
+      const mergedPosts = (postsData || []).map(post => {
+        const profile = post.profiles as any;
+        return {
+          ...post,
+          profiles: profile ? {
+            ...profile,
+            full_name: profile.full_name || 'Usuário Arena',
+            username: profile.username || 'arena_user',
+            avatar_url: profile.avatar_url || profile.profile_photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'UA')}`
+          } : {
+            full_name: 'Usuário Arena',
+            username: 'arena_user',
+            avatar_url: `https://ui-avatars.com/api/?name=Arena`
+          }
+        };
+      });
 
       setPosts(mergedPosts);
       setTotalCount(count || 0);
