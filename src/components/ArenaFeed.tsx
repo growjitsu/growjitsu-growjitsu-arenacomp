@@ -1434,7 +1434,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                             initial={{ opacity: 0, scale: 0.95 }}
                             whileInView={{ opacity: 1, scale: 1 }}
                             viewport={{ once: true }}
-                            onViewportEnter={() => trackAdEvent(currentAd.id, 'impression', userProfile?.id)}
+                            onViewportEnter={() => trackAdEvent(currentAd.id, 'impression', userProfile)}
                             className="bg-[var(--surface)]/40 backdrop-blur-xl border border-blue-500/30 rounded-[3rem] overflow-hidden p-6 md:p-8 space-y-6 relative group/promo shadow-2xl"
                           >
                             {/* Manual Navigation Arrows */}
@@ -1501,7 +1501,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
                                     href={currentAd.link_url} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    onClick={() => trackAdEvent(currentAd.id, 'click', userProfile?.id)}
+                                    onClick={() => trackAdEvent(currentAd.id, 'click', userProfile)}
                                     className="inline-flex items-center space-x-3 px-10 py-3.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-600/20 active:scale-95"
                                   >
                                     <span>Saiba Mais</span>

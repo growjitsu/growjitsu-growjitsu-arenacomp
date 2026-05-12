@@ -238,10 +238,23 @@ async function startServer() {
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       }
 
-      // 1. Fetch Summary from Firestore if available
+      const adFilter = adIdStr !== 'all' ? `AND ad_id = '${adIdStr}'` : "";
+
+      const getSafeValue = (query: string) => {
+        try {
+          const result = db.prepare(query).get() as any;
+          return result?.count || 0;
+        } catch { return 0; }
+      };
+
+      // 1. Fetch Summary with SQLite Fallback/Aggregation
       let total_clicks = 0;
       let total_views = 0;
       let unique_clicks = 0;
+
+      // Try SQLite First for real-time accurate counts from event log
+      const sqlClicks = getSafeValue(`SELECT COUNT(*) as count FROM ad_analytics WHERE event_type = 'click' ${adFilter}`);
+      const sqlViews = getSafeValue(`SELECT COUNT(*) as count FROM ad_analytics WHERE event_type = 'impression' ${adFilter}`);
 
       if (firestore) {
         try {
@@ -249,36 +262,43 @@ async function startServer() {
             const adDoc = await firestore.collection('arena_ads').doc(adIdStr).get();
             if (adDoc.exists) {
               const data = adDoc.data();
-              total_clicks = data.total_clicks || 0;
-              total_views = data.total_impressions || 0;
+              // Sum from Firestore summary + SQLite log if SQLite has fresh events
+              total_clicks = Math.max(data.total_clicks || 0, sqlClicks);
+              total_views = Math.max(data.total_impressions || 0, sqlViews);
             }
           } else {
             // Aggregate totals from all ads in Firestore
             const adsSnap = await firestore.collection('arena_ads').get();
+            let fireClicks = 0;
+            let fireViews = 0;
             adsSnap.forEach((doc: any) => {
               const data = doc.data();
-              total_clicks += (data.total_clicks || 0);
-              total_views += (data.total_impressions || 0);
+              fireClicks += (data.total_clicks || 0);
+              fireViews += (data.total_impressions || 0);
             });
+            total_clicks = Math.max(fireClicks, sqlClicks);
+            total_views = Math.max(fireViews, sqlViews);
           }
         } catch (e) {
           console.error('[FIRE-STATS-ERR] Failed to fetch summary from Firestore:', e);
+          total_clicks = sqlClicks;
+          total_views = sqlViews;
         }
+      } else {
+        total_clicks = sqlClicks;
+        total_views = sqlViews;
       }
-
-      // 2. Fetch Detailed Stats from SQLite (Buffer) or Firestore
-      // For speed and compatibility, we combine SQLite buffers if available
-      const dateFilter = period === 'today' ? "DATE(created_at) = DATE('now')" : 
-                         period === '7d' ? "DATETIME(created_at) >= DATETIME('now', '-7 days')" :
-                         period === '30d' ? "DATETIME(created_at) >= DATETIME('now', '-30 days')" : "1=1";
-      
-      const adFilter = adIdStr !== 'all' ? `AND ad_id = '${adIdStr}'` : "";
 
       const getSafeArr = (query: string) => {
         try { return db.prepare(query).all(); } catch { return []; }
       };
 
-      let dailyStats = getSafeArr(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`);
+      // Ensure period filters are robust
+      const timeFilter = period === 'today' ? "datetime(created_at) >= datetime('now', 'start of day')" : 
+                         period === '7d' ? "datetime(created_at) >= datetime('now', '-7 days')" :
+                         period === '30d' ? "datetime(created_at) >= datetime('now', '-30 days')" : "1=1";
+
+      let dailyStats = getSafeArr(`SELECT DATE(created_at) as date, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} AND event_type = 'click' GROUP BY DATE(created_at) ORDER BY date ASC`);
       
       // Firestore Fallback for Daily Stats (if SQLite is empty/stateless)
       if (dailyStats.length === 0 && firestore) {
@@ -301,16 +321,16 @@ async function startServer() {
         }
       }
 
-      const deviceStats = getSafeArr(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY device`);
-      const osStats = getSafeArr(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} GROUP BY os`);
-      const genderStats = getSafeArr(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`);
-      const locationStats = getSafeArr(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`);
-      const topAds = getSafeArr(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`);
+      const deviceStats = getSafeArr(`SELECT device, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} GROUP BY device`);
+      const osStats = getSafeArr(`SELECT os, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} GROUP BY os`);
+      const genderStats = getSafeArr(`SELECT gender, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} AND gender IS NOT NULL AND gender != '' GROUP BY gender`);
+      const locationStats = getSafeArr(`SELECT city, country, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} AND city != 'Unknown' AND city IS NOT NULL GROUP BY city, country ORDER BY count DESC LIMIT 10`);
+      const topAds = getSafeArr(`SELECT ad_id, COUNT(*) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} AND event_type = 'click' GROUP BY ad_id ORDER BY count DESC LIMIT 10`);
 
       // Fallback unique clicks from SQLite if Firestore doesn't have it
       if (unique_clicks === 0) {
         try {
-          const uC = db.prepare(`SELECT COUNT(DISTINCT ip_address) as count FROM ad_analytics WHERE ${dateFilter} ${adFilter} AND event_type = 'click'`).get() as any;
+          const uC = db.prepare(`SELECT COUNT(DISTINCT ip_address) as count FROM ad_analytics WHERE ${timeFilter} ${adFilter} AND event_type = 'click'`).get() as any;
           unique_clicks = uC?.count || 0;
         } catch {}
       }
@@ -1641,17 +1661,14 @@ async function startServer() {
               created_at: new Date()
             });
 
-            // Summary update in arena_ads
+            // Summary update in arena_ads (Using Atomic Increments)
             const adRef = firestore.collection('arena_ads').doc(ad_id);
-            const adDoc = await adRef.get();
-            if (adDoc.exists) {
-              const updateData: any = {};
-              if (event_type === 'click') {
-                updateData.total_clicks = (adDoc.data().total_clicks || 0) + 1;
-              } else {
-                updateData.total_impressions = (adDoc.data().total_impressions || 0) + 1;
-              }
-              await adRef.update(updateData);
+            const incrementValue = require('firebase-admin').firestore.FieldValue.increment(1);
+            
+            if (event_type === 'click') {
+              await adRef.update({ total_clicks: incrementValue });
+            } else {
+              await adRef.update({ total_impressions: incrementValue });
             }
           }
 

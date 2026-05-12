@@ -19,6 +19,20 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   if (champError) throw champError;
 
+  // Fetch all posts for the athlete (count by type)
+  const { data: posts, error: postsError } = await supabase
+    .from('posts')
+    .select('type, is_archived')
+    .eq('author_id', athleteId);
+
+  if (postsError) throw postsError;
+
+  const activePosts = posts.filter(p => !p.is_archived);
+  const postCount = activePosts.length;
+  const imageCount = activePosts.filter(p => p.type === 'image').length;
+  const videoCount = activePosts.filter(p => p.type === 'video').length;
+  const championshipCount = championships.length;
+
   // Fetch all completed challenges for the athlete
   const { data: challenges, error: challengeError } = await supabase
     .from('challenges')
@@ -133,6 +147,10 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
       win_rate: winRate,
       arena_score: arenaScore,
       challenge_score: challengeScore,
+      post_count: postCount,
+      image_count: imageCount,
+      video_count: videoCount,
+      championship_count: championshipCount,
       updated_at: new Date().toISOString()
     })
     .eq('id', athleteId);

@@ -37,10 +37,10 @@ export const AdminPosts: React.FC = () => {
   const fetchPosts = async () => {
     setLoading(true);
     try {
-      // 1. Fetch posts with pagination
+      // 1. Fetch posts with pagination and profiles join
       let query = supabase
         .from('posts')
-        .select('*', { count: 'exact' });
+        .select('*, profiles:author_id(*)', { count: 'exact' });
 
       if (search) {
         query = query.ilike('content', `%${search}%`);
@@ -55,52 +55,14 @@ export const AdminPosts: React.FC = () => {
         throw postsError;
       }
 
-      if (!postsData || postsData.length === 0) {
-        setPosts([]);
-        setTotalCount(0);
-        return;
-      }
-
-      // 2. Fetch authors (profiles) separately to avoid complex join RLS issues
-      const authorIds = Array.from(new Set(postsData.map(p => p.author_id))).filter(Boolean);
-      let profilesMap = new Map();
-
-      if (authorIds.length > 0) {
-        try {
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, username, avatar_url, profile_photo')
-            .in('id', authorIds);
-
-          if (profilesError) {
-            console.warn('[ADMIN-POSTS] Error fetching profiles:', profilesError);
-          } else if (profilesData) {
-            profilesData.forEach(profile => {
-              profilesMap.set(profile.id, {
-                ...profile,
-                full_name: profile.full_name || 'Usuário Arena',
-                username: profile.username || 'arena_user',
-                avatar_url: profile.avatar_url || profile.profile_photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.full_name || 'UA')}`
-              });
-            });
-          }
-        } catch (err) {
-          console.error('[ADMIN-POSTS] Profiles fetch catch:', err);
+      const mergedPosts = (postsData || []).map(post => ({
+        ...post,
+        profiles: post.profiles || {
+          full_name: 'Usuário Arena',
+          username: 'arena_user',
+          avatar_url: `https://ui-avatars.com/api/?name=Arena`
         }
-      }
-
-      // 3. Merge data with robust fallbacks
-      const mergedPosts = postsData.map(post => {
-        const authorProfile = profilesMap.get(post.author_id);
-        return {
-          ...post,
-          profiles: authorProfile || {
-            full_name: 'Usuário Arena',
-            username: 'carregando...',
-            avatar_url: 'https://ui-avatars.com/api/?name=Arena'
-          }
-        };
-      });
+      }));
 
       setPosts(mergedPosts);
       setTotalCount(count || 0);

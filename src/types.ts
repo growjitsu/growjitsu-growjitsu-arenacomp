@@ -47,9 +47,26 @@ export interface ArenaProfile {
   draws: number;
   total_fights: number;
   win_rate: number;
+  // Nova Fase: Engajamento e Evolução
+  post_count?: number;
+  video_count?: number;
+  image_count?: number;
+  championship_count?: number;
+  streak_count?: number;
+  last_activity_date?: string;
+  badges?: ArenaBadge[];
   created_at: string;
   updated_at: string;
   modalities?: UserModality[];
+}
+
+export interface ArenaBadge {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  earned_at: string;
+  type: string;
 }
 
 export interface UserModality {

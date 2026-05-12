@@ -2224,8 +2224,19 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 </div>
               ) : (
                 <div className="space-y-1 w-full min-w-0">
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis">
-                    {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">(@{profile.nickname.replace(/^@/, '')})</span>}
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis flex items-center gap-2">
+                    {profile.full_name} 
+                    {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline font-bold">(@{profile.nickname.replace(/^@/, '')})</span>}
+                    {profile.streak_count && profile.streak_count > 0 && (
+                      <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-rose-500 px-3 py-1 rounded-full text-white text-[10px] font-black italic tracking-widest shadow-lg shadow-orange-500/20"
+                      >
+                        <Zap size={10} className="fill-current" />
+                        <span>{profile.streak_count} DIAS ATIVO</span>
+                      </motion.div>
+                    )}
                   </h1>
                   <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
                     <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest whitespace-nowrap truncate max-w-full">
@@ -2405,11 +2416,53 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
       {/* Rankings Section */}
       {profile.role !== 'admin' && (
-        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-4">
-          <div className="flex items-center space-x-3">
-            <Trophy size={20} className="text-[var(--primary)]" />
-            <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Rankings Oficiais</h3>
+        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <Trophy size={20} className="text-[var(--primary)]" />
+              <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Engajamento e Evolução</h3>
+            </div>
+            
+            {/* Evolution Stats Mini Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Postagens</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Grid size={10} className="text-[var(--primary)]" />
+                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.post_count || 0}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Vídeos</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Award size={10} className="text-purple-500" />
+                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.video_count || 0}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Imagens</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Grid size={10} className="text-blue-500" />
+                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.image_count || 0}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Campeonatos</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Trophy size={10} className="text-amber-500" />
+                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.championship_count || 0}</p>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Participações</p>
+                <div className="flex items-center justify-center gap-1">
+                  <Target size={10} className="text-rose-500" />
+                  <p className="text-sm font-bold text-[var(--text-main)]">{(profile.championship_count || 0) + (fights?.length || 0)}</p>
+                </div>
+              </div>
+            </div>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
@@ -2424,6 +2477,36 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
               <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
             </div>
           </div>
+
+          {/* Badges Display */}
+          {(profile.badges && profile.badges.length > 0) ? (
+            <div className="pt-4 border-t border-[var(--primary)]/10">
+              <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">Conquistas Desbloqueadas</p>
+              <div className="flex flex-wrap gap-2">
+                {profile.badges.map((badge, idx) => (
+                  <div key={idx} className="group relative">
+                    <div className="w-10 h-10 bg-black/40 border border-white/5 rounded-xl flex items-center justify-center text-[var(--primary)] hover:border-[var(--primary)]/50 transition-all">
+                      <Zap size={20} className="fill-current" />
+                    </div>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/90 border border-white/10 rounded-lg text-[8px] text-white font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
+                      {badge.name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="pt-4 border-t border-[var(--primary)]/10">
+               <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">Conquistas</p>
+               <div className="flex gap-2 opacity-30 grayscale">
+                 {[1,2,3,4,5].map(i => (
+                   <div key={i} className="w-10 h-10 bg-black/40 border border-white/5 rounded-xl flex items-center justify-center">
+                     <Award size={18} />
+                   </div>
+                 ))}
+               </div>
+            </div>
+          )}
         </div>
       )}
 
