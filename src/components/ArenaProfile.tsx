@@ -6,7 +6,8 @@ import {
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy, VenusAndMars,
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
-  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink
+  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink,
+  Activity, Camera, Video
 } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
@@ -22,7 +23,7 @@ import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { ChallengeModal } from './ChallengeModal';
 import { ChallengeSection } from './ChallengeSection';
 import { challengeService } from '../services/challengeService';
-import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard, calculateAndUpdateStats } from '../services/arenaService';
+import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard, calculateAndUpdateStats, processEngagementEvolution } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
@@ -657,20 +658,18 @@ export const ArenaProfileView: React.FC<{
       setProfile(profileData);
       setEditData(profileData || {});
 
-      // If it's the own profile, ensure stats are up to date (syncs legacy data)
+      // If it's the own profile, ensure engagement and stats are processed
       if (user?.id === targetId && targetId) {
-        calculateAndUpdateStats(targetId).then(() => {
-          // Silently update if the score changed
-          supabase.from('profiles')
-            .select('challenge_score')
-            .eq('id', targetId)
-            .single()
-            .then(({ data: updatedData }) => {
-              if (updatedData && updatedData.challenge_score !== profileData.challenge_score) {
-                setProfile(prev => prev ? { ...prev, challenge_score: updatedData.challenge_score } : null);
-              }
-            });
-        }).catch(e => console.error('Error syncing stats:', e));
+        processEngagementEvolution(targetId).then((result) => {
+          // If evolution processed successfully, update the profile display
+          if (result) {
+            setProfile(prev => prev ? { 
+              ...prev, 
+              streak_count: result.streak, 
+              badges: result.badges || prev.badges 
+            } : null);
+          }
+        }).catch(e => console.error('Error processing engagement:', e));
       }
       
       // Fetch User Modalities (with migration check)
@@ -1692,6 +1691,22 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
   const totalFights = profile ? (profile.total_fights || (profile.wins + profile.losses)) : 0;
   const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
+  const arenaScore = profile?.arena_score || 0;
+  const currentLevel = Math.floor(arenaScore / 1000) + 1;
+  const nextLevelScore = currentLevel * 1000;
+  const levelProgress = ((arenaScore % 1000) / 1000) * 100;
+
+  const renderBadgeIcon = (id: string) => {
+    switch(id) {
+      case 'first_post': return <Camera size={20} className="text-blue-500" />;
+      case 'active_athlete': return <Zap size={20} className="text-orange-500 fill-current" />;
+      case 'marathoner': return <Zap size={20} className="text-rose-500 fill-current" />;
+      case 'complete_profile': return <Shield size={20} className="text-emerald-500" />;
+      case 'frequent_competitor': return <Trophy size={20} className="text-amber-400" />;
+      case 'content_creator': return <Video size={20} className="text-purple-500" />;
+      default: return <Award size={20} />;
+    }
+  };
 
   // Wizard Component
   const renderWizard = () => {
@@ -2394,119 +2409,144 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
       {/* Stats Grid */}
       {profile.role !== 'admin' && (
-        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-          {[
-            { label: 'Arena Score', value: Math.round(profile.arena_score || 0), icon: Award, color: 'text-[var(--primary)]' },
-            { label: 'Desafios Pts', value: Math.round(profile.challenge_score || 0), icon: Zap, color: 'text-amber-500' },
-            { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
-            { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
-            { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
-            { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
-          ].map((stat, i) => (
-            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
-              <div className="flex items-center justify-between gap-2">
-                <stat.icon size={14} className={`${stat.color} shrink-0`} />
-                <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
+        <div className="relative z-10 flex flex-col gap-4">
+          {/* Level Progress Bar */}
+          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center justify-center">
+                  <TrendingUp size={16} className="text-[var(--primary)]" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase text-[var(--text-main)] italic">Nível {currentLevel}</p>
+                  <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Evolução do Atleta</p>
+                </div>
               </div>
-              <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase italic">{Math.round(arenaScore)} / {nextLevelScore} PTS</p>
             </div>
-          ))}
+            <div className="h-2 bg-black/20 rounded-full overflow-hidden border border-white/5">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${levelProgress}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="h-full bg-gradient-to-r from-[var(--primary)] to-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+            {[
+              { label: 'Arena Score', value: Math.round(profile.arena_score || 0), icon: Award, color: 'text-[var(--primary)]' },
+              { label: 'Desafios Pts', value: Math.round(profile.challenge_score || 0), icon: Zap, color: 'text-amber-500' },
+              { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
+              { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
+              { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
+              { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm hover:border-[var(--primary)]/30 transition-all group" style={{ transform: 'translateZ(0)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <stat.icon size={14} className={`${stat.color} shrink-0 group-hover:scale-110 transition-transform`} />
+                  <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
+                </div>
+                <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* Rankings Section */}
+      {/* Engagement Section */}
       {profile.role !== 'admin' && (
-        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <Trophy size={20} className="text-[var(--primary)]" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Engajamento e Evolução</h3>
-            </div>
-            
-            {/* Evolution Stats Mini Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Postagens</p>
-                <div className="flex items-center justify-center gap-1">
-                  <Grid size={10} className="text-[var(--primary)]" />
-                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.post_count || 0}</p>
+        <div className="bg-gradient-to-r from-blue-600/10 via-[var(--primary)]/10 to-transparent border border-white/5 p-6 rounded-[2.5rem] space-y-8 relative overflow-hidden backdrop-blur-md">
+          {/* Background Decorative Pattern */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] -mr-32 -mt-32 rounded-full" />
+          
+          <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between relative z-10">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-500/20 rounded-xl">
+                  <Activity size={20} className="text-blue-400" />
                 </div>
+                <h3 className="text-base font-black uppercase tracking-tighter text-white italic">Engajamento Social</h3>
               </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Vídeos</p>
-                <div className="flex items-center justify-center gap-1">
-                  <Award size={10} className="text-purple-500" />
-                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.video_count || 0}</p>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Imagens</p>
-                <div className="flex items-center justify-center gap-1">
-                  <Grid size={10} className="text-blue-500" />
-                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.image_count || 0}</p>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Campeonatos</p>
-                <div className="flex items-center justify-center gap-1">
-                  <Trophy size={10} className="text-amber-500" />
-                  <p className="text-sm font-bold text-[var(--text-main)]">{profile.championship_count || 0}</p>
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-tighter">Participações</p>
-                <div className="flex items-center justify-center gap-1">
-                  <Target size={10} className="text-rose-500" />
-                  <p className="text-sm font-bold text-[var(--text-main)]">{(profile.championship_count || 0) + (fights?.length || 0)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
-            </div>
-          </div>
-
-          {/* Badges Display */}
-          {(profile.badges && profile.badges.length > 0) ? (
-            <div className="pt-4 border-t border-[var(--primary)]/10">
-              <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">Conquistas Desbloqueadas</p>
-              <div className="flex flex-wrap gap-2">
-                {profile.badges.map((badge, idx) => (
-                  <div key={idx} className="group relative">
-                    <div className="w-10 h-10 bg-black/40 border border-white/5 rounded-xl flex items-center justify-center text-[var(--primary)] hover:border-[var(--primary)]/50 transition-all">
-                      <Zap size={20} className="fill-current" />
-                    </div>
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-black/90 border border-white/10 rounded-lg text-[8px] text-white font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-                      {badge.name}
+              
+              <div className="flex flex-wrap gap-4">
+                {[
+                  { label: 'Posts', value: profile.post_count || 0, icon: Grid, color: 'text-blue-400' },
+                  { label: 'Vids', value: profile.video_count || 0, icon: Video, color: 'text-purple-400' },
+                  { label: 'Pics', value: profile.image_count || 0, icon: Camera, color: 'text-emerald-400' },
+                  { label: 'Champs', value: profile.championship_count || 0, icon: Trophy, color: 'text-amber-400' },
+                  { label: 'Events', value: (profile.championship_count || 0) + (fights?.length || 0), icon: Calendar, color: 'text-rose-400' },
+                ].map((m, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-black/40 px-4 py-2 rounded-2xl border border-white/5">
+                    <m.icon size={12} className={m.color} />
+                    <div>
+                      <p className="text-[10px] font-black text-white leading-none">{m.value}</p>
+                      <p className="text-[7px] font-black uppercase text-gray-500 tracking-tighter">{m.label}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-          ) : (
-            <div className="pt-4 border-t border-[var(--primary)]/10">
-               <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">Conquistas</p>
-               <div className="flex gap-2 opacity-30 grayscale">
-                 {[1,2,3,4,5].map(i => (
-                   <div key={i} className="w-10 h-10 bg-black/40 border border-white/5 rounded-xl flex items-center justify-center">
-                     <Award size={18} />
-                   </div>
-                 ))}
-               </div>
+
+            <div className="grid grid-cols-3 gap-6 bg-black/20 p-6 rounded-3xl border border-white/5 w-full lg:w-auto">
+              <div className="text-center">
+                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Global</p>
+                <p className="text-2xl font-black text-white italic tracking-tighter leading-none">#{rankings.world}</p>
+              </div>
+              <div className="text-center border-x border-white/10 px-6">
+                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Nacional</p>
+                <p className="text-2xl font-black text-[var(--primary)] italic tracking-tighter leading-none">#{rankings.national}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Cidade</p>
+                <p className="text-2xl font-black text-white italic tracking-tighter leading-none">#{rankings.city}</p>
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* Badges and Conquistas */}
+          <div className="space-y-4 pt-6 border-t border-white/5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Conquistas Desbloqueadas</h4>
+              {profile.badges && profile.badges.length > 0 && (
+                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">
+                  {profile.badges.length} CONQUISTAS
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-4">
+              {(profile.badges && profile.badges.length > 0) ? (
+                profile.badges.map((badge, idx) => (
+                  <motion.div 
+                    key={idx}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className="group relative"
+                  >
+                    <div className="w-14 h-14 bg-black/60 border border-white/10 rounded-2xl flex items-center justify-center shadow-xl hover:border-[var(--primary)]/50 transition-all cursor-help overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      {renderBadgeIcon(badge.id)}
+                    </div>
+                    {/* Tooltip */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 border border-white/10 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none z-50 shadow-2xl min-w-[150px]">
+                      <p className="text-[10px] text-[var(--primary)] font-black uppercase italic italic">{badge.name}</p>
+                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-1 leading-tight">{badge.description}</p>
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border-r border-b border-white/10 rotate-45" />
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="flex gap-4 opacity-20 grayscale cursor-not-allowed">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="w-12 h-12 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center">
+                      <Award size={20} className="text-gray-600" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

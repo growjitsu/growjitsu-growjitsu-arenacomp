@@ -1,6 +1,8 @@
 import { supabase } from './supabase';
 import { ArenaFight, ArenaProfile, Team, ArenaAd } from '../types';
 import { getApiUrl } from '../lib/api';
+import { ARENA_BADGES } from '../utils/data';
+import { isProfileComplete } from '../utils/profileValidation';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
   // Fetch all fights for the athlete
@@ -158,6 +160,124 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
   if (updateError) throw updateError;
 
   return { wins, losses, totalFights, winRate, arenaScore };
+};
+
+export const processEngagementEvolution = async (athleteId: string) => {
+  // 1. Get fresh profile
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', athleteId)
+    .single();
+
+  if (profileError || !profile) return null;
+
+  // 2. Update Stats (Post counts, etc.)
+  await calculateAndUpdateStats(athleteId);
+
+  // 3. Update Streak
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const lastActivityStr = profile.last_activity_date;
+  
+  let newStreak = profile.streak_count || 0;
+  let updated = false;
+
+  if (!lastActivityStr) {
+    newStreak = 1;
+    updated = true;
+  } else if (lastActivityStr !== todayStr) {
+    const lastActivityDate = new Date(lastActivityStr);
+    const diffTime = now.getTime() - lastActivityDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) {
+      newStreak += 1;
+    } else if (diffDays > 1) {
+      newStreak = 1;
+    }
+    updated = true;
+  }
+
+  // 4. Evaluate Badges
+  const currentBadges = profile.badges || [];
+  const newBadges = [...currentBadges];
+  let badgesUpdated = false;
+
+  // Badge: First Post
+  if (profile.post_count > 0 && !newBadges.some(b => b.id === 'first_post')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'first_post');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // Badge: Streak 3 days
+  if (newStreak >= 3 && !newBadges.some(b => b.id === 'active_athlete')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'active_athlete');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // Badge: Streak 7 days
+  if (newStreak >= 7 && !newBadges.some(b => b.id === 'marathoner')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'marathoner');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // Badge: Complete Profile
+  if (isProfileComplete(profile) && !newBadges.some(b => b.id === 'complete_profile')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'complete_profile');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // Badge: Frequent Competitor
+  if (profile.championship_count >= 5 && !newBadges.some(b => b.id === 'frequent_competitor')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'frequent_competitor');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // Badge: Content Creator
+  if ((profile.image_count + profile.video_count) >= 10 && !newBadges.some(b => b.id === 'content_creator')) {
+    const badge = ARENA_BADGES.find(b => b.id === 'content_creator');
+    if (badge) {
+      newBadges.push(badge);
+      badgesUpdated = true;
+    }
+  }
+
+  // 5. Save changes
+  if (updated || badgesUpdated) {
+    const updateData: any = {};
+    if (updated) {
+      updateData.streak_count = newStreak;
+      updateData.last_activity_date = todayStr;
+    }
+    if (badgesUpdated) {
+      updateData.badges = newBadges;
+    }
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', athleteId);
+
+    if (updateError) console.error('Error updating engagement stats:', updateError);
+  }
+
+  return { streak: newStreak, badges: newBadges };
 };
 
 export const recalculateAllRankings = async () => {

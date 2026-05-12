@@ -65,3 +65,48 @@ export const belts = [
 ];
 
 export const BELTS = belts;
+
+export const ARENA_BADGES = [
+  {
+    id: 'first_post',
+    name: 'Primeiro Post',
+    description: 'Publicou sua primeira atualização no feed.',
+    icon: 'Camera',
+    type: 'initial'
+  },
+  {
+    id: 'active_athlete',
+    name: 'Atleta Ativo',
+    description: 'Manteve uma sequência de 3 dias ativo.',
+    icon: 'Zap',
+    type: 'streak'
+  },
+  {
+    id: 'marathoner',
+    name: 'Maratonista',
+    description: 'Manteve uma sequência de 7 dias ativo.',
+    icon: 'Zap',
+    type: 'streak'
+  },
+  {
+    id: 'complete_profile',
+    name: 'Perfil de Elite',
+    description: 'Completou 100% das informações do perfil.',
+    icon: 'UserCheck',
+    type: 'profile'
+  },
+  {
+    id: 'frequent_competitor',
+    name: 'Competidor Frequente',
+    description: 'Participou de mais de 5 campeonatos.',
+    icon: 'Trophy',
+    type: 'championship'
+  },
+  {
+    id: 'content_creator',
+    name: 'Criador de Conteúdo',
+    description: 'Publicou mais de 10 mídias (fotos/vídeos).',
+    icon: 'Video',
+    type: 'content'
+  }
+];
