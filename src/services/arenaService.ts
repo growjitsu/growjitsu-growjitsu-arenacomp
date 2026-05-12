@@ -6,43 +6,90 @@ import { isProfileComplete } from '../utils/profileValidation';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
   // Fetch all fights for the athlete
-  const { data: fights, error: fightsError } = await supabase
-    .from('fights')
-    .select('*')
-    .eq('athlete_id', athleteId);
-
-  if (fightsError) throw fightsError;
+  let fights = [];
+  try {
+    const { data: fightsData } = await supabase
+      .from('fights')
+      .select('*')
+      .eq('athlete_id', athleteId);
+    fights = fightsData || [];
+  } catch (e) {
+    console.warn('Error fetching fights:', e);
+  }
 
   // Fetch all championship results for the athlete
-  const { data: championships, error: champError } = await supabase
-    .from('championship_results')
-    .select('*')
-    .eq('athlete_id', athleteId);
-
-  if (champError) throw champError;
+  let championships = [];
+  try {
+    const { data: champData } = await supabase
+      .from('championship_results')
+      .select('*')
+      .eq('athlete_id', athleteId);
+    championships = champData || [];
+  } catch (e) {
+    console.warn('Error fetching championship_results:', e);
+  }
 
   // Fetch all posts for the athlete (count by type)
-  const { data: posts, error: postsError } = await supabase
-    .from('posts')
-    .select('type, is_archived')
-    .eq('author_id', athleteId);
+  let activePosts = [];
+  try {
+    const { data: postsData } = await supabase
+      .from('posts')
+      .select('type, media_url, is_archived')
+      .eq('author_id', athleteId);
+    
+    if (postsData) {
+      activePosts = postsData.filter(p => !p.is_archived);
+    }
+  } catch (e) {
+    // Fallback if is_archived column is missing
+    console.warn('Error fetching posts with is_archived, retrying without filter:', e);
+    try {
+      const { data: retryPosts } = await supabase
+        .from('posts')
+        .select('type, media_url')
+        .eq('author_id', athleteId);
+      activePosts = retryPosts || [];
+    } catch (e2) {
+      console.warn('Critical error fetching posts:', e2);
+    }
+  }
 
-  if (postsError) throw postsError;
-
-  const activePosts = posts.filter(p => !p.is_archived);
   const postCount = activePosts.length;
-  const imageCount = activePosts.filter(p => p.type === 'image').length;
-  const videoCount = activePosts.filter(p => p.type === 'video').length;
-  const championshipCount = championships.length;
+  const imageCount = activePosts.filter(p => 
+    p.type === 'image' || 
+    (p.media_url && !p.media_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) && !p.media_url.includes('video'))
+  ).length;
+  const videoCount = activePosts.filter(p => 
+    p.type === 'video' || 
+    (p.media_url && (p.media_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || p.media_url.includes('video')))
+  ).length;
+
+  // Fetch all platform competition results
+  let platformResults = [];
+  try {
+    const { data: platResp } = await supabase
+      .from('competition_results')
+      .select('*')
+      .eq('athlete_id', athleteId);
+    platformResults = platResp || [];
+  } catch (e) {
+    console.warn('Error fetching competition_results:', e);
+  }
+
+  const championshipCount = championships.length + platformResults.length;
 
   // Fetch all completed challenges for the athlete
-  const { data: challenges, error: challengeError } = await supabase
-    .from('challenges')
-    .select('*')
-    .in('status', ['finished', 'completed'])
-    .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
-
-  if (challengeError) throw challengeError;
+  let challenges = [];
+  try {
+    const { data: challengeData } = await supabase
+      .from('challenges')
+      .select('*')
+      .in('status', ['finished', 'completed'])
+      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
+    challenges = challengeData || [];
+  } catch (e) {
+    console.warn('Error fetching challenges:', e);
+  }
 
   // Calculate Challenge Points Separately
   let challengeScore = 0;
@@ -159,7 +206,19 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
 
   if (updateError) throw updateError;
 
-  return { wins, losses, totalFights, winRate, arenaScore };
+  return { 
+    wins, 
+    losses, 
+    draws,
+    total_fights: totalFights, 
+    win_rate: winRate, 
+    arena_score: arenaScore,
+    challenge_score: challengeScore,
+    post_count: postCount,
+    image_count: imageCount,
+    video_count: videoCount,
+    championship_count: championshipCount
+  };
 };
 
 export const processEngagementEvolution = async (athleteId: string) => {
@@ -173,7 +232,7 @@ export const processEngagementEvolution = async (athleteId: string) => {
   if (profileError || !profile) return null;
 
   // 2. Update Stats (Post counts, etc.)
-  await calculateAndUpdateStats(athleteId);
+  const stats = await calculateAndUpdateStats(athleteId);
 
   // 3. Update Streak
   const now = new Date();
@@ -277,7 +336,7 @@ export const processEngagementEvolution = async (athleteId: string) => {
     if (updateError) console.error('Error updating engagement stats:', updateError);
   }
 
-  return { streak: newStreak, badges: newBadges };
+  return { streak: newStreak, badges: newBadges, stats };
 };
 
 export const recalculateAllRankings = async () => {

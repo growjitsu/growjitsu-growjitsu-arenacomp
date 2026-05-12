@@ -666,7 +666,8 @@ export const ArenaProfileView: React.FC<{
             setProfile(prev => prev ? { 
               ...prev, 
               streak_count: result.streak, 
-              badges: result.badges || prev.badges 
+              badges: result.badges || prev.badges,
+              ...result.stats
             } : null);
           }
         }).catch(e => console.error('Error processing engagement:', e));
