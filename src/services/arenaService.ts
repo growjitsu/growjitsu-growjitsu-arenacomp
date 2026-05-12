@@ -5,55 +5,37 @@ import { ARENA_BADGES } from '../utils/data';
 import { isProfileComplete } from '../utils/profileValidation';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
-  // Fetch all fights for the athlete
-  let fights = [];
-  try {
-    const { data: fightsData } = await supabase
-      .from('fights')
-      .select('*')
-      .eq('athlete_id', athleteId);
-    fights = fightsData || [];
-  } catch (e) {
-    console.warn('Error fetching fights:', e);
-  }
+  // 1. Run all initial data fetches in parallel to minimize latency
+  // We use .select('*') and then filter in JS to be resilient to missing columns (schema evolution)
+  const [
+    fightsRes,
+    champRes,
+    postsRes,
+    platRes,
+    challengeRes,
+    adjRes
+  ] = await Promise.all([
+    supabase.from('fights').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
+    supabase.from('championship_results').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
+    supabase.from('posts').select('*').eq('author_id', athleteId).catch(() => ({ data: [] })),
+    supabase.from('competition_results').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
+    supabase.from('challenges').select('*')
+      .in('status', ['finished', 'completed'])
+      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`)
+      .catch(() => ({ data: [] })),
+    supabase.from('challenge_points_adjustments').select('adjustment_value').eq('athlete_id', athleteId).catch(() => ({ data: [] }))
+  ]);
 
-  // Fetch all championship results for the athlete
-  let championships = [];
-  try {
-    const { data: champData } = await supabase
-      .from('championship_results')
-      .select('*')
-      .eq('athlete_id', athleteId);
-    championships = champData || [];
-  } catch (e) {
-    console.warn('Error fetching championship_results:', e);
-  }
+  const fights = fightsRes.data || [];
+  const championships = champRes.data || [];
+  const postsData = postsRes.data || [];
+  const platformResults = platRes.data || [];
+  const challenges = challengeRes.data || [];
+  const adjustments = adjRes.data || [];
 
-  // Fetch all posts for the athlete (count by type)
-  let activePosts = [];
-  try {
-    const { data: postsData } = await supabase
-      .from('posts')
-      .select('type, media_url, is_archived')
-      .eq('author_id', athleteId);
-    
-    if (postsData) {
-      activePosts = postsData.filter(p => !p.is_archived);
-    }
-  } catch (e) {
-    // Fallback if is_archived column is missing
-    console.warn('Error fetching posts with is_archived, retrying without filter:', e);
-    try {
-      const { data: retryPosts } = await supabase
-        .from('posts')
-        .select('type, media_url')
-        .eq('author_id', athleteId);
-      activePosts = retryPosts || [];
-    } catch (e2) {
-      console.warn('Critical error fetching posts:', e2);
-    }
-  }
-
+  // Filter posts (handle potential is_archived missing gracefully)
+  const activePosts = postsData.filter(p => !p.is_archived);
+  
   const postCount = activePosts.length;
   const imageCount = activePosts.filter(p => 
     p.type === 'image' || 
@@ -64,44 +46,17 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
     (p.media_url && (p.media_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || p.media_url.includes('video')))
   ).length;
 
-  // Fetch all platform competition results
-  let platformResults = [];
-  try {
-    const { data: platResp } = await supabase
-      .from('competition_results')
-      .select('*')
-      .eq('athlete_id', athleteId);
-    platformResults = platResp || [];
-  } catch (e) {
-    console.warn('Error fetching competition_results:', e);
-  }
-
   const championshipCount = championships.length + platformResults.length;
 
-  // Fetch all completed challenges for the athlete
-  let challenges = [];
-  try {
-    const { data: challengeData } = await supabase
-      .from('challenges')
-      .select('*')
-      .in('status', ['finished', 'completed'])
-      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
-    challenges = challengeData || [];
-  } catch (e) {
-    console.warn('Error fetching challenges:', e);
-  }
-
-  // Calculate Challenge Points Separately
+  // 2. Process Challenges Points
   let challengeScore = 0;
   const pointsMap: Record<string, number> = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
 
-  challenges?.forEach(c => {
-    // Explicitly check for both IDs and ensure points are numbers
+  challenges.forEach(c => {
     let points = (c.challenger_id === athleteId) 
       ? Number(c.challenger_points || 0)
       : Number(c.challenged_points || 0);
     
-    // REPAIR LOGIC: If points are 0 but status is finished/completed, try to recalculate from results or outcome
     if (points === 0) {
       const result = (c.challenger_id === athleteId) ? c.challenger_result : c.challenged_result;
       if (result && result.category) {
@@ -110,7 +65,6 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
           points += pointsMap[result.absolute];
         }
       } else if (c.outcome) {
-        // Fallback for challenges resolved without detailed podium results (e.g. manual victory)
         if (c.challenger_id === athleteId) {
           points = (c.outcome === 'challenger_win') ? 100 : (c.outcome === 'draw' ? 25 : 5);
         } else {
@@ -118,107 +72,59 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
         }
       }
     }
-    
     challengeScore += points;
   });
 
-  // Fetch manual adjustments for challenge points
-  const { data: adjustments, error: adjError } = await supabase
-    .from('challenge_points_adjustments')
-    .select('adjustment_value')
-    .eq('athlete_id', athleteId);
-
-  if (!adjError && adjustments) {
+  // Manual adjustments
+  if (adjustments) {
     adjustments.forEach(adj => {
       challengeScore += Number(adj.adjustment_value || 0);
     });
   }
 
-  // Calculate Fight Stats
-  let wins = fights.filter(f => f.resultado === 'win').length;
-  let losses = fights.filter(f => f.resultado === 'loss').length;
-  let draws = 0;
+  // 3. Calculate Fight Stats and Arena Score
+  const wins = fights.filter(f => f.resultado === 'win').length;
+  const losses = fights.filter(f => f.resultado === 'loss').length;
+  const draws = fights.filter(f => f.resultado === 'draw').length;
   
-  // Arena Score from Fights = (wins * 15) - (losses * 5) + (draws * 2) + (submissions/knockouts * 5)
-  // IMPORTANT: Challenges are NOT mixed with Arena Score (Ranking) as per requirements
   const bonusPoints = fights.filter(f => 
     f.resultado === 'win' && (f.tipo_vitoria === 'finalização' || f.tipo_vitoria === 'nocaute')
   ).length * 5;
 
   let arenaScore = (wins * 15) - (losses * 5) + (draws * 2) + bonusPoints;
 
-  // Add Championship Stats to Arena Score
-  championships?.forEach(champ => {
-    switch (champ.resultado) {
-      case 'Campeão':
-        arenaScore += 100;
-        break;
-      case 'Vice-campeão':
-        arenaScore += 50;
-        break;
-      case 'Terceiro lugar':
-        arenaScore += 25;
-        break;
-      case 'Participação':
-        arenaScore += 5;
-        break;
-    }
+  championships.forEach(champ => {
+    const res = champ.resultado;
+    if (res === 'Campeão') arenaScore += 100;
+    else if (res === 'Vice-campeão') arenaScore += 50;
+    else if (res === 'Terceiro lugar') arenaScore += 25;
+    else if (res === 'Participação') arenaScore += 5;
   });
 
-  const totalFights = wins + losses;
-  const winRate = totalFights > 0 ? (wins / totalFights) * 100 : 0;
+  const totalFights = wins + losses + draws;
+  const winRate = totalFights > 0 ? (wins / (wins + losses)) * 100 : 0;
 
-  // Calculate separate Challenge outcomes (Optional: for profile display if needed, but NOT mixed with ranking)
-  let challengeWins = 0;
-  let challengeLosses = 0;
-  let challengeDraws = 0;
-
-  challenges?.forEach(c => {
-    if (c.challenger_id === athleteId) {
-      if (c.outcome === 'challenger_win') challengeWins++;
-      else if (c.outcome === 'challenged_win') challengeLosses++;
-      else if (c.outcome === 'draw') challengeDraws++;
-    } else {
-      if (c.outcome === 'challenged_win') challengeWins++;
-      else if (c.outcome === 'challenger_win') challengeLosses++;
-      else if (c.outcome === 'draw') challengeDraws++;
-    }
-  });
-
-  // Update profile
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({
-      wins,
-      losses,
-      draws,
-      total_fights: totalFights,
-      win_rate: winRate,
-      arena_score: arenaScore,
-      challenge_score: challengeScore,
-      post_count: postCount,
-      image_count: imageCount,
-      video_count: videoCount,
-      championship_count: championshipCount,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', athleteId);
-
-  if (updateError) throw updateError;
-
-  return { 
-    wins, 
-    losses, 
+  // 4. Update profile in background (don't block the return if we just want stats)
+  const statsToUpdate = {
+    wins,
+    losses,
     draws,
-    total_fights: totalFights, 
-    win_rate: winRate, 
+    total_fights: totalFights,
+    win_rate: Math.round(winRate),
     arena_score: arenaScore,
     challenge_score: challengeScore,
     post_count: postCount,
     image_count: imageCount,
     video_count: videoCount,
-    championship_count: championshipCount
+    championship_count: championshipCount,
+    updated_at: new Date().toISOString()
   };
+
+  supabase.from('profiles').update(statsToUpdate).eq('id', athleteId).then(({ error }) => {
+    if (error) console.error('Error updating profile stats:', error);
+  });
+
+  return statsToUpdate;
 };
 
 export const processEngagementEvolution = async (athleteId: string) => {

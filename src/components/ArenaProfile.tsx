@@ -658,10 +658,85 @@ export const ArenaProfileView: React.FC<{
       setProfile(profileData);
       setEditData(profileData || {});
 
-      // If it's the own profile, ensure engagement and stats are processed
+      // Parallelize all data fetching for faster profile loading
+      const fetchAllData = async () => {
+        try {
+          const [
+            rankingResult,
+            resultsResp,
+            champsResp,
+            fightsResp,
+            challengesResp,
+            postsResp,
+            repDataResp
+          ] = await Promise.all([
+            getAthleteRankings(profileData).catch(() => ({ world: 0, national: 0, city: 0 })),
+            supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
+            supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }).catch(() => ({ data: [] })),
+            supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }).catch(() => ({ data: [] })),
+            supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
+            supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
+            profileData?.team_id ? supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id).eq('role', 'representative').maybeSingle().catch(() => ({ data: null })) : Promise.resolve({ data: null })
+          ]);
+
+          if (rankingResult) setRankings(rankingResult);
+          if (resultsResp.data) setResults(resultsResp.data);
+          if (champsResp.data) setChampionships(champsResp.data);
+          if (fightsResp.data) setFights(fightsResp.data);
+          if (challengesResp.data) setChallenges(challengesResp.data);
+          if (repDataResp.data) setIsTeamRepresentative(true);
+
+          if (postsResp.data) {
+            // Fetch user's likes to mark posts as liked
+            let userLikes: Set<string> = new Set();
+            if (user) {
+              const { data: likesData } = await supabase
+                .from('likes')
+                .select('post_id')
+                .eq('user_id', user.id);
+              
+              if (likesData) {
+                userLikes = new Set(likesData.map(l => l.post_id));
+              }
+            }
+
+            const postsWithLikes = postsResp.data.map(post => ({
+              ...post,
+              is_liked: userLikes.has(post.id)
+            }));
+            
+            setPosts(postsWithLikes.filter(p => !p.is_archived));
+            setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
+          }
+
+          // If team info is needed, fetch it separately to not block primary profile data
+          if (profileData?.team_id) {
+            supabase.from('teams')
+              .select('*, countries(name), states(name), cities(name)')
+              .eq('id', profileData.team_id)
+              .single()
+              .then(({ data: tData }) => {
+                if (tData) {
+                  setTeamData(tData);
+                  setTeamEditData(tData);
+                }
+              });
+          }
+        } catch (err) {
+          console.error('Error fetching profile secondary data:', err);
+        }
+      };
+
+      if (profileData) {
+        fetchAllData();
+        if (targetId) {
+          fetchUserModalities(targetId, profileData);
+        }
+      }
+
+      // Ensure engagement and stats are processed in background for the own profile
       if (user?.id === targetId && targetId) {
         processEngagementEvolution(targetId).then((result) => {
-          // If evolution processed successfully, update the profile display
           if (result) {
             setProfile(prev => prev ? { 
               ...prev, 
@@ -673,113 +748,6 @@ export const ArenaProfileView: React.FC<{
         }).catch(e => console.error('Error processing engagement:', e));
       }
       
-      // Fetch User Modalities (with migration check)
-      if (targetId) {
-        fetchUserModalities(targetId, profileData);
-      }
-
-      // Check if user is team representative
-      if (profileData?.team_id && user) {
-        const { data: repData } = await supabase
-          .from('team_members')
-          .select('role')
-          .eq('team_id', profileData.team_id)
-          .eq('user_id', user.id)
-          .eq('role', 'representative')
-          .maybeSingle();
-        
-        setIsTeamRepresentative(!!repData);
-
-        // Fetch full team data
-        const { data: tData } = await supabase
-          .from('teams')
-          .select('*, countries(name), states(name), cities(name)')
-          .eq('id', profileData.team_id)
-          .single();
-        
-        if (tData) {
-          setTeamData(tData);
-          setTeamEditData(tData);
-        }
-      }
-
-      // Fetch Rankings
-      if (profileData) {
-        const rankData = await getAthleteRankings(profileData);
-        setRankings(rankData);
-      }
-
-      // Fetch Results
-      const { data: resultsData } = await supabase
-        .from('competition_results')
-        .select(`
-          *,
-          competition:competitions(*)
-        `)
-        .eq('athlete_id', targetId)
-        .order('created_at', { ascending: false });
-      
-      setResults(resultsData || []);
-
-      // Fetch Championship Results
-      const { data: champData } = await supabase
-        .from('championship_results')
-        .select('*')
-        .eq('athlete_id', targetId)
-        .order('data_evento', { ascending: false });
-      
-      setChampionships(champData || []);
-
-      // Fetch Fights
-      const { data: fightsData } = await supabase
-        .from('fights')
-        .select('*')
-        .eq('athlete_id', targetId)
-        .order('data_luta', { ascending: false });
-      
-      setFights(fightsData || []);
-
-      // Fetch Challenges
-      const { data: challengesData } = await supabase
-        .from('challenges')
-        .select(`
-          *,
-          challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url),
-          challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)
-        `)
-        .or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`)
-        .order('created_at', { ascending: false });
-      
-      setChallenges(challengesData || []);
-
-      // Fetch Posts
-      const { data: postsData } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('author_id', targetId)
-        .order('created_at', { ascending: false });
-      
-      // Fetch user's likes to mark posts as liked
-      let userLikes: Set<string> = new Set();
-      if (user) {
-        const { data: likesData } = await supabase
-          .from('likes')
-          .select('post_id')
-          .eq('user_id', user.id);
-        
-        if (likesData) {
-          userLikes = new Set(likesData.map(l => l.post_id));
-        }
-      }
-
-      const postsWithLikes = (postsData || []).map(post => ({
-        ...post,
-        is_liked: userLikes.has(post.id)
-      }));
-      
-      setPosts(postsWithLikes.filter(p => !p.is_archived));
-      setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
-
       // Fetch Certificates
       const { data: certData } = await supabase
         .from('certificates')
@@ -804,16 +772,28 @@ export const ArenaProfileView: React.FC<{
   useEffect(() => {
     setIsEditing(forceEdit || false);
     fetchProfileData();
-    const fetchAllTeams = async () => {
-      try {
-        const data = await getTeams();
-        setAllTeams(data);
-      } catch (err) {
-        console.error('Error fetching teams:', err);
-      }
-    };
-    fetchAllTeams();
+
+    // Only fetch all teams if we are in editing mode or about to edit
+    // This saves bandwidth and initial load time
+    if (forceEdit || isEditing) {
+      const fetchAllTeams = async () => {
+        try {
+          const data = await getTeams();
+          setAllTeams(data);
+        } catch (err) {
+          console.error('Error fetching teams:', err);
+        }
+      };
+      fetchAllTeams();
+    }
   }, [userId, username, contentId, contentType, forceEdit]);
+
+  // Handle lazy loading of teams when entering edit mode
+  useEffect(() => {
+    if (isEditing && allTeams.length === 0) {
+      getTeams().then(setAllTeams).catch(console.error);
+    }
+  }, [isEditing, allTeams.length]);
 
   // Scroll to content if provided
   useEffect(() => {
@@ -2471,7 +2451,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 <h3 className="text-base font-black uppercase tracking-tighter text-white italic">Engajamento Social</h3>
               </div>
               
-              <div className="flex flex-wrap gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
                 {[
                   { label: 'Posts', value: profile.post_count || 0, icon: Grid, color: 'text-blue-400' },
                   { label: 'Vids', value: profile.video_count || 0, icon: Video, color: 'text-purple-400' },
@@ -2479,11 +2459,11 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   { label: 'Champs', value: profile.championship_count || 0, icon: Trophy, color: 'text-amber-400' },
                   { label: 'Events', value: (profile.championship_count || 0) + (fights?.length || 0), icon: Calendar, color: 'text-rose-400' },
                 ].map((m, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-black/40 px-4 py-2 rounded-2xl border border-white/5">
+                  <div key={i} className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-2 bg-black/40 p-2 sm:px-4 sm:py-2 rounded-2xl border border-white/5 text-center sm:text-left transition-all hover:border-white/10">
                     <m.icon size={12} className={m.color} />
-                    <div>
-                      <p className="text-[10px] font-black text-white leading-none">{m.value}</p>
-                      <p className="text-[7px] font-black uppercase text-gray-500 tracking-tighter">{m.label}</p>
+                    <div className="flex flex-col">
+                      <p className="text-[10px] sm:text-xs font-black text-white leading-none">{m.value}</p>
+                      <p className="text-[7px] font-black uppercase text-gray-500 tracking-tighter mt-0.5">{m.label}</p>
                     </div>
                   </div>
                 ))}
