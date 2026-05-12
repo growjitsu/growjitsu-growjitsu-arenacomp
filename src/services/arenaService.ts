@@ -15,15 +15,15 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
     challengeRes,
     adjRes
   ] = await Promise.all([
-    supabase.from('fights').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
-    supabase.from('championship_results').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
-    supabase.from('posts').select('*').eq('author_id', athleteId).catch(() => ({ data: [] })),
-    supabase.from('competition_results').select('*').eq('athlete_id', athleteId).catch(() => ({ data: [] })),
-    supabase.from('challenges').select('*')
+    (supabase.from('fights').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
+    (supabase.from('championship_results').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
+    (supabase.from('posts').select('*').eq('author_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
+    (supabase.from('competition_results').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
+    (supabase.from('challenges').select('*')
       .in('status', ['finished', 'completed'])
-      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`)
+      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`) as any as Promise<any>)
       .catch(() => ({ data: [] })),
-    supabase.from('challenge_points_adjustments').select('adjustment_value').eq('athlete_id', athleteId).catch(() => ({ data: [] }))
+    (supabase.from('challenge_points_adjustments').select('adjustment_value').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] }))
   ]);
 
   const fights = fightsRes.data || [];
@@ -102,7 +102,7 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
   });
 
   const totalFights = wins + losses + draws;
-  const winRate = totalFights > 0 ? (wins / (wins + losses)) * 100 : 0;
+  const winRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
 
   // 4. Update profile in background (don't block the return if we just want stats)
   const statsToUpdate = {
@@ -306,16 +306,18 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
 
   const [world, national, city] = await Promise.all([
     getRank(q => q), // World: no extra filters
-    getRank(q => {
-      if (athlete.country_id) return q.eq('country_id', athlete.country_id);
-      if (athlete.country) return q.ilike('country', athlete.country);
-      return q;
-    }),
-    getRank(q => {
-      if (athlete.city_id) return q.eq('city_id', athlete.city_id);
-      if (athlete.city) return q.ilike('city', athlete.city);
-      return q;
-    })
+    (athlete.country_id || athlete.country) 
+      ? getRank(q => {
+          if (athlete.country_id) return q.eq('country_id', athlete.country_id);
+          return q.ilike('country', athlete.country!);
+        })
+      : Promise.resolve(0),
+    (athlete.city_id || athlete.city)
+      ? getRank(q => {
+          if (athlete.city_id) return q.eq('city_id', athlete.city_id);
+          return q.ilike('city', athlete.city!);
+        })
+      : Promise.resolve(0)
   ]);
 
   return { world, national, city };

@@ -671,12 +671,12 @@ export const ArenaProfileView: React.FC<{
             repDataResp
           ] = await Promise.all([
             getAthleteRankings(profileData).catch(() => ({ world: 0, national: 0, city: 0 })),
-            supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
-            supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }).catch(() => ({ data: [] })),
-            supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }).catch(() => ({ data: [] })),
-            supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
-            supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }).catch(() => ({ data: [] })),
-            profileData?.team_id ? supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id).eq('role', 'representative').maybeSingle().catch(() => ({ data: null })) : Promise.resolve({ data: null })
+            (supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
+            (supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
+            (supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
+            (supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
+            (supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
+            profileData?.team_id ? (supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id).eq('role', 'representative').maybeSingle() as any as Promise<any>).catch(() => ({ data: null })) : Promise.resolve({ data: null })
           ]);
 
           if (rankingResult) setRankings(rankingResult);
@@ -737,13 +737,20 @@ export const ArenaProfileView: React.FC<{
       // Ensure engagement and stats are processed in background for the own profile
       if (user?.id === targetId && targetId) {
         processEngagementEvolution(targetId).then((result) => {
-          if (result) {
-            setProfile(prev => prev ? { 
-              ...prev, 
+          if (result && result.stats) {
+            const updatedProfile = { 
+              ...(profileData || {}), 
               streak_count: result.streak, 
-              badges: result.badges || prev.badges,
+              badges: result.badges,
               ...result.stats
-            } : null);
+            };
+            
+            setProfile(updatedProfile as ArenaProfile);
+            
+            // CRITICAL: Refresh rankings AFTER stats are recalculated to ensure accuracy
+            getAthleteRankings(updatedProfile as ArenaProfile)
+              .then(setRankings)
+              .catch(e => console.error('Error refreshing rankings after sync:', e));
           }
         }).catch(e => console.error('Error processing engagement:', e));
       }
@@ -2438,20 +2445,20 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
       {/* Engagement Section */}
       {profile.role !== 'admin' && (
-        <div className="bg-gradient-to-r from-blue-600/10 via-[var(--primary)]/10 to-transparent border border-white/5 p-6 rounded-[2.5rem] space-y-8 relative overflow-hidden backdrop-blur-md">
+        <div className="bg-black/40 border border-white/10 p-5 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] space-y-6 md:space-y-8 relative overflow-hidden">
           {/* Background Decorative Pattern */}
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] -mr-32 -mt-32 rounded-full" />
           
-          <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between relative z-10">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
+          <div className="flex flex-col lg:flex-row gap-6 md:gap-8 items-start lg:items-center justify-between relative z-10 w-full">
+            <div className="space-y-4 w-full lg:w-auto">
+              <div className="flex items-center space-x-3 mb-4">
                 <div className="p-2 bg-blue-500/20 rounded-xl">
-                  <Activity size={20} className="text-blue-400" />
+                  <Activity size={18} className="text-blue-400" />
                 </div>
-                <h3 className="text-base font-black uppercase tracking-tighter text-white italic">Engajamento Social</h3>
+                <h3 className="text-sm md:text-base font-black uppercase tracking-tight text-white italic">Engajamento Social</h3>
               </div>
               
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 w-full">
                 {[
                   { label: 'Posts', value: profile.post_count || 0, icon: Grid, color: 'text-blue-400' },
                   { label: 'Vids', value: profile.video_count || 0, icon: Video, color: 'text-purple-400' },
@@ -2459,29 +2466,29 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   { label: 'Champs', value: profile.championship_count || 0, icon: Trophy, color: 'text-amber-400' },
                   { label: 'Events', value: (profile.championship_count || 0) + (fights?.length || 0), icon: Calendar, color: 'text-rose-400' },
                 ].map((m, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row items-center sm:items-center gap-1 sm:gap-2 bg-black/40 p-2 sm:px-4 sm:py-2 rounded-2xl border border-white/5 text-center sm:text-left transition-all hover:border-white/10">
-                    <m.icon size={12} className={m.color} />
-                    <div className="flex flex-col">
-                      <p className="text-[10px] sm:text-xs font-black text-white leading-none">{m.value}</p>
-                      <p className="text-[7px] font-black uppercase text-gray-500 tracking-tighter mt-0.5">{m.label}</p>
+                  <div key={i} className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 bg-white/5 p-2 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border border-white/5 text-center sm:text-left transition-all hover:bg-white/10">
+                    <m.icon size={12} className={`${m.color} shrink-0`} />
+                    <div className="flex flex-col min-w-0">
+                      <p className="text-[9px] sm:text-xs font-black text-white leading-none truncate">{m.value}</p>
+                      <p className="text-[6px] sm:text-[8px] font-bold uppercase text-gray-400 tracking-tighter mt-0.5 truncate">{m.label}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-6 bg-black/20 p-6 rounded-3xl border border-white/5 w-full lg:w-auto">
-              <div className="text-center">
-                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Global</p>
-                <p className="text-2xl font-black text-white italic tracking-tighter leading-none">#{rankings.world}</p>
+            <div className="flex items-center justify-between bg-black/40 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5 w-full lg:w-auto lg:min-w-[320px] gap-4 sm:gap-8">
+              <div className="text-center flex-1">
+                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Global</p>
+                <p className="text-xl sm:text-2xl font-black text-white italic tracking-tighter leading-none">{rankings.world > 0 ? `#${rankings.world}` : '-'}</p>
               </div>
-              <div className="text-center border-x border-white/10 px-6">
-                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Nacional</p>
-                <p className="text-2xl font-black text-[var(--primary)] italic tracking-tighter leading-none">#{rankings.national}</p>
+              <div className="text-center border-x border-white/10 px-4 sm:px-8 flex-1">
+                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Nacional</p>
+                <p className="text-xl sm:text-2xl font-black text-[var(--primary)] italic tracking-tighter leading-none">{rankings.national > 0 ? `#${rankings.national}` : '-'}</p>
               </div>
-              <div className="text-center">
-                <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Cidade</p>
-                <p className="text-2xl font-black text-white italic tracking-tighter leading-none">#{rankings.city}</p>
+              <div className="text-center flex-1">
+                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Cidade</p>
+                <p className="text-xl sm:text-2xl font-black text-white italic tracking-tighter leading-none">{rankings.city > 0 ? `#${rankings.city}` : '-'}</p>
               </div>
             </div>
           </div>
@@ -2489,39 +2496,39 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           {/* Badges and Conquistas */}
           <div className="space-y-4 pt-6 border-t border-white/5">
             <div className="flex items-center justify-between">
-              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Conquistas Desbloqueadas</h4>
+              <h4 className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Conquistas Desbloqueadas</h4>
               {profile.badges && profile.badges.length > 0 && (
-                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">
+                <span className="text-[7px] sm:text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">
                   {profile.badges.length} CONQUISTAS
                 </span>
               )}
             </div>
 
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-2 sm:gap-4 justify-center sm:justify-start">
               {(profile.badges && profile.badges.length > 0) ? (
-                profile.badges.map((badge, idx) => (
+                profile.badges.slice(0, 8).map((badge, idx) => (
                   <motion.div 
                     key={idx}
                     whileHover={{ scale: 1.1, rotate: 5 }}
                     className="group relative"
                   >
-                    <div className="w-14 h-14 bg-black/60 border border-white/10 rounded-2xl flex items-center justify-center shadow-xl hover:border-[var(--primary)]/50 transition-all cursor-help overflow-hidden">
+                    <div className="w-10 h-10 sm:w-14 sm:h-14 bg-black/60 border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl hover:border-[var(--primary)]/50 transition-all cursor-help overflow-hidden">
                       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       {renderBadgeIcon(badge.id)}
                     </div>
                     {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 border border-white/10 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none z-50 shadow-2xl min-w-[150px]">
-                      <p className="text-[10px] text-[var(--primary)] font-black uppercase italic italic">{badge.name}</p>
-                      <p className="text-[8px] text-gray-400 font-bold uppercase tracking-tight mt-1 leading-tight">{badge.description}</p>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 border border-white/10 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none z-50 shadow-2xl min-w-[120px]">
+                      <p className="text-[9px] text-[var(--primary)] font-black uppercase italic">{badge.name}</p>
+                      <p className="text-[7px] text-gray-400 font-bold uppercase tracking-tight mt-1 leading-tight">{badge.description}</p>
                       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border-r border-b border-white/10 rotate-45" />
                     </div>
                   </motion.div>
                 ))
               ) : (
-                <div className="flex gap-4 opacity-20 grayscale cursor-not-allowed">
+                <div className="flex gap-2 sm:gap-4 opacity-20 grayscale">
                   {[1,2,3,4,5].map(i => (
-                    <div key={i} className="w-12 h-12 bg-black/40 border border-white/5 rounded-2xl flex items-center justify-center">
-                      <Award size={20} className="text-gray-600" />
+                    <div key={i} className="w-9 h-9 sm:w-12 sm:h-12 bg-black/40 border border-white/5 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                      <Award size={16} className="text-gray-600" />
                     </div>
                   ))}
                 </div>
