@@ -70,7 +70,7 @@ export const ArenaProfileView: React.FC<{
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<ArenaChampionshipResult | null>(null);
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
-  const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
+  const [rankings, setRankings] = useState<{ world: number; national: number; city: number } | null>(null);
   const [userModalities, setUserModalities] = useState<UserModality[]>([]);
   const [newModality, setNewModality] = useState('');
   const [newModalityBelt, setNewModalityBelt] = useState('');
@@ -619,6 +619,11 @@ export const ArenaProfileView: React.FC<{
       const followPromises: Promise<any>[] = [fetchFollowerCount(targetId)];
       if (user && user.id !== targetId) {
         followPromises.push(checkIfFollowing(user.id, targetId));
+      }
+
+      // Initialize rankings as null to show loading state if we don't have them yet
+      if (!rankings) {
+        setRankings(null);
       }
 
       // If we don't have profileData yet or it's potentially stale, fetch it
@@ -2090,7 +2095,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             {/* Clean background */}
           </div>
           
-          {isOwnProfile && !isEditing && (
+            {isOwnProfile && !isEditing && (
             <div className="absolute top-4 right-4 flex space-x-2 z-20">
               <button 
                 onClick={() => {
@@ -2109,14 +2114,14 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     });
                   }
                 }}
-                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                className="bg-black/60 sm:backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
                 title="Compartilhar Perfil"
               >
                 <Share2 size={18} />
               </button>
               <button 
                 onClick={() => setIsEditing(true)}
-                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                className="bg-black/60 sm:backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
                 title="Editar Perfil"
               >
                 <Edit2 size={18} />
@@ -2331,7 +2336,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
             { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
           ].map((stat, i) => (
-            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
+            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <stat.icon size={14} className={`${stat.color} shrink-0`} />
                 <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
@@ -2352,15 +2357,39 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">
+                {rankings ? `#${rankings.world}` : (
+                  <span className="flex items-center space-x-1">
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
+                  </span>
+                )}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">
+                {rankings ? `#${rankings.national}` : (
+                  <span className="flex items-center space-x-1">
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
+                  </span>
+                )}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">
+                {rankings ? `#${rankings.city}` : (
+                  <span className="flex items-center space-x-1">
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
+                  </span>
+                )}
+              </p>
             </div>
           </div>
         </div>
@@ -2836,7 +2865,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden relative group/promo shadow-2xl"
+              className="mb-8 bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] overflow-hidden relative group/promo shadow-2xl"
             >
               {(() => {
                 const ad = ads[currentAdIndex % ads.length];
@@ -2866,7 +2895,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     )}
 
                     {/* Ad Label */}
-                    <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)]/90 backdrop-blur-md rounded-xl shadow-lg border border-white/20">
+                    <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)] rounded-xl shadow-lg border border-white/20">
                       <Zap size={12} className="text-white fill-white animate-pulse" />
                       <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Patrocinado</span>
                     </div>
@@ -3040,7 +3069,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
+                        <div className="p-2 bg-white/30 rounded-xl">
                           <Brain size={24} className="text-white" />
                         </div>
                         <h2 className="text-xl font-black uppercase tracking-tighter italic">Arena Intelligence Analysis</h2>
@@ -3050,7 +3079,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       </p>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <div className="text-center px-6 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
+                      <div className="text-center px-6 py-3 bg-white/20 rounded-2xl border border-white/20">
                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Confiança IA</p>
                         <p className="text-2xl font-black">94%</p>
                       </div>
@@ -3184,7 +3213,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                 e.stopPropagation();
                                 setActiveMenuId(activeMenuId === post.id ? null : post.id);
                               }}
-                              className="p-1.5 bg-black/40 backdrop-blur-md rounded-lg text-white hover:bg-black/60 transition-colors"
+                              className="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-colors"
                             >
                               <MoreVertical size={14} />
                             </button>
@@ -3285,7 +3314,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser)}
                           >
                             {/* Ad Label */}
-                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)]/90 backdrop-blur-md rounded-lg shadow-lg">
+                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)] rounded-lg shadow-lg">
                               <Zap size={10} className="text-white fill-white animate-pulse" />
                               <span className="text-[8px] font-black text-white uppercase tracking-widest">Patrocinado</span>
                             </div>
