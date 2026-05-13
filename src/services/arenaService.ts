@@ -3,35 +3,30 @@ import { ArenaFight, ArenaProfile, Team, ArenaAd } from '../types';
 import { getApiUrl } from '../lib/api';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
-  // Fetch all related data for the athlete in parallel
-  const [fightsRes, champsRes, challengesRes, adjRes] = await Promise.all([
-    supabase
-      .from('fights')
-      .select('*')
-      .eq('athlete_id', athleteId),
-    supabase
-      .from('championship_results')
-      .select('*')
-      .eq('athlete_id', athleteId),
-    supabase
-      .from('challenges')
-      .select('*')
-      .in('status', ['finished', 'completed'])
-      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`),
-    supabase
-      .from('challenge_points_adjustments')
-      .select('adjustment_value')
-      .eq('athlete_id', athleteId)
-  ]);
+  // Fetch all fights for the athlete
+  const { data: fights, error: fightsError } = await supabase
+    .from('fights')
+    .select('*')
+    .eq('athlete_id', athleteId);
 
-  if (fightsRes.error) throw fightsRes.error;
-  if (champsRes.error) throw champsRes.error;
-  if (challengesRes.error) throw challengesRes.error;
+  if (fightsError) throw fightsError;
 
-  const fights = fightsRes.data || [];
-  const championships = champsRes.data || [];
-  const challenges = challengesRes.data || [];
-  const adjustments = adjRes.data || [];
+  // Fetch all championship results for the athlete
+  const { data: championships, error: champError } = await supabase
+    .from('championship_results')
+    .select('*')
+    .eq('athlete_id', athleteId);
+
+  if (champError) throw champError;
+
+  // Fetch all completed challenges for the athlete
+  const { data: challenges, error: challengeError } = await supabase
+    .from('challenges')
+    .select('*')
+    .in('status', ['finished', 'completed'])
+    .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`);
+
+  if (challengeError) throw challengeError;
 
   // Calculate Challenge Points Separately
   let challengeScore = 0;
@@ -64,8 +59,13 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
     challengeScore += points;
   });
 
-  // Calculate manual adjustments for challenge points
-  if (adjustments) {
+  // Fetch manual adjustments for challenge points
+  const { data: adjustments, error: adjError } = await supabase
+    .from('challenge_points_adjustments')
+    .select('adjustment_value')
+    .eq('athlete_id', athleteId);
+
+  if (!adjError && adjustments) {
     adjustments.forEach(adj => {
       challengeScore += Number(adj.adjustment_value || 0);
     });
@@ -169,21 +169,33 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 
   const getRank = async (filterFn: (q: any) => any) => {
-    // Single consolidated query using OR and AND nesting for better performance
-    const query = supabase
+    // 1. Count athletes with strictly higher arena_score
+    const higherScoreQuery = supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .neq('role', 'admin')
       .eq('perfil_publico', true)
-      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
+      .gt('arena_score', athlete.arena_score);
     
-    filterFn(query);
-    const { count, error } = await query;
-    if (error) {
-      console.error('Error in getRank query:', error);
-      return 1;
-    }
-    return (count || 0) + 1;
+    // 2. Count athletes with equal arena_score but older profile (created_at)
+    // Using created_at as tie-breaker to match ArenaRankings.tsx
+    const tieQuery = supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .neq('role', 'admin')
+      .eq('perfil_publico', true)
+      .eq('arena_score', athlete.arena_score)
+      .lt('created_at', athlete.created_at);
+
+    filterFn(higherScoreQuery);
+    filterFn(tieQuery);
+
+    const [{ count: higherCount }, { count: tieCount }] = await Promise.all([
+      higherScoreQuery,
+      tieQuery
+    ]);
+
+    return (higherCount || 0) + (tieCount || 0) + 1;
   };
 
   const isVisible = athlete.perfil_publico && athlete.arena_score > 0;

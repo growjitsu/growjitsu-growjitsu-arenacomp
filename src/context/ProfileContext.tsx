@@ -58,22 +58,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUser(user);
       console.log('[PROFILE CONTEXT] Checking profile for user:', user.id);
 
-      // Fetch profile and modalities from Supabase in parallel
-      const [profileRes, modalitiesRes] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single(),
-        supabase
-          .from('user_modalities')
-          .select('*')
-          .eq('user_id', user.id)
-      ]);
-
-      const profileData = profileRes.data;
-      const profileError = profileRes.error;
-      const modalities = modalitiesRes.data;
+      // Fetch profile from Supabase
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
       if (profileError || !profileData) {
         console.log('[PROFILE CONTEXT] Profile not found or error:', profileError);
@@ -81,6 +71,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsLoading(false);
         return false;
       }
+
+      // Fetch modalities from Supabase
+      const { data: modalities, error: modalitiesError } = await supabase
+        .from('user_modalities')
+        .select('*')
+        .eq('user_id', user.id);
 
       const missingFields = getMissingProfileFields({
         ...profileData,

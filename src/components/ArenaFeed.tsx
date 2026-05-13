@@ -428,58 +428,47 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
     }
     
     try {
-      const from = pageToFetch * POSTS_PER_PAGE;
-      const to = from + POSTS_PER_PAGE - 1;
-
-      // OPTIMIZATION: Consolidate all metadata fetching into a single parallel block
-      const [userAuthRes, postsRes] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase
-          .from('posts')
-          .select('*')
-          .eq('is_archived', false)
-          .order('created_at', { ascending: false })
-          .range(from, to)
-      ]);
-
-      const user = userAuthRes.data.user;
-      let postsData = postsRes.data;
-      let postsError = postsRes.error;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      let currentUserProfile = userProfile;
+      // 1. Fetch current user's profile and following for the algorithm
+      let currentUserProfile: ArenaProfile | null = null;
       let followingSet: Set<string> = new Set();
-      let userLikes: Set<string> = new Set();
       
       if (user) {
-        // Fetch remaining metadata in parallel
-        const metadataPromises: Promise<any>[] = [
-          supabase.from('follows').select('following_id').eq('follower_id', user.id),
-          supabase.from('likes').select('post_id').eq('user_id', user.id)
-        ];
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
+        currentUserProfile = profile;
 
-        // Only fetch profile if not provided in props
-        if (!currentUserProfile) {
-          metadataPromises.push(supabase.from('profiles').select('*').eq('id', user.id).maybeSingle());
-        }
-
-        const metadataResults = await Promise.all(metadataPromises);
+        const { data: follows } = await supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', user.id);
         
-        const followsRes = metadataResults[0];
-        const likesRes = metadataResults[1];
-        if (!currentUserProfile) {
-          currentUserProfile = metadataResults[2]?.data;
-        }
-
-        if (followsRes.data) {
-          followingSet = new Set(followsRes.data.map((f: any) => f.following_id));
+        if (follows) {
+          followingSet = new Set(follows.map(f => f.following_id));
           setFollowingIds(followingSet);
-        }
-        if (likesRes.data) {
-          userLikes = new Set(likesRes.data.map((l: any) => l.post_id));
         }
       }
 
-      // Fallback for missing column (legacy support)
+      // 2. Fetch posts with pagination
+      const from = pageToFetch * POSTS_PER_PAGE;
+      const to = from + POSTS_PER_PAGE - 1;
+      
+      console.log(`ArenaFeed: Fetching posts from ${from} to ${to}...`);
+      
+      let query = supabase
+        .from('posts')
+        .select('*')
+        .eq('is_archived', false)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      let { data: postsData, error: postsError } = await query;
+
+      // Fallback for missing column
       if (postsError && (postsError.message?.includes('column') || postsError.code === '42703')) {
         const { data: retryData, error: retryError } = await supabase
           .from('posts')
@@ -504,7 +493,7 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         setHasMore(false);
       }
       
-      // Fetch authors for the current batch of posts
+      // 3. Fetch authors
       const authorIds = Array.from(new Set(postsData.map(p => p.author_id)));
       let authorsMap = new Map();
       if (authorIds.length > 0) {
@@ -523,9 +512,22 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         ...p,
         author: authorsMap.get(p.author_id)
       }))
-      .filter(p => !p.is_archived && p.author);
+      .filter(p => p.is_archived !== true && p.author);
 
-      // Algorithmic Scorer
+      // 4. Fetch user's likes
+      let userLikes: Set<string> = new Set();
+      if (user) {
+        const { data: likesData } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        
+        if (likesData) {
+          userLikes = new Set(likesData.map(l => l.post_id));
+        }
+      }
+
+      // 5. Calculate scores
       const now = new Date();
       const scoredPosts = postsWithAuthors.map(post => {
         let score = 0;
@@ -535,23 +537,24 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         if (followingSet.has(post.author_id)) score += 50;
         const normalizeModality = (m?: string) => m?.toLowerCase().replace(/[-\s]/g, '') || '';
         if (currentUserProfile && normalizeModality(post.author?.modality) === normalizeModality(currentUserProfile.modality)) score += 40;
-        
         score += (post.likes_count || 0) * 2;
         score += (post.comments_count || 0) * 4;
         score += (post.shares_count || 0) * 6;
-
         if (diffHours <= 1) score += 30;
         else if (diffHours <= 6) score += 20;
         else if (diffHours <= 24) score += 10;
-
         if (currentUserProfile && post.author) {
           if (post.author.city === currentUserProfile.city) score += 30;
           else if (post.author.state === currentUserProfile.state) score += 20;
+          else if (post.author.country === currentUserProfile.country) score += 10;
         }
-
         const authorScore = post.author?.arena_score || 0;
         if (authorScore > 1000) score += 50;
         else if (authorScore > 500) score += 30;
+        else if (authorScore > 100) score += 20;
+        if (post.type === 'video') score += 15;
+        else if (post.type === 'image') score += 10;
+        else if (post.type === 'text') score += 5;
 
         return {
           ...post,
@@ -560,10 +563,20 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
         };
       });
 
+      // 6. Final Sorting (only sort the new batch or re-sort all if needed)
+      // For infinite scroll, we usually append. Sorting might mess up the order if we append.
+      // But since we order by created_at in SQL, we just need to maintain that.
+      const sortedNewPosts = scoredPosts.sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return (b.feed_score || 0) - (a.feed_score || 0);
+      });
+
       if (isInitial) {
-        setPosts(scoredPosts);
+        setPosts(sortedNewPosts);
       } else {
-        setPosts(prev => [...prev, ...scoredPosts]);
+        setPosts(prev => [...prev, ...sortedNewPosts]);
       }
       setPage(pageToFetch);
     } catch (error) {
@@ -576,18 +589,32 @@ export const ArenaFeed: React.FC<{ userProfile?: ArenaProfile | null }> = ({ use
 
   const fetchArenaStats = async () => {
     try {
-      const [postsCountRes, usersCountRes, likesCountRes, commentsCountRes] = await Promise.all([
-        supabase.from('posts').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }).neq('role', 'admin'),
-        supabase.from('likes').select('*', { count: 'exact', head: true }),
-        supabase.from('comments').select('*', { count: 'exact', head: true })
-      ]);
+      // Fetch total posts
+      const { count: postsCount } = await supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch active users (total profiles for now) - Exclude admins
+      const { count: usersCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .neq('role', 'admin');
+
+      // Fetch total likes for interactions
+      const { count: likesCount } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true });
+
+      // Fetch total comments for interactions
+      const { count: commentsCount } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true });
 
       setArenaStats({
-        totalPosts: postsCountRes.count || 0,
-        activeUsers: usersCountRes.count || 0,
-        totalInteractions: (likesCountRes.count || 0) + (commentsCountRes.count || 0),
-        growth: 15.4 // Simulated growth for now
+        totalPosts: postsCount || 0,
+        activeUsers: usersCount || 0,
+        totalInteractions: (likesCount || 0) + (commentsCount || 0),
+        growth: 15.4 // Simulated growth for now or could be calculated
       });
     } catch (error) {
       console.error('Error fetching arena stats:', error);

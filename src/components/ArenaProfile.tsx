@@ -70,7 +70,7 @@ export const ArenaProfileView: React.FC<{
   const [isChallengeModalOpen, setIsChallengeModalOpen] = useState(false);
   const [editingChampionship, setEditingChampionship] = useState<ArenaChampionshipResult | null>(null);
   const [editingFight, setEditingFight] = useState<ArenaFight | null>(null);
-  const [rankings, setRankings] = useState<{ world: number; national: number; city: number } | null>(null);
+  const [rankings, setRankings] = useState({ world: 0, national: 0, city: 0 });
   const [userModalities, setUserModalities] = useState<UserModality[]>([]);
   const [newModality, setNewModality] = useState('');
   const [newModalityBelt, setNewModalityBelt] = useState('');
@@ -553,48 +553,38 @@ export const ArenaProfileView: React.FC<{
       let targetId = userId;
       let profileData = null;
 
-      // OPTIMIZATION: If accessing own profile, use context data immediately
-      if ((!userId && !username && !contentId && currentUser) || (userId === currentUser?.id)) {
-        profileData = currentUser;
-        targetId = currentUser?.id;
-        setProfile(currentUser);
-        setEditData(currentUser || {});
-        setLoading(false); // Show UI immediately with context data
-      }
-
       if (username) {
-        // Handle @username - If we already have the profile with this username in context, use it
+        // Handle @username
         const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
+        const { data: byUsername, error: usernameError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', cleanUsername)
+          .maybeSingle();
         
-        if (currentUser?.username === cleanUsername) {
-          profileData = currentUser;
-          targetId = currentUser.id;
-          setProfile(currentUser);
-          setEditData(currentUser || {});
+        if (usernameError) throw usernameError;
+        if (!byUsername) {
+          setError('Perfil não encontrado');
           setLoading(false);
-        } else {
-          const { data: byUsername, error: usernameError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('username', cleanUsername)
-            .maybeSingle();
-          
-          if (usernameError) throw usernameError;
-          if (!byUsername) {
-            setError('Perfil não encontrado');
-            setLoading(false);
-            return;
-          }
-          profileData = byUsername;
-          targetId = byUsername.id;
+          return;
         }
+        profileData = byUsername;
+        targetId = byUsername.id;
       } else if (contentId && contentType) {
         // Handle content ID (certificates, championships)
         let table = '';
-        if (contentType === 'certificates') table = 'certificates';
-        else if (contentType === 'fights') table = 'fights';
-        else if (contentType === 'championships') table = 'championship_results';
-        else if (contentType === 'profile') targetId = contentId;
+        if (contentType === 'certificates') {
+          table = 'certificates';
+          setActiveTab('certificates');
+        } else if (contentType === 'fights') {
+          table = 'fights';
+          setActiveTab('fights');
+        } else if (contentType === 'championships') {
+          table = 'championship_results';
+          setActiveTab('championships');
+        } else if (contentType === 'profile') {
+          targetId = contentId;
+        }
         
         if (table) {
           const { data: contentData } = await supabase
@@ -602,7 +592,10 @@ export const ArenaProfileView: React.FC<{
             .select('athlete_id')
             .eq('id', contentId)
             .maybeSingle();
-          if (contentData) targetId = contentData.athlete_id;
+          
+          if (contentData) {
+            targetId = contentData.athlete_id;
+          }
         }
       } else if (!targetId && user) {
         targetId = user.id;
@@ -614,19 +607,13 @@ export const ArenaProfileView: React.FC<{
       }
 
       setIsOwnProfile(user?.id === targetId);
-      
-      // Parallelize checking follow status and count
-      const followPromises: Promise<any>[] = [fetchFollowerCount(targetId)];
+
       if (user && user.id !== targetId) {
-        followPromises.push(checkIfFollowing(user.id, targetId));
+        checkIfFollowing(user.id, targetId);
       }
+      fetchFollowerCount(targetId);
 
-      // Initialize rankings as null to show loading state if we don't have them yet
-      if (!rankings) {
-        setRankings(null);
-      }
-
-      // If we don't have profileData yet or it's potentially stale, fetch it
+      // If we don't have profileData yet, fetch it
       if (!profileData) {
         let { data, error: profileError } = await supabase
           .from('profiles')
@@ -665,73 +652,142 @@ export const ArenaProfileView: React.FC<{
         } else {
           profileData = data;
         }
-        setProfile(profileData);
-        setEditData(profileData || {});
       }
 
-      // Fetch independent data in parallel (already optimized previously but kept here)
+      setProfile(profileData);
+      setEditData(profileData || {});
+
+      // If it's the own profile, ensure stats are up to date (syncs legacy data)
+      if (user?.id === targetId && targetId) {
+        calculateAndUpdateStats(targetId).then(() => {
+          // Silently update if the score changed
+          supabase.from('profiles')
+            .select('challenge_score')
+            .eq('id', targetId)
+            .single()
+            .then(({ data: updatedData }) => {
+              if (updatedData && updatedData.challenge_score !== profileData.challenge_score) {
+                setProfile(prev => prev ? { ...prev, challenge_score: updatedData.challenge_score } : null);
+              }
+            });
+        }).catch(e => console.error('Error syncing stats:', e));
+      }
+      
+      // Fetch User Modalities (with migration check)
       if (targetId) {
-        const [
-          modalitiesRes,
-          repRes,
-          rankRes,
-          resultsRes,
-          champRes,
-          fightsRes,
-          challengesRes,
-          postsRes,
-          likesRes,
-          certRes
-        ] = await Promise.all([
-          supabase.from('user_modalities').select('*').eq('user_id', targetId).order('created_at', { ascending: true }),
-          profileData?.team_id ? supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id || '').eq('role', 'representative').maybeSingle() : Promise.resolve({ data: null }),
-          getAthleteRankings(profileData),
-          supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }),
-          supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }),
-          supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }),
-          supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }),
-          supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }),
-          user ? supabase.from('likes').select('post_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
-          supabase.from('certificates').select('*').eq('athlete_id', targetId).order('created_at', { ascending: false })
-        ]);
-
-        await Promise.all(followPromises);
-
-        // Process User Modalities
-        let modalities = modalitiesRes.data || [];
-        if (modalities.length === 0 && profileData?.modality && user?.id === targetId) {
-          const { data: migrated } = await supabase.from('user_modalities').insert({
-            user_id: targetId,
-            modality: profileData.modality,
-            belt: profileData.graduation
-          }).select().single();
-          if (migrated) modalities = [migrated];
-        }
-        setUserModalities(modalities);
-
-        // Process Team Representative
-        setIsTeamRepresentative(!!repRes.data);
-        if (profileData?.team_id && !teamData) {
-          supabase.from('teams').select('*, countries(name), states(name), cities(name)').eq('id', profileData.team_id).single().then(({ data }) => {
-            if (data) { setTeamData(data); setTeamEditData(data); }
-          });
-        }
-
-        setRankings(rankRes);
-        setResults(resultsRes.data || []);
-        setChampionships(champRes.data || []);
-        setFights(fightsRes.data || []);
-        setChallenges(challengesRes.data || []);
-
-        const userLikes = new Set((likesRes.data || []).map((l: any) => l.post_id));
-        const postsWithLikes = (postsRes.data || []).map(post => ({
-          ...post,
-          is_liked: userLikes.has(post.id)
-        }));
-        setPosts(postsWithLikes.filter(p => !p.is_archived));
-        setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
-        setCertificates(certRes.data || []);
+        fetchUserModalities(targetId, profileData);
       }
+
+      // Check if user is team representative
+      if (profileData?.team_id && user) {
+        const { data: repData } = await supabase
+          .from('team_members')
+          .select('role')
+          .eq('team_id', profileData.team_id)
+          .eq('user_id', user.id)
+          .eq('role', 'representative')
+          .maybeSingle();
+        
+        setIsTeamRepresentative(!!repData);
+
+        // Fetch full team data
+        const { data: tData } = await supabase
+          .from('teams')
+          .select('*, countries(name), states(name), cities(name)')
+          .eq('id', profileData.team_id)
+          .single();
+        
+        if (tData) {
+          setTeamData(tData);
+          setTeamEditData(tData);
+        }
+      }
+
+      // Fetch Rankings
+      if (profileData) {
+        const rankData = await getAthleteRankings(profileData);
+        setRankings(rankData);
+      }
+
+      // Fetch Results
+      const { data: resultsData } = await supabase
+        .from('competition_results')
+        .select(`
+          *,
+          competition:competitions(*)
+        `)
+        .eq('athlete_id', targetId)
+        .order('created_at', { ascending: false });
+      
+      setResults(resultsData || []);
+
+      // Fetch Championship Results
+      const { data: champData } = await supabase
+        .from('championship_results')
+        .select('*')
+        .eq('athlete_id', targetId)
+        .order('data_evento', { ascending: false });
+      
+      setChampionships(champData || []);
+
+      // Fetch Fights
+      const { data: fightsData } = await supabase
+        .from('fights')
+        .select('*')
+        .eq('athlete_id', targetId)
+        .order('data_luta', { ascending: false });
+      
+      setFights(fightsData || []);
+
+      // Fetch Challenges
+      const { data: challengesData } = await supabase
+        .from('challenges')
+        .select(`
+          *,
+          challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url),
+          challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)
+        `)
+        .or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`)
+        .order('created_at', { ascending: false });
+      
+      setChallenges(challengesData || []);
+
+      // Fetch Posts
+      const { data: postsData } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('author_id', targetId)
+        .order('created_at', { ascending: false });
+      
+      // Fetch user's likes to mark posts as liked
+      let userLikes: Set<string> = new Set();
+      if (user) {
+        const { data: likesData } = await supabase
+          .from('likes')
+          .select('post_id')
+          .eq('user_id', user.id);
+        
+        if (likesData) {
+          userLikes = new Set(likesData.map(l => l.post_id));
+        }
+      }
+
+      const postsWithLikes = (postsData || []).map(post => ({
+        ...post,
+        is_liked: userLikes.has(post.id)
+      }));
+      
+      setPosts(postsWithLikes.filter(p => !p.is_archived));
+      setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
+
+      // Fetch Certificates
+      const { data: certData } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('athlete_id', targetId)
+        .order('created_at', { ascending: false });
+      
+      setCertificates(certData || []);
 
     } catch (error: any) {
       console.error('Error fetching profile data:', error);
@@ -2095,7 +2151,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             {/* Clean background */}
           </div>
           
-            {isOwnProfile && !isEditing && (
+          {isOwnProfile && !isEditing && (
             <div className="absolute top-4 right-4 flex space-x-2 z-20">
               <button 
                 onClick={() => {
@@ -2114,14 +2170,14 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     });
                   }
                 }}
-                className="bg-black/60 sm:backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
                 title="Compartilhar Perfil"
               >
                 <Share2 size={18} />
               </button>
               <button 
                 onClick={() => setIsEditing(true)}
-                className="bg-black/60 sm:backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
+                className="bg-black/50 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white hover:bg-[var(--primary)] transition-all"
                 title="Editar Perfil"
               >
                 <Edit2 size={18} />
@@ -2336,7 +2392,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
             { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
           ].map((stat, i) => (
-            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm">
+            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
               <div className="flex items-center justify-between gap-2">
                 <stat.icon size={14} className={`${stat.color} shrink-0`} />
                 <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
@@ -2357,39 +2413,15 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">
-                {rankings ? `#${rankings.world}` : (
-                  <span className="flex items-center space-x-1">
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
-                  </span>
-                )}
-              </p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">
-                {rankings ? `#${rankings.national}` : (
-                  <span className="flex items-center space-x-1">
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
-                  </span>
-                )}
-              </p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
-              <p className="text-2xl font-extrabold text-[var(--text-main)]">
-                {rankings ? `#${rankings.city}` : (
-                  <span className="flex items-center space-x-1">
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
-                    <span className="w-1 h-1 bg-[var(--primary)] rounded-full animate-bounce" />
-                  </span>
-                )}
-              </p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
             </div>
           </div>
         </div>
@@ -2865,7 +2897,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-8 bg-[var(--surface)] border border-[var(--border-ui)] rounded-[2.5rem] overflow-hidden relative group/promo shadow-2xl"
+              className="mb-8 bg-[var(--surface)]/40 backdrop-blur-xl border border-[var(--primary)]/30 rounded-[2.5rem] overflow-hidden relative group/promo shadow-2xl"
             >
               {(() => {
                 const ad = ads[currentAdIndex % ads.length];
@@ -2895,7 +2927,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                     )}
 
                     {/* Ad Label */}
-                    <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)] rounded-xl shadow-lg border border-white/20">
+                    <div className="absolute top-6 left-6 z-20 flex items-center space-x-2 px-3 py-1.5 bg-[var(--primary)]/90 backdrop-blur-md rounded-xl shadow-lg border border-white/20">
                       <Zap size={12} className="text-white fill-white animate-pulse" />
                       <span className="text-[10px] font-black text-white uppercase tracking-[0.2em]">Patrocinado</span>
                     </div>
@@ -3069,7 +3101,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                   <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                     <div className="space-y-4">
                       <div className="flex items-center space-x-3">
-                        <div className="p-2 bg-white/30 rounded-xl">
+                        <div className="p-2 bg-white/20 backdrop-blur-md rounded-xl">
                           <Brain size={24} className="text-white" />
                         </div>
                         <h2 className="text-xl font-black uppercase tracking-tighter italic">Arena Intelligence Analysis</h2>
@@ -3079,7 +3111,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                       </p>
                     </div>
                     <div className="flex items-center space-x-4">
-                      <div className="text-center px-6 py-3 bg-white/20 rounded-2xl border border-white/20">
+                      <div className="text-center px-6 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20">
                         <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Confiança IA</p>
                         <p className="text-2xl font-black">94%</p>
                       </div>
@@ -3213,7 +3245,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                                 e.stopPropagation();
                                 setActiveMenuId(activeMenuId === post.id ? null : post.id);
                               }}
-                              className="p-1.5 bg-black/60 rounded-lg text-white hover:bg-black/80 transition-colors"
+                              className="p-1.5 bg-black/40 backdrop-blur-md rounded-lg text-white hover:bg-black/60 transition-colors"
                             >
                               <MoreVertical size={14} />
                             </button>
@@ -3314,7 +3346,7 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                             onViewportEnter={() => trackAdEvent(ad.id, 'impression', currentUser)}
                           >
                             {/* Ad Label */}
-                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)] rounded-lg shadow-lg">
+                            <div className="absolute top-3 left-3 z-20 flex items-center space-x-1.5 px-2 py-1 bg-[var(--primary)]/90 backdrop-blur-md rounded-lg shadow-lg">
                               <Zap size={10} className="text-white fill-white animate-pulse" />
                               <span className="text-[8px] font-black text-white uppercase tracking-widest">Patrocinado</span>
                             </div>

@@ -287,22 +287,20 @@ export const ArenaClips: React.FC = () => {
       if (error) throw error;
 
       const authorIds = Array.from(new Set((postsData || []).map(p => p.author_id)));
+      const { data: authorsData } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', authorIds)
+        .neq('role', 'admin');
       
-      const [authorsRes, userRes] = await Promise.all([
-        supabase.from('profiles').select('*').in('id', authorIds).neq('role', 'admin'),
-        supabase.auth.getUser()
-      ]);
-
-      const authorsData = authorsRes.data;
-      const user = userRes.data.user;
+      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
       
+      const { data: { user } } = await supabase.auth.getUser();
       let userLikes: Set<string> = new Set();
       if (user) {
         const { data: likesData } = await supabase.from('likes').select('post_id').eq('user_id', user.id);
         if (likesData) userLikes = new Set(likesData.map(l => l.post_id));
       }
-
-      const authorsMap = new Map((authorsData || []).map(a => [a.id, a]));
 
       const clipsWithAuthors = (postsData || [])
         .map(p => ({
