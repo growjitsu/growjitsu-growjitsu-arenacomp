@@ -1,62 +1,49 @@
 import { supabase } from './supabase';
 import { ArenaFight, ArenaProfile, Team, ArenaAd } from '../types';
 import { getApiUrl } from '../lib/api';
-import { ARENA_BADGES } from '../utils/data';
-import { isProfileComplete } from '../utils/profileValidation';
 
 export const calculateAndUpdateStats = async (athleteId: string) => {
-  // 1. Run all initial data fetches in parallel to minimize latency
-  // We use .select('*') and then filter in JS to be resilient to missing columns (schema evolution)
-  const [
-    fightsRes,
-    champRes,
-    postsRes,
-    platRes,
-    challengeRes,
-    adjRes
-  ] = await Promise.all([
-    (supabase.from('fights').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
-    (supabase.from('championship_results').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
-    (supabase.from('posts').select('*').eq('author_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
-    (supabase.from('competition_results').select('*').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] })),
-    (supabase.from('challenges').select('*')
+  // Fetch all related data for the athlete in parallel
+  const [fightsRes, champsRes, challengesRes, adjRes] = await Promise.all([
+    supabase
+      .from('fights')
+      .select('*')
+      .eq('athlete_id', athleteId),
+    supabase
+      .from('championship_results')
+      .select('*')
+      .eq('athlete_id', athleteId),
+    supabase
+      .from('challenges')
+      .select('*')
       .in('status', ['finished', 'completed'])
-      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`) as any as Promise<any>)
-      .catch(() => ({ data: [] })),
-    (supabase.from('challenge_points_adjustments').select('adjustment_value').eq('athlete_id', athleteId) as any as Promise<any>).catch(() => ({ data: [] }))
+      .or(`challenger_id.eq.${athleteId},challenged_id.eq.${athleteId}`),
+    supabase
+      .from('challenge_points_adjustments')
+      .select('adjustment_value')
+      .eq('athlete_id', athleteId)
   ]);
 
+  if (fightsRes.error) throw fightsRes.error;
+  if (champsRes.error) throw champsRes.error;
+  if (challengesRes.error) throw challengesRes.error;
+
   const fights = fightsRes.data || [];
-  const championships = champRes.data || [];
-  const postsData = postsRes.data || [];
-  const platformResults = platRes.data || [];
-  const challenges = challengeRes.data || [];
+  const championships = champsRes.data || [];
+  const challenges = challengesRes.data || [];
   const adjustments = adjRes.data || [];
 
-  // Filter posts (handle potential is_archived missing gracefully)
-  const activePosts = postsData.filter(p => !p.is_archived);
-  
-  const postCount = activePosts.length;
-  const imageCount = activePosts.filter(p => 
-    p.type === 'image' || 
-    (p.media_url && !p.media_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) && !p.media_url.includes('video'))
-  ).length;
-  const videoCount = activePosts.filter(p => 
-    p.type === 'video' || 
-    (p.media_url && (p.media_url.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/) || p.media_url.includes('video')))
-  ).length;
-
-  const championshipCount = championships.length + platformResults.length;
-
-  // 2. Process Challenges Points
+  // Calculate Challenge Points Separately
   let challengeScore = 0;
   const pointsMap: Record<string, number> = { '1st': 100, '2nd': 50, '3rd': 25, 'none': 5 };
 
-  challenges.forEach(c => {
+  challenges?.forEach(c => {
+    // Explicitly check for both IDs and ensure points are numbers
     let points = (c.challenger_id === athleteId) 
       ? Number(c.challenger_points || 0)
       : Number(c.challenged_points || 0);
     
+    // REPAIR LOGIC: If points are 0 but status is finished/completed, try to recalculate from results or outcome
     if (points === 0) {
       const result = (c.challenger_id === athleteId) ? c.challenger_result : c.challenged_result;
       if (result && result.category) {
@@ -65,6 +52,7 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
           points += pointsMap[result.absolute];
         }
       } else if (c.outcome) {
+        // Fallback for challenges resolved without detailed podium results (e.g. manual victory)
         if (c.challenger_id === athleteId) {
           points = (c.outcome === 'challenger_win') ? 100 : (c.outcome === 'draw' ? 25 : 5);
         } else {
@@ -72,177 +60,86 @@ export const calculateAndUpdateStats = async (athleteId: string) => {
         }
       }
     }
+    
     challengeScore += points;
   });
 
-  // Manual adjustments
+  // Calculate manual adjustments for challenge points
   if (adjustments) {
     adjustments.forEach(adj => {
       challengeScore += Number(adj.adjustment_value || 0);
     });
   }
 
-  // 3. Calculate Fight Stats and Arena Score
-  const wins = fights.filter(f => f.resultado === 'win').length;
-  const losses = fights.filter(f => f.resultado === 'loss').length;
-  const draws = fights.filter(f => f.resultado === 'draw').length;
+  // Calculate Fight Stats
+  let wins = fights.filter(f => f.resultado === 'win').length;
+  let losses = fights.filter(f => f.resultado === 'loss').length;
+  let draws = 0;
   
+  // Arena Score from Fights = (wins * 15) - (losses * 5) + (draws * 2) + (submissions/knockouts * 5)
+  // IMPORTANT: Challenges are NOT mixed with Arena Score (Ranking) as per requirements
   const bonusPoints = fights.filter(f => 
     f.resultado === 'win' && (f.tipo_vitoria === 'finalização' || f.tipo_vitoria === 'nocaute')
   ).length * 5;
 
   let arenaScore = (wins * 15) - (losses * 5) + (draws * 2) + bonusPoints;
 
-  championships.forEach(champ => {
-    const res = champ.resultado;
-    if (res === 'Campeão') arenaScore += 100;
-    else if (res === 'Vice-campeão') arenaScore += 50;
-    else if (res === 'Terceiro lugar') arenaScore += 25;
-    else if (res === 'Participação') arenaScore += 5;
+  // Add Championship Stats to Arena Score
+  championships?.forEach(champ => {
+    switch (champ.resultado) {
+      case 'Campeão':
+        arenaScore += 100;
+        break;
+      case 'Vice-campeão':
+        arenaScore += 50;
+        break;
+      case 'Terceiro lugar':
+        arenaScore += 25;
+        break;
+      case 'Participação':
+        arenaScore += 5;
+        break;
+    }
   });
 
-  const totalFights = wins + losses + draws;
-  const winRate = (wins + losses) > 0 ? (wins / (wins + losses)) * 100 : 0;
+  const totalFights = wins + losses;
+  const winRate = totalFights > 0 ? (wins / totalFights) * 100 : 0;
 
-  // 4. Update profile in background (don't block the return if we just want stats)
-  const statsToUpdate = {
-    wins,
-    losses,
-    draws,
-    total_fights: totalFights,
-    win_rate: Math.round(winRate),
-    arena_score: arenaScore,
-    challenge_score: challengeScore,
-    post_count: postCount,
-    image_count: imageCount,
-    video_count: videoCount,
-    championship_count: championshipCount,
-    updated_at: new Date().toISOString()
-  };
+  // Calculate separate Challenge outcomes (Optional: for profile display if needed, but NOT mixed with ranking)
+  let challengeWins = 0;
+  let challengeLosses = 0;
+  let challengeDraws = 0;
 
-  supabase.from('profiles').update(statsToUpdate).eq('id', athleteId).then(({ error }) => {
-    if (error) console.error('Error updating profile stats:', error);
+  challenges?.forEach(c => {
+    if (c.challenger_id === athleteId) {
+      if (c.outcome === 'challenger_win') challengeWins++;
+      else if (c.outcome === 'challenged_win') challengeLosses++;
+      else if (c.outcome === 'draw') challengeDraws++;
+    } else {
+      if (c.outcome === 'challenged_win') challengeWins++;
+      else if (c.outcome === 'challenger_win') challengeLosses++;
+      else if (c.outcome === 'draw') challengeDraws++;
+    }
   });
 
-  return statsToUpdate;
-};
-
-export const processEngagementEvolution = async (athleteId: string) => {
-  // 1. Get fresh profile
-  const { data: profile, error: profileError } = await supabase
+  // Update profile
+  const { error: updateError } = await supabase
     .from('profiles')
-    .select('*')
-    .eq('id', athleteId)
-    .single();
+    .update({
+      wins,
+      losses,
+      draws,
+      total_fights: totalFights,
+      win_rate: winRate,
+      arena_score: arenaScore,
+      challenge_score: challengeScore,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', athleteId);
 
-  if (profileError || !profile) return null;
+  if (updateError) throw updateError;
 
-  // 2. Update Stats (Post counts, etc.)
-  const stats = await calculateAndUpdateStats(athleteId);
-
-  // 3. Update Streak
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
-  const lastActivityStr = profile.last_activity_date;
-  
-  let newStreak = profile.streak_count || 0;
-  let updated = false;
-
-  if (!lastActivityStr) {
-    newStreak = 1;
-    updated = true;
-  } else if (lastActivityStr !== todayStr) {
-    const lastActivityDate = new Date(lastActivityStr);
-    const diffTime = now.getTime() - lastActivityDate.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 1) {
-      newStreak += 1;
-    } else if (diffDays > 1) {
-      newStreak = 1;
-    }
-    updated = true;
-  }
-
-  // 4. Evaluate Badges
-  const currentBadges = profile.badges || [];
-  const newBadges = [...currentBadges];
-  let badgesUpdated = false;
-
-  // Badge: First Post
-  if (profile.post_count > 0 && !newBadges.some(b => b.id === 'first_post')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'first_post');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // Badge: Streak 3 days
-  if (newStreak >= 3 && !newBadges.some(b => b.id === 'active_athlete')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'active_athlete');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // Badge: Streak 7 days
-  if (newStreak >= 7 && !newBadges.some(b => b.id === 'marathoner')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'marathoner');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // Badge: Complete Profile
-  if (isProfileComplete(profile) && !newBadges.some(b => b.id === 'complete_profile')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'complete_profile');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // Badge: Frequent Competitor
-  if (profile.championship_count >= 5 && !newBadges.some(b => b.id === 'frequent_competitor')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'frequent_competitor');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // Badge: Content Creator
-  if ((profile.image_count + profile.video_count) >= 10 && !newBadges.some(b => b.id === 'content_creator')) {
-    const badge = ARENA_BADGES.find(b => b.id === 'content_creator');
-    if (badge) {
-      newBadges.push(badge);
-      badgesUpdated = true;
-    }
-  }
-
-  // 5. Save changes
-  if (updated || badgesUpdated) {
-    const updateData: any = {};
-    if (updated) {
-      updateData.streak_count = newStreak;
-      updateData.last_activity_date = todayStr;
-    }
-    if (badgesUpdated) {
-      updateData.badges = newBadges;
-    }
-
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update(updateData)
-      .eq('id', athleteId);
-
-    if (updateError) console.error('Error updating engagement stats:', updateError);
-  }
-
-  return { streak: newStreak, badges: newBadges, stats };
+  return { wins, losses, totalFights, winRate, arenaScore };
 };
 
 export const recalculateAllRankings = async () => {
@@ -272,33 +169,21 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
   if (!athlete) return { world: 0, national: 0, city: 0 };
 
   const getRank = async (filterFn: (q: any) => any) => {
-    // 1. Count athletes with strictly higher arena_score
-    const higherScoreQuery = supabase
+    // Single consolidated query using OR and AND nesting for better performance
+    const query = supabase
       .from('profiles')
       .select('id', { count: 'exact', head: true })
       .neq('role', 'admin')
       .eq('perfil_publico', true)
-      .gt('arena_score', athlete.arena_score);
+      .or(`arena_score.gt.${athlete.arena_score},and(arena_score.eq.${athlete.arena_score},created_at.lt.${athlete.created_at})`);
     
-    // 2. Count athletes with equal arena_score but older profile (created_at)
-    // Using created_at as tie-breaker to match ArenaRankings.tsx
-    const tieQuery = supabase
-      .from('profiles')
-      .select('id', { count: 'exact', head: true })
-      .neq('role', 'admin')
-      .eq('perfil_publico', true)
-      .eq('arena_score', athlete.arena_score)
-      .lt('created_at', athlete.created_at);
-
-    filterFn(higherScoreQuery);
-    filterFn(tieQuery);
-
-    const [{ count: higherCount }, { count: tieCount }] = await Promise.all([
-      higherScoreQuery,
-      tieQuery
-    ]);
-
-    return (higherCount || 0) + (tieCount || 0) + 1;
+    filterFn(query);
+    const { count, error } = await query;
+    if (error) {
+      console.error('Error in getRank query:', error);
+      return 1;
+    }
+    return (count || 0) + 1;
   };
 
   const isVisible = athlete.perfil_publico && athlete.arena_score > 0;
@@ -306,18 +191,16 @@ export const getAthleteRankings = async (athlete: ArenaProfile) => {
 
   const [world, national, city] = await Promise.all([
     getRank(q => q), // World: no extra filters
-    (athlete.country_id || athlete.country) 
-      ? getRank(q => {
-          if (athlete.country_id) return q.eq('country_id', athlete.country_id);
-          return q.ilike('country', athlete.country!);
-        })
-      : Promise.resolve(0),
-    (athlete.city_id || athlete.city)
-      ? getRank(q => {
-          if (athlete.city_id) return q.eq('city_id', athlete.city_id);
-          return q.ilike('city', athlete.city!);
-        })
-      : Promise.resolve(0)
+    getRank(q => {
+      if (athlete.country_id) return q.eq('country_id', athlete.country_id);
+      if (athlete.country) return q.ilike('country', athlete.country);
+      return q;
+    }),
+    getRank(q => {
+      if (athlete.city_id) return q.eq('city_id', athlete.city_id);
+      if (athlete.city) return q.ilike('city', athlete.city);
+      return q;
+    })
   ]);
 
   return { world, national, city };

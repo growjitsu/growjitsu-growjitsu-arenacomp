@@ -7,8 +7,6 @@ import { motion } from 'motion/react';
 import { ExternalLink, Share2, MessageCircle, Instagram, Copy, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { generateCard, CardData } from '../services/arenaService';
-import { useProfile } from '../context/ProfileContext';
-import { trackAdEvent } from '../services/adService';
 
 export const AdLanding: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -16,8 +14,6 @@ export const AdLanding: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-
-  const { profile: userProfile } = useProfile();
 
   useEffect(() => {
     const fetchAd = async () => {
@@ -33,8 +29,10 @@ export const AdLanding: React.FC = () => {
             setError('Anúncio não disponível');
           } else {
             setAd(adData);
-            // Track impression with full profile data if available
-            trackAdEvent(id, 'impression', userProfile);
+            // Track impression
+            updateDoc(doc(db, 'arena_ads', id), {
+              total_impressions: increment(1)
+            }).catch(err => console.error('Error tracking impression:', err));
           }
         } else {
           setError('Anúncio não encontrado');
@@ -48,13 +46,19 @@ export const AdLanding: React.FC = () => {
     };
 
     fetchAd();
-  }, [id, userProfile]);
+  }, [id]);
 
   const handleCTA = async () => {
     if (!ad?.landing_cta_url) return;
     
-    // Track click with full profile data if available
-    trackAdEvent(ad.id, 'click', userProfile);
+    // Track click
+    try {
+      await updateDoc(doc(db, 'arena_ads', ad.id), {
+        total_clicks: increment(1)
+      });
+    } catch (err) {
+      console.error('Error tracking click:', err);
+    }
     
     window.open(ad.landing_cta_url, '_blank', 'noreferrer');
   };

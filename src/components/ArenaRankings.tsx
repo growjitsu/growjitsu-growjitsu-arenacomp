@@ -39,9 +39,11 @@ export const ArenaRankings: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchAvailableLocations();
-    fetchDbCountries();
-    fetchCurrentUser();
+    Promise.all([
+      fetchAvailableLocations(),
+      fetchDbCountries(),
+      fetchCurrentUser()
+    ]);
   }, []);
 
   const fetchCurrentUser = async () => {

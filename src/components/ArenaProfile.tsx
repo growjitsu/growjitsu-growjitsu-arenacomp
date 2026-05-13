@@ -6,8 +6,7 @@ import {
   Settings, Edit2, Save, X, Instagram, Youtube, Music, 
   User, Dumbbell, Ruler, Scale, GraduationCap, Trophy, VenusAndMars,
   Database, Plus, Trash2, MoreVertical, Archive, RotateCcw, Heart, MessageCircle, Share2,
-  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink,
-  Activity, Camera, Video
+  Brain, Zap, Cpu, BarChart3, Shield, Info, FileText, Eye, ChevronLeft, ChevronRight, ExternalLink
 } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { db as firestoreDb } from '../firebase';
@@ -23,7 +22,7 @@ import { RegisterChampionshipModal } from './RegisterChampionshipModal';
 import { ChallengeModal } from './ChallengeModal';
 import { ChallengeSection } from './ChallengeSection';
 import { challengeService } from '../services/challengeService';
-import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard, calculateAndUpdateStats, processEngagementEvolution } from '../services/arenaService';
+import { getAthleteRankings, searchTeams, getTeams, CardData, generateCard, calculateAndUpdateStats } from '../services/arenaService';
 import { getAutomaticCategorization } from '../services/categorization';
 import { isProfileComplete, getMissingProfileFields } from '../utils/profileValidation';
 import { AchievementCard } from './AchievementCard';
@@ -554,38 +553,48 @@ export const ArenaProfileView: React.FC<{
       let targetId = userId;
       let profileData = null;
 
+      // OPTIMIZATION: If accessing own profile, use context data immediately
+      if ((!userId && !username && !contentId && currentUser) || (userId === currentUser?.id)) {
+        profileData = currentUser;
+        targetId = currentUser?.id;
+        setProfile(currentUser);
+        setEditData(currentUser || {});
+        setLoading(false); // Show UI immediately with context data
+      }
+
       if (username) {
-        // Handle @username
+        // Handle @username - If we already have the profile with this username in context, use it
         const cleanUsername = username.startsWith('@') ? username.substring(1) : username;
-        const { data: byUsername, error: usernameError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('username', cleanUsername)
-          .maybeSingle();
         
-        if (usernameError) throw usernameError;
-        if (!byUsername) {
-          setError('Perfil não encontrado');
+        if (currentUser?.username === cleanUsername) {
+          profileData = currentUser;
+          targetId = currentUser.id;
+          setProfile(currentUser);
+          setEditData(currentUser || {});
           setLoading(false);
-          return;
+        } else {
+          const { data: byUsername, error: usernameError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('username', cleanUsername)
+            .maybeSingle();
+          
+          if (usernameError) throw usernameError;
+          if (!byUsername) {
+            setError('Perfil não encontrado');
+            setLoading(false);
+            return;
+          }
+          profileData = byUsername;
+          targetId = byUsername.id;
         }
-        profileData = byUsername;
-        targetId = byUsername.id;
       } else if (contentId && contentType) {
         // Handle content ID (certificates, championships)
         let table = '';
-        if (contentType === 'certificates') {
-          table = 'certificates';
-          setActiveTab('certificates');
-        } else if (contentType === 'fights') {
-          table = 'fights';
-          setActiveTab('fights');
-        } else if (contentType === 'championships') {
-          table = 'championship_results';
-          setActiveTab('championships');
-        } else if (contentType === 'profile') {
-          targetId = contentId;
-        }
+        if (contentType === 'certificates') table = 'certificates';
+        else if (contentType === 'fights') table = 'fights';
+        else if (contentType === 'championships') table = 'championship_results';
+        else if (contentType === 'profile') targetId = contentId;
         
         if (table) {
           const { data: contentData } = await supabase
@@ -593,10 +602,7 @@ export const ArenaProfileView: React.FC<{
             .select('athlete_id')
             .eq('id', contentId)
             .maybeSingle();
-          
-          if (contentData) {
-            targetId = contentData.athlete_id;
-          }
+          if (contentData) targetId = contentData.athlete_id;
         }
       } else if (!targetId && user) {
         targetId = user.id;
@@ -608,13 +614,14 @@ export const ArenaProfileView: React.FC<{
       }
 
       setIsOwnProfile(user?.id === targetId);
-
+      
+      // Parallelize checking follow status and count
+      const followPromises: Promise<any>[] = [fetchFollowerCount(targetId)];
       if (user && user.id !== targetId) {
-        checkIfFollowing(user.id, targetId);
+        followPromises.push(checkIfFollowing(user.id, targetId));
       }
-      fetchFollowerCount(targetId);
 
-      // If we don't have profileData yet, fetch it
+      // If we don't have profileData yet or it's potentially stale, fetch it
       if (!profileData) {
         let { data, error: profileError } = await supabase
           .from('profiles')
@@ -653,116 +660,73 @@ export const ArenaProfileView: React.FC<{
         } else {
           profileData = data;
         }
+        setProfile(profileData);
+        setEditData(profileData || {});
       }
 
-      setProfile(profileData);
-      setEditData(profileData || {});
+      // Fetch independent data in parallel (already optimized previously but kept here)
+      if (targetId) {
+        const [
+          modalitiesRes,
+          repRes,
+          rankRes,
+          resultsRes,
+          champRes,
+          fightsRes,
+          challengesRes,
+          postsRes,
+          likesRes,
+          certRes
+        ] = await Promise.all([
+          supabase.from('user_modalities').select('*').eq('user_id', targetId).order('created_at', { ascending: true }),
+          profileData?.team_id ? supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id || '').eq('role', 'representative').maybeSingle() : Promise.resolve({ data: null }),
+          getAthleteRankings(profileData),
+          supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }),
+          supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }),
+          supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }),
+          supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }),
+          supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }),
+          user ? supabase.from('likes').select('post_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
+          supabase.from('certificates').select('*').eq('athlete_id', targetId).order('created_at', { ascending: false })
+        ]);
 
-      // Parallelize all data fetching for faster profile loading
-      const fetchAllData = async () => {
-        try {
-          const [
-            rankingResult,
-            resultsResp,
-            champsResp,
-            fightsResp,
-            challengesResp,
-            postsResp,
-            repDataResp
-          ] = await Promise.all([
-            getAthleteRankings(profileData).catch(() => ({ world: 0, national: 0, city: 0 })),
-            (supabase.from('competition_results').select('*, competition:competitions(*)').eq('athlete_id', targetId).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
-            (supabase.from('championship_results').select('*').eq('athlete_id', targetId).order('data_evento', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
-            (supabase.from('fights').select('*').eq('athlete_id', targetId).order('data_luta', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
-            (supabase.from('challenges').select('*, challenger:profiles!challenges_challenger_id_fkey(full_name, nickname, profile_photo, avatar_url), challenged:profiles!challenges_challenged_id_fkey(full_name, nickname, profile_photo, avatar_url)').or(`challenger_id.eq.${targetId},challenged_id.eq.${targetId}`).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
-            (supabase.from('posts').select('*').eq('author_id', targetId).order('created_at', { ascending: false }) as any as Promise<any>).catch(() => ({ data: [] })),
-            profileData?.team_id ? (supabase.from('team_members').select('role').eq('team_id', profileData.team_id).eq('user_id', user?.id).eq('role', 'representative').maybeSingle() as any as Promise<any>).catch(() => ({ data: null })) : Promise.resolve({ data: null })
-          ]);
+        await Promise.all(followPromises);
 
-          if (rankingResult) setRankings(rankingResult);
-          if (resultsResp.data) setResults(resultsResp.data);
-          if (champsResp.data) setChampionships(champsResp.data);
-          if (fightsResp.data) setFights(fightsResp.data);
-          if (challengesResp.data) setChallenges(challengesResp.data);
-          if (repDataResp.data) setIsTeamRepresentative(true);
-
-          if (postsResp.data) {
-            // Fetch user's likes to mark posts as liked
-            let userLikes: Set<string> = new Set();
-            if (user) {
-              const { data: likesData } = await supabase
-                .from('likes')
-                .select('post_id')
-                .eq('user_id', user.id);
-              
-              if (likesData) {
-                userLikes = new Set(likesData.map(l => l.post_id));
-              }
-            }
-
-            const postsWithLikes = postsResp.data.map(post => ({
-              ...post,
-              is_liked: userLikes.has(post.id)
-            }));
-            
-            setPosts(postsWithLikes.filter(p => !p.is_archived));
-            setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
-          }
-
-          // If team info is needed, fetch it separately to not block primary profile data
-          if (profileData?.team_id) {
-            supabase.from('teams')
-              .select('*, countries(name), states(name), cities(name)')
-              .eq('id', profileData.team_id)
-              .single()
-              .then(({ data: tData }) => {
-                if (tData) {
-                  setTeamData(tData);
-                  setTeamEditData(tData);
-                }
-              });
-          }
-        } catch (err) {
-          console.error('Error fetching profile secondary data:', err);
+        // Process User Modalities
+        let modalities = modalitiesRes.data || [];
+        if (modalities.length === 0 && profileData?.modality && user?.id === targetId) {
+          const { data: migrated } = await supabase.from('user_modalities').insert({
+            user_id: targetId,
+            modality: profileData.modality,
+            belt: profileData.graduation
+          }).select().single();
+          if (migrated) modalities = [migrated];
         }
-      };
+        setUserModalities(modalities);
 
-      if (profileData) {
-        fetchAllData();
-        if (targetId) {
-          fetchUserModalities(targetId, profileData);
+        // Process Team Representative
+        setIsTeamRepresentative(!!repRes.data);
+        if (profileData?.team_id && !teamData) {
+          supabase.from('teams').select('*, countries(name), states(name), cities(name)').eq('id', profileData.team_id).single().then(({ data }) => {
+            if (data) { setTeamData(data); setTeamEditData(data); }
+          });
         }
-      }
 
-      // Ensure engagement and stats are processed in background for the own profile
-      if (user?.id === targetId && targetId) {
-        processEngagementEvolution(targetId).then((result) => {
-          if (result && result.stats) {
-            const updatedProfile = { 
-              ...(profileData || {}), 
-              streak_count: result.streak, 
-              badges: result.badges,
-              ...result.stats
-            };
-            
-            setProfile(updatedProfile as ArenaProfile);
-            
-            // CRITICAL: Refresh rankings AFTER stats are recalculated to ensure accuracy
-            getAthleteRankings(updatedProfile as ArenaProfile)
-              .then(setRankings)
-              .catch(e => console.error('Error refreshing rankings after sync:', e));
-          }
-        }).catch(e => console.error('Error processing engagement:', e));
+        setRankings(rankRes);
+        setResults(resultsRes.data || []);
+        setChampionships(champRes.data || []);
+        setFights(fightsRes.data || []);
+        setChallenges(challengesRes.data || []);
+
+        const userLikes = new Set((likesRes.data || []).map((l: any) => l.post_id));
+        const postsWithLikes = (postsRes.data || []).map(post => ({
+          ...post,
+          is_liked: userLikes.has(post.id)
+        }));
+        setPosts(postsWithLikes.filter(p => !p.is_archived));
+        setArchivedPosts(postsWithLikes.filter(p => p.is_archived));
+        setCertificates(certRes.data || []);
       }
-      
-      // Fetch Certificates
-      const { data: certData } = await supabase
-        .from('certificates')
-        .select('*')
-        .eq('athlete_id', targetId)
-        .order('created_at', { ascending: false });
-      
-      setCertificates(certData || []);
 
     } catch (error: any) {
       console.error('Error fetching profile data:', error);
@@ -779,28 +743,16 @@ export const ArenaProfileView: React.FC<{
   useEffect(() => {
     setIsEditing(forceEdit || false);
     fetchProfileData();
-
-    // Only fetch all teams if we are in editing mode or about to edit
-    // This saves bandwidth and initial load time
-    if (forceEdit || isEditing) {
-      const fetchAllTeams = async () => {
-        try {
-          const data = await getTeams();
-          setAllTeams(data);
-        } catch (err) {
-          console.error('Error fetching teams:', err);
-        }
-      };
-      fetchAllTeams();
-    }
+    const fetchAllTeams = async () => {
+      try {
+        const data = await getTeams();
+        setAllTeams(data);
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+      }
+    };
+    fetchAllTeams();
   }, [userId, username, contentId, contentType, forceEdit]);
-
-  // Handle lazy loading of teams when entering edit mode
-  useEffect(() => {
-    if (isEditing && allTeams.length === 0) {
-      getTeams().then(setAllTeams).catch(console.error);
-    }
-  }, [isEditing, allTeams.length]);
 
   // Scroll to content if provided
   useEffect(() => {
@@ -1679,22 +1631,6 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
   const totalFights = profile ? (profile.total_fights || (profile.wins + profile.losses)) : 0;
   const winRate = profile ? (profile.win_rate !== undefined ? Math.round(profile.win_rate) : (totalFights > 0 ? Math.round((profile.wins / totalFights) * 100) : 0)) : 0;
-  const arenaScore = profile?.arena_score || 0;
-  const currentLevel = Math.floor(arenaScore / 1000) + 1;
-  const nextLevelScore = currentLevel * 1000;
-  const levelProgress = ((arenaScore % 1000) / 1000) * 100;
-
-  const renderBadgeIcon = (id: string) => {
-    switch(id) {
-      case 'first_post': return <Camera size={20} className="text-blue-500" />;
-      case 'active_athlete': return <Zap size={20} className="text-orange-500 fill-current" />;
-      case 'marathoner': return <Zap size={20} className="text-rose-500 fill-current" />;
-      case 'complete_profile': return <Shield size={20} className="text-emerald-500" />;
-      case 'frequent_competitor': return <Trophy size={20} className="text-amber-400" />;
-      case 'content_creator': return <Video size={20} className="text-purple-500" />;
-      default: return <Award size={20} />;
-    }
-  };
 
   // Wizard Component
   const renderWizard = () => {
@@ -2227,19 +2163,8 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
                 </div>
               ) : (
                 <div className="space-y-1 w-full min-w-0">
-                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis flex items-center gap-2">
-                    {profile.full_name} 
-                    {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline font-bold">(@{profile.nickname.replace(/^@/, '')})</span>}
-                    {profile.streak_count && profile.streak_count > 0 && (
-                      <motion.div 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-rose-500 px-3 py-1 rounded-full text-white text-[10px] font-black italic tracking-widest shadow-lg shadow-orange-500/20"
-                      >
-                        <Zap size={10} className="fill-current" />
-                        <span>{profile.streak_count} DIAS ATIVO</span>
-                      </motion.div>
-                    )}
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[var(--text-main)] uppercase tracking-tighter italic whitespace-normal leading-tight overflow-hidden text-ellipsis">
+                    {profile.full_name} {profile.nickname && <span className="text-[var(--text-muted)] text-lg block md:inline">(@{profile.nickname.replace(/^@/, '')})</span>}
                   </h1>
                   <div className="flex flex-col md:flex-row items-center md:space-x-4 space-y-2 md:space-y-0">
                     <p className="text-[var(--primary)] font-bold text-[10px] md:text-xs uppercase tracking-widest whitespace-nowrap truncate max-w-full">
@@ -2397,142 +2322,45 @@ CREATE INDEX IF NOT EXISTS idx_championship_results_athlete_id ON championship_r
 
       {/* Stats Grid */}
       {profile.role !== 'admin' && (
-        <div className="relative z-10 flex flex-col gap-4">
-          {/* Level Progress Bar */}
-          <div className="bg-[var(--surface)] border border-[var(--border-ui)] p-4 rounded-2xl shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[var(--primary)]/10 border border-[var(--primary)]/20 flex items-center justify-center">
-                  <TrendingUp size={16} className="text-[var(--primary)]" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase text-[var(--text-main)] italic">Nível {currentLevel}</p>
-                  <p className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-widest">Evolução do Atleta</p>
-                </div>
+        <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+          {[
+            { label: 'Arena Score', value: Math.round(profile.arena_score || 0), icon: Award, color: 'text-[var(--primary)]' },
+            { label: 'Desafios Pts', value: Math.round(profile.challenge_score || 0), icon: Zap, color: 'text-amber-500' },
+            { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
+            { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
+            { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
+            { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
+          ].map((stat, i) => (
+            <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm" style={{ transform: 'translateZ(0)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <stat.icon size={14} className={`${stat.color} shrink-0`} />
+                <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
               </div>
-              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase italic">{Math.round(arenaScore)} / {nextLevelScore} PTS</p>
+              <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
             </div>
-            <div className="h-2 bg-black/20 rounded-full overflow-hidden border border-white/5">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${levelProgress}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-[var(--primary)] to-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)]"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-            {[
-              { label: 'Arena Score', value: Math.round(profile.arena_score || 0), icon: Award, color: 'text-[var(--primary)]' },
-              { label: 'Desafios Pts', value: Math.round(profile.challenge_score || 0), icon: Zap, color: 'text-amber-500' },
-              { label: 'Vitórias', value: profile.wins, icon: Target, color: 'text-blue-500' },
-              { label: 'Derrotas', value: profile.losses, icon: X, color: 'text-rose-500' },
-              { label: 'Lutas Totais', value: totalFights, icon: History, color: 'text-zinc-500' },
-              { label: 'Taxa de Vitória', value: `${winRate}%`, icon: TrendingUp, color: 'text-purple-500' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-[var(--surface)] border border-[var(--border-ui)] p-3 md:p-4 rounded-2xl space-y-2 shadow-sm hover:border-[var(--primary)]/30 transition-all group" style={{ transform: 'translateZ(0)' }}>
-                <div className="flex items-center justify-between gap-2">
-                  <stat.icon size={14} className={`${stat.color} shrink-0 group-hover:scale-110 transition-transform`} />
-                  <span className="text-[8px] md:text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest truncate">{stat.label}</span>
-                </div>
-                <p className="text-xl md:text-2xl font-extrabold text-[var(--text-main)] truncate">{stat.value}</p>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Engagement Section */}
+      {/* Rankings Section */}
       {profile.role !== 'admin' && (
-        <div className="bg-black/40 border border-white/10 p-5 md:p-8 rounded-[2rem] sm:rounded-[2.5rem] space-y-6 md:space-y-8 relative overflow-hidden">
-          {/* Background Decorative Pattern */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 blur-[80px] -mr-32 -mt-32 rounded-full" />
-          
-          <div className="flex flex-col lg:flex-row gap-6 md:gap-8 items-start lg:items-center justify-between relative z-10 w-full">
-            <div className="space-y-4 w-full lg:w-auto">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="p-2 bg-blue-500/20 rounded-xl">
-                  <Activity size={18} className="text-blue-400" />
-                </div>
-                <h3 className="text-sm md:text-base font-black uppercase tracking-tight text-white italic">Engajamento Social</h3>
-              </div>
-              
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4 w-full">
-                {[
-                  { label: 'Posts', value: profile.post_count || 0, icon: Grid, color: 'text-blue-400' },
-                  { label: 'Vids', value: profile.video_count || 0, icon: Video, color: 'text-purple-400' },
-                  { label: 'Pics', value: profile.image_count || 0, icon: Camera, color: 'text-emerald-400' },
-                  { label: 'Champs', value: profile.championship_count || 0, icon: Trophy, color: 'text-amber-400' },
-                  { label: 'Events', value: (profile.championship_count || 0) + (fights?.length || 0), icon: Calendar, color: 'text-rose-400' },
-                ].map((m, i) => (
-                  <div key={i} className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1 sm:gap-2 bg-white/5 p-2 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border border-white/5 text-center sm:text-left transition-all hover:bg-white/10">
-                    <m.icon size={12} className={`${m.color} shrink-0`} />
-                    <div className="flex flex-col min-w-0">
-                      <p className="text-[9px] sm:text-xs font-black text-white leading-none truncate">{m.value}</p>
-                      <p className="text-[6px] sm:text-[8px] font-bold uppercase text-gray-400 tracking-tighter mt-0.5 truncate">{m.label}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between bg-black/40 p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-white/5 w-full lg:w-auto lg:min-w-[320px] gap-4 sm:gap-8">
-              <div className="text-center flex-1">
-                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Global</p>
-                <p className="text-xl sm:text-2xl font-black text-white italic tracking-tighter leading-none">{rankings.world > 0 ? `#${rankings.world}` : '-'}</p>
-              </div>
-              <div className="text-center border-x border-white/10 px-4 sm:px-8 flex-1">
-                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Nacional</p>
-                <p className="text-xl sm:text-2xl font-black text-[var(--primary)] italic tracking-tighter leading-none">{rankings.national > 0 ? `#${rankings.national}` : '-'}</p>
-              </div>
-              <div className="text-center flex-1">
-                <p className="text-[8px] sm:text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Cidade</p>
-                <p className="text-xl sm:text-2xl font-black text-white italic tracking-tighter leading-none">{rankings.city > 0 ? `#${rankings.city}` : '-'}</p>
-              </div>
-            </div>
+        <div className="bg-gradient-to-r from-[var(--primary)]/10 to-transparent border border-[var(--primary)]/20 p-6 rounded-[2rem] space-y-4">
+          <div className="flex items-center space-x-3">
+            <Trophy size={20} className="text-[var(--primary)]" />
+            <h3 className="text-sm font-black uppercase tracking-widest text-[var(--text-main)] italic">Rankings Oficiais</h3>
           </div>
-
-          {/* Badges and Conquistas */}
-          <div className="space-y-4 pt-6 border-t border-white/5">
-            <div className="flex items-center justify-between">
-              <h4 className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] italic">Conquistas Desbloqueadas</h4>
-              {profile.badges && profile.badges.length > 0 && (
-                <span className="text-[7px] sm:text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase tracking-widest">
-                  {profile.badges.length} CONQUISTAS
-                </span>
-              )}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Mundial</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.world}</p>
             </div>
-
-            <div className="flex flex-wrap gap-2 sm:gap-4 justify-center sm:justify-start">
-              {(profile.badges && profile.badges.length > 0) ? (
-                profile.badges.slice(0, 8).map((badge, idx) => (
-                  <motion.div 
-                    key={idx}
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-                    className="group relative"
-                  >
-                    <div className="w-10 h-10 sm:w-14 sm:h-14 bg-black/60 border border-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-xl hover:border-[var(--primary)]/50 transition-all cursor-help overflow-hidden">
-                      <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      {renderBadgeIcon(badge.id)}
-                    </div>
-                    {/* Tooltip */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 p-3 bg-black/95 border border-white/10 rounded-xl text-center opacity-0 group-hover:opacity-100 transition-all scale-95 group-hover:scale-100 whitespace-nowrap pointer-events-none z-50 shadow-2xl min-w-[120px]">
-                      <p className="text-[9px] text-[var(--primary)] font-black uppercase italic">{badge.name}</p>
-                      <p className="text-[7px] text-gray-400 font-bold uppercase tracking-tight mt-1 leading-tight">{badge.description}</p>
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black border-r border-b border-white/10 rotate-45" />
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <div className="flex gap-2 sm:gap-4 opacity-20 grayscale">
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="w-9 h-9 sm:w-12 sm:h-12 bg-black/40 border border-white/5 rounded-xl sm:rounded-2xl flex items-center justify-center">
-                      <Award size={16} className="text-gray-600" />
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Nacional ({profile.country || 'N/A'})</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.national}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-widest">Cidade ({profile.city || 'N/A'})</p>
+              <p className="text-2xl font-extrabold text-[var(--text-main)]">#{rankings.city}</p>
             </div>
           </div>
         </div>
